@@ -1,0 +1,316 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+
+{% block title %}页面列表{% endblock %}
+{% block body %}
+
+<style>
+.page-list-wrap { background: #fff; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.05); padding: 15px; }
+.page-list-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+.page-list-toolbar .layui-input { width: 260px; }
+.page-list-toolbar .total-label { color: #999; font-size: 13px; margin-left: auto; }
+.page-table { width: 100%; border-collapse: collapse; }
+.page-table th, .page-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f2f2f2; font-size: 13px; }
+.page-table th { background: #fafafa; color: #666; font-weight: 600; }
+.page-table tr:hover td { background: #f8f8f8; }
+.page-table .page-name { font-weight: 600; color: #333; }
+.page-table .page-input { color: #999; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-table .domain-badge { display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+.page-table .domain-empty { color: #bbb; font-size: 12px; }
+.pagination { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 15px; padding-top: 10px; border-top: 1px solid #f2f2f2; }
+.pagination .page-btn { display: inline-block; padding: 5px 12px; border: 1px solid #e6e6e6; border-radius: 3px; font-size: 13px; color: #333; cursor: pointer; background: #fff; transition: all .15s; user-select: none; }
+.pagination .page-btn:hover { border-color: #5FB878; color: #5FB878; }
+.pagination .page-btn.active { background: #5FB878; color: #fff; border-color: #5FB878; }
+.pagination .page-btn.disabled { cursor: not-allowed; opacity: .5; }
+.pagination .page-info { font-size: 13px; color: #999; margin: 0 8px; }
+.loading-mask { padding: 40px; text-align: center; color: #999; }
+</style>
+
+<div class="page-list-wrap">
+    <div class="page-list-toolbar">
+        <input type="text" id="searchKeyword" class="layui-input" placeholder="搜索页面名称或需求描述..." style="width:260px;">
+        <button class="layui-btn layui-btn-sm" id="btnSearch"><i class="fas fa-search"></i> 搜索</button>
+        <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnReset"><i class="fas fa-undo"></i> 重置</button>
+        <span class="total-label" id="totalLabel">共 0 条</span>
+    </div>
+
+    <table class="page-table">
+        <thead>
+            <tr>
+                <th style="width:50px;">ID</th>
+                <th style="width:130px;">页面名称</th>
+                <th>需求描述</th>
+                <th style="width:140px;">使用域名</th>
+                <th style="width:130px;">创建时间</th>
+                <th style="width:140px; text-align:center;">操作</th>
+            </tr>
+        </thead>
+        <tbody id="pageTableBody">
+            <tr><td colspan="6" class="loading-mask">加载中...</td></tr>
+        </tbody>
+    </table>
+
+    <div class="pagination" id="paginationWrap"></div>
+</div>
+
+<script>
+(function() {
+    var tbody = document.getElementById('pageTableBody');
+    var pagWrap = document.getElementById('paginationWrap');
+    var totalLabel = document.getElementById('totalLabel');
+    var searchInput = document.getElementById('searchKeyword');
+
+    var currentPage = 1, pageSize = 15, totalCount = 0;
+
+    function loadList(page) {
+        page = page || 1;
+        currentPage = page;
+        var keyword = searchInput.value.trim();
+        var url = '/xiaoying_admin/api/pages/saved/?page=' + page + '&limit=' + pageSize;
+        if (keyword) url += '&keyword=' + encodeURIComponent(keyword);
+
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-mask">加载中...</td></tr>';
+
+        fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                totalCount = resp.total || 0;
+                totalLabel.textContent = '共 ' + totalCount + ' 条';
+                var items = resp.items || [];
+                if (items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="loading-mask">暂无数据</td></tr>';
+                    pagWrap.innerHTML = '';
+                    return;
+                }
+                var html = '';
+                for (var i = 0; i < items.length; i++) {
+                    var p = items[i];
+                    html += '<tr data-id="' + p.id + '">';
+                    html += '<td>' + p.id + '</td>';
+                    html += '<td class="page-name">' + escHtml(p.name) + '</td>';
+                    html += '<td class="page-input" title="' + escAttr(p.input_content || '') + '">' + escHtml(p.input_content || '') + '</td>';
+                    html += '<td>';
+                    if (p.domain) {
+                        html += '<span class="domain-badge">' + escHtml(p.domain) + '</span>';
+                    } else {
+                        html += '<span class="domain-empty">未设置</span>';
+                    }
+                    html += '</td>';
+                    html += '<td>' + (p.create_time || '') + '</td>';
+                    html += '<td style="text-align:center;">';
+                    html += '<button class="layui-btn layui-btn-xs layui-btn-primary btn-edit-page" data-id="' + p.id + '" title="编辑" style="margin-left:2px;"><i class="fas fa-edit"></i></button>';
+                    html += '<button class="layui-btn layui-btn-xs layui-btn-primary btn-domain" data-id="' + p.id + '" data-domain="' + escAttr(p.domain || '') + '" title="域名设置"><i class="fas fa-globe"></i></button>';
+                    html += '<button class="layui-btn layui-btn-xs layui-btn-primary btn-view" data-id="' + p.id + '" title="查看" style="margin-left:2px;"><i class="fas fa-eye"></i></button>';
+                    html += '<button class="layui-btn layui-btn-xs layui-btn-danger btn-del-page" data-id="' + p.id + '" style="margin-left:2px;" title="删除"><i class="fas fa-trash"></i></button>';
+                    html += '</td>';
+                    html += '</tr>';
+                }
+                tbody.innerHTML = html;
+                renderPagination();
+            })
+            .catch(function() {
+                tbody.innerHTML = '<tr><td colspan="6" class="loading-mask" style="color:#FF5722;">加载失败</td></tr>';
+            });
+    }
+
+    function renderPagination() {
+        var totalPages = Math.ceil(totalCount / pageSize) || 1;
+        if (totalCount === 0) { pagWrap.innerHTML = ''; return; }
+        var html = '', i, active;
+
+        var prevClass = currentPage <= 1 ? 'disabled' : '';
+        html += '<span class="page-btn ' + prevClass + '" data-page="' + (currentPage - 1) + '">‹</span>';
+
+        var start = Math.max(1, currentPage - 2);
+        var end = Math.min(totalPages, currentPage + 2);
+        if (start > 1) html += '<span class="page-btn" data-page="1">1</span>';
+        if (start > 2) html += '<span class="page-btn disabled">...</span>';
+        for (i = start; i <= end; i++) {
+            active = i === currentPage ? 'active' : '';
+            html += '<span class="page-btn ' + active + '" data-page="' + i + '">' + i + '</span>';
+        }
+        if (end < totalPages - 1) html += '<span class="page-btn disabled">...</span>';
+        if (end < totalPages) html += '<span class="page-btn" data-page="' + totalPages + '">' + totalPages + '</span>';
+
+        var nextClass = currentPage >= totalPages ? 'disabled' : '';
+        html += '<span class="page-btn ' + nextClass + '" data-page="' + (currentPage + 1) + '">›</span>';
+        html += '<span class="page-info">第 ' + currentPage + '/' + totalPages + ' 页</span>';
+
+        pagWrap.innerHTML = html;
+    }
+
+    function openPreview(html, name) {
+        // 用 iframe srcdoc 渲染 HTML，纯预览不出格
+        var iframe = '<iframe srcdoc="' + escAttr(html) + '" style="width:100%;height:100%;border:none;background:#fff;"></iframe>';
+        layer.open({
+            type: 1,
+            title: '预览: ' + name,
+            area: ['1180px', '92%'],
+            offset: 't',
+            shadeClose: true,
+            content: '<div style="height:calc(100vh - 100px);min-height:500px;">' + iframe + '</div>',
+        });
+    }
+
+    function openDomainEditor(id, currentDomain) {
+        var inputHtml = '<div style="padding:20px 15px;">';
+        inputHtml += '<div class="layui-form-item">';
+        inputHtml += '<label class="layui-form-label">域名</label>';
+        inputHtml += '<div class="layui-input-block">';
+        inputHtml += '<input type="text" id="domainInput" class="layui-input" value="' + escAttr(currentDomain || '') + '" placeholder="输入域名, 如 example.com">';
+        inputHtml += '</div></div>';
+        inputHtml += '<div class="layui-form-item" style="margin-top:15px; text-align:center;">';
+        inputHtml += '<button type="button" class="layui-btn" id="domainSaveBtn"><i class="fas fa-save"></i> 保存</button>';
+        if (currentDomain) {
+            inputHtml += '<button type="button" class="layui-btn layui-btn-primary" id="domainClearBtn" style="margin-left:8px;"><i class="fas fa-times"></i> 清除域名</button>';
+        }
+        inputHtml += '</div></div>';
+
+        layer.open({
+            type: 1,
+            title: currentDomain ? '修改域名' : '设置域名',
+            area: ['480px', '220px'],
+            shadeClose: true,
+            content: inputHtml,
+            success: function(layero) {
+                layero.find('#domainSaveBtn').on('click', function() {
+                    var domain = layero.find('#domainInput').val().trim();
+                    fetch('/xiaoying_admin/api/pages/saved/set-domain/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: id, domain: domain }),
+                    }).then(function(r) { return r.json(); }).then(function(resp) {
+                        if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                        layer.closeAll();
+                        layer.msg(resp.message, {icon:1});
+                        loadList(currentPage);
+                    }).catch(function() { layer.msg('操作失败', {icon:2}); });
+                });
+                layero.find('#domainClearBtn').on('click', function() {
+                    fetch('/xiaoying_admin/api/pages/saved/set-domain/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: id, domain: '' }),
+                    }).then(function(r) { return r.json(); }).then(function(resp) {
+                        if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                        layer.closeAll();
+                        layer.msg(resp.message, {icon:1});
+                        loadList(currentPage);
+                    }).catch(function() { layer.msg('操作失败', {icon:2}); });
+                });
+            },
+        });
+    }
+
+    function openEditor(id) {
+        // 先获取详情（含 html_content）
+        fetch('/xiaoying_admin/api/pages/saved/' + id + '/')
+            .then(function(r) { return r.json(); })
+            .then(function(page) {
+                var html = '<form class="layui-form" style="padding:20px 15px 10px;">';
+                html += '<div class="layui-form-item"><label class="layui-form-label">页面名称</label><div class="layui-input-block"><input type="text" id="editName" class="layui-input" value="' + escAttr(page.name) + '"></div></div>';
+                html += '<div class="layui-form-item"><label class="layui-form-label">需求描述</label><div class="layui-input-block"><textarea id="editInput" class="layui-textarea" rows="3">' + escHtml(page.input_content || '') + '</textarea></div></div>';
+                html += '<div class="layui-form-item"><label class="layui-form-label">HTML 代码</label><div class="layui-input-block"><textarea id="editHtml" class="layui-textarea" style="font-family:Consolas,Monaco,monospace;font-size:12px;min-height:280px;line-height:1.5;">' + escHtml(page.html_content) + '</textarea></div></div>';
+                html += '<div class="layui-form-item" style="margin-top:20px;text-align:center;"><button type="button" class="layui-btn" id="editSaveBtn"><i class="fas fa-save"></i> 保存修改</button></div>';
+                html += '</form>';
+
+                layer.open({
+                    type: 1,
+                    title: '编辑页面: ' + page.name,
+                    area: ['800px', '580px'],
+                    shadeClose: false,
+                    content: html,
+                    success: function(layero) {
+                        // layui.form.render();
+                        layero.find('#editSaveBtn').on('click', function() {
+                            var name = layero.find('#editName').val().trim();
+                            var inputContent = layero.find('#editInput').val().trim();
+                            var htmlContent = layero.find('#editHtml').val().trim();
+                            if (!name) { layer.msg('请输入页面名称', {icon:5}); return; }
+                            if (!htmlContent) { layer.msg('请输入 HTML 内容', {icon:5}); return; }
+
+                            fetch('/xiaoying_admin/api/pages/saved/update/', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: id, name: name, input_content: inputContent, html_content: htmlContent }),
+                            }).then(function(r) { return r.json(); }).then(function(resp) {
+                                if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                                layer.closeAll();
+                                layer.msg(resp.message, {icon:1});
+                                loadList(currentPage);
+                            }).catch(function() { layer.msg('保存失败', {icon:2}); });
+                        });
+                    },
+                });
+            });
+    }
+
+    // 事件委托：翻页、查看、删除、域名
+    pagWrap.addEventListener('click', function(e) {
+        var btn = e.target.closest('.page-btn');
+        if (!btn || btn.classList.contains('disabled')) return;
+        var p = parseInt(btn.getAttribute('data-page'));
+        if (p < 1 || p > Math.ceil(totalCount / pageSize) || p === currentPage) return;
+        loadList(p);
+    });
+
+    tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-view');
+        if (btn) {
+            var id = parseInt(btn.getAttribute('data-id'));
+            fetch('/xiaoying_admin/api/pages/saved/' + id + '/')
+                .then(function(r) { return r.json(); })
+                .then(function(page) {
+                    var content = '<div style="text-align:right; margin-bottom:8px;">';
+                    content += '<button class="layui-btn layui-btn-sm layui-btn-primary copy-detail-btn"><i class="fas fa-copy"></i> 复制代码</button>';
+                    content += '<button class="layui-btn layui-btn-sm layui-btn-normal preview-detail-btn" style="margin-left:6px;"><i class="fas fa-eye"></i> 预览</button>';
+                    content += '</div><pre style="padding:15px; max-height:480px; overflow:auto; font-size:13px; line-height:1.5; white-space:pre-wrap; word-break:break-all; border:1px solid #eee; border-radius:4px; background:#f9f9f9;">' + escHtml(page.html_content) + '</pre>';
+                    layer.open({
+                        type: 1, title: page.name, area: ['800px', '580px'], shadeClose: true,
+                        content: content,
+                        success: function(layero) {
+                            layero.find('.copy-detail-btn').on('click', function() { copyClip(page.html_content); });
+                            layero.find('.preview-detail-btn').on('click', function() { openPreview(page.html_content, page.name); });
+                        },
+                    });
+                });
+            return;
+        }
+        btn = e.target.closest('.btn-domain');
+        if (btn) {
+            var id = parseInt(btn.getAttribute('data-id'));
+            var domain = btn.getAttribute('data-domain') || '';
+            openDomainEditor(id, domain);
+            return;
+        }
+        btn = e.target.closest('.btn-edit-page');
+        if (btn) {
+            openEditor(parseInt(btn.getAttribute('data-id')));
+            return;
+        }
+        btn = e.target.closest('.btn-del-page');
+        if (btn) {
+            var id = parseInt(btn.getAttribute('data-id'));
+            layer.confirm('确定删除此页面吗？', { icon: 3, btn: ['确定', '取消'], title: '确认删除' }, function(index) {
+                fetch('/xiaoying_admin/api/pages/saved/delete/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id }),
+                }).then(function(r) { return r.json(); }).then(function(resp) {
+                    if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                    layer.close(index);
+                    layer.msg('已删除', {icon:1});
+                    loadList(currentPage);
+                }).catch(function() { layer.msg('删除失败', {icon:2}); });
+            });
+        }
+    });
+
+    document.getElementById('btnSearch').addEventListener('click', function() { loadList(1); });
+    document.getElementById('btnReset').addEventListener('click', function() { searchInput.value = ''; loadList(1); });
+    searchInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') loadList(1); });
+
+    loadList(1);
+})();
+</script>
+
+{% endblock %}

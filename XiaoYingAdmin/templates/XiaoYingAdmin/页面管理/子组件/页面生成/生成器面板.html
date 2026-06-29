@@ -1,0 +1,228 @@
+{# AI 页面生成器面板 — 输入 + 提交 + 实时进度 + 结果展示 #}
+<div class="gen-panel">
+    <div class="gen-header">
+        <h3><i class="fas fa-magic"></i> AI 页面生成</h3>
+        <span class="gen-desc">输入需求描述，AI 将自动生成完整 HTML 页面</span>
+    </div>
+
+    <div class="gen-body">
+        {# ===== 输入区 ===== #}
+        <div id="genInputArea" class="gen-input">
+            <div class="layui-form-item">
+                <label class="layui-form-label">需求描述</label>
+                <div class="layui-input-block">
+                    <textarea id="genInputContent"
+                              class="layui-textarea"
+                              rows="6"
+                              placeholder="请描述你想要生成的页面，例如：&#10;一个用户管理页面，包含表格、新增/编辑/删除按钮、搜索框，使用 LayUI 风格。">{{ active_task.input_content|default:'' }}</textarea>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button id="genSubmitBtn" type="button" class="layui-btn layui-btn-normal">
+                        <i class="fas fa-rocket"></i> 开始生成
+                    </button>
+                    <button id="genCancelBtn" type="button" class="layui-btn layui-btn-primary" style="display:none;">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {# ===== 进度区 ===== #}
+        <div id="genProgressArea" class="gen-progress" style="display:none;">
+            <div class="progress-row">
+                <span class="progress-label" id="genProgressLabel">生成中...</span>
+                <span class="progress-percent" id="genProgressPercent">0%</span>
+            </div>
+            <div class="layui-progress layui-progress-big" lay-showPercent="true" lay-percent="0%">
+                <div class="layui-progress-bar" id="genProgressBar"></div>
+            </div>
+            <div class="progress-status" id="genProgressStatus">任务已创建...</div>
+        </div>
+
+        {# ===== 结果区 ===== #}
+        <div id="genResultArea" class="gen-result" style="display:none;">
+            <div class="result-toolbar">
+                <h4><i class="fas fa-check-circle" style="color:#5FB878"></i> 生成成功</h4>
+                <div>
+                    <span id="genPageName" class="result-page-name" style="display:inline-block; background:#f0f9eb; color:#5FB878; padding:2px 12px; border-radius:4px; font-size:13px; margin-right:8px; font-weight:600;"></span>
+                    <button id="genCopyBtn" type="button" class="layui-btn layui-btn-sm layui-btn-primary">
+                        <i class="fas fa-copy"></i> 复制代码
+                    </button>
+                    <button id="genDownloadBtn" type="button" class="layui-btn layui-btn-sm layui-btn-primary">
+                        <i class="fas fa-download"></i> 下载 HTML
+                    </button>
+                    <button id="genNewBtn" type="button" class="layui-btn layui-btn-sm layui-btn-warm">
+                        <i class="fas fa-plus"></i> 生成新页面
+                    </button>
+                </div>
+            </div>
+            <pre id="genResultCode" class="result-code"></pre>
+        </div>
+
+        {# ===== 错误区 ===== #}
+        <div id="genErrorArea" class="gen-error" style="display:none;">
+            <div class="error-card">
+                <h4><i class="fas fa-exclamation-circle"></i> 生成失败</h4>
+                <p id="genErrorMessage"></p>
+            </div>
+            <button id="genRetryBtn" type="button" class="layui-btn">
+                <i class="fas fa-redo"></i> 重试
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .gen-panel { background:#fff; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,.05); }
+    .gen-header { padding:15px 20px; border-bottom:1px solid #e6e6e6; display:flex; align-items:baseline; gap:15px; }
+    .gen-header h3 { margin:0; font-size:16px; color:#393D49; }
+    .gen-desc { font-size:12px; color:#999; }
+    .gen-body { padding:20px; }
+    .progress-row { display:flex; justify-content:space-between; margin-bottom:8px; }
+    .progress-label { font-size:14px; color:#393D49; font-weight:500; }
+    .progress-percent { font-size:14px; color:#1E9FFF; font-weight:bold; }
+    .progress-status { margin-top:8px; font-size:12px; color:#999; }
+    .result-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .result-toolbar h4 { margin:0; font-size:15px; }
+    .result-code { background:#f6f6f6; padding:15px; border-radius:4px; max-height:500px; overflow:auto; font-size:12px; line-height:1.6; font-family:Consolas,Monaco,monospace; }
+    .error-card { background:#FFF7F7; border:1px solid #FFD0D0; border-radius:4px; padding:15px; margin-bottom:15px; }
+    .error-card h4 { color:#FF5722; margin:0 0 8px; font-size:15px; }
+    .error-card p { color:#666; margin:0; line-height:1.7; }
+</style>
+
+<script>
+(function() {
+    var $id = document.getElementById.bind(document);
+    var inputArea     = $id('genInputArea');
+    var progressArea  = $id('genProgressArea');
+    var resultArea    = $id('genResultArea');
+    var errorArea     = $id('genErrorArea');
+    var progressBar   = $id('genProgressBar');
+    var progressPct   = $id('genProgressPercent');
+    var progressLabel = $id('genProgressLabel');
+    var progressMsg   = $id('genProgressStatus');
+    var resultCodeEl  = $id('genResultCode');
+    var inputEl       = $id('genInputContent');
+    var submitBtn     = $id('genSubmitBtn');
+
+    var currentTaskId = null, pollTimer = null;
+
+    function showArea(area) {
+        [inputArea, progressArea, resultArea, errorArea].forEach(function(el) { el.style.display = area === el ? 'block' : 'none'; });
+    }
+
+    function updateProgress(percent, message) {
+        percent = Number(percent) || 0;
+        if (percent < 0) percent = 0; if (percent > 100) percent = 100;
+        progressBar.style.width = percent + '%';
+        progressPct.textContent = percent + '%';
+        progressMsg.textContent = message || '';
+        if (percent < 30) progressLabel.textContent = '准备中...';
+        else if (percent < 80) progressLabel.textContent = 'AI 生成中...';
+        else if (percent < 100) progressLabel.textContent = '处理结果...';
+        else progressLabel.textContent = '已完成';
+    }
+
+    function startPolling(taskId) {
+        stopPolling();
+        pollTimer = setInterval(function() {
+            fetch('/xiaoying_admin/api/generate/progress/' + taskId + '/')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    updateProgress(data.progress || 0, data.message || '');
+                    if (data.status === 'completed') {
+                        stopPolling();
+                        resultCodeEl.textContent = data.result_html || '(空)';
+                        var nameEl = document.getElementById('genPageName');
+                        if (nameEl && data.page_name) nameEl.textContent = '已保存: ' + data.page_name;
+                        showArea(resultArea);
+                        if (window.layer) layer.msg('生成完成', {icon:1});
+                    } else if (data.status === 'failed') {
+                        stopPolling();
+                        document.getElementById('genErrorMessage').textContent = data.error_message || '未知错误';
+                        showArea(errorArea);
+                    }
+                }).catch(function() {});
+        }, 1500);
+    }
+
+    function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    function reset() {
+        stopPolling();
+        currentTaskId = null;
+        inputEl.value = '';
+        showArea(inputArea);
+    }
+
+    // 提交
+    submitBtn.addEventListener('click', function() {
+        var content = inputEl.value.trim();
+        if (!content) { if (window.layer) layer.msg('请输入页面描述', {icon:5}); return; }
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
+
+        fetch('/xiaoying_admin/api/generate/start/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: content }),
+        }).then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+          .then(function(res) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-rocket"></i> 开始生成';
+            if (res.ok) {
+                currentTaskId = res.data.task_id;
+                showArea(progressArea);
+                updateProgress(res.data.progress || 0, res.data.message || '');
+                startPolling(currentTaskId);
+            } else {
+                if (window.layer) layer.msg(res.data.error || '服务器错误', {icon:5});
+            }
+          }).catch(function() {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-rocket"></i> 开始生成';
+            if (window.layer) layer.msg('网络错误', {icon:5});
+          });
+    });
+
+    // 重试 / 生成新页面
+    $id('genRetryBtn').addEventListener('click', reset);
+    $id('genNewBtn').addEventListener('click', reset);
+
+    // 复制
+    $id('genCopyBtn').addEventListener('click', function() { copyClip(resultCodeEl.textContent); });
+
+    // 下载
+    $id('genDownloadBtn').addEventListener('click', function() {
+        var blob = new Blob([resultCodeEl.textContent], {type:'text/html;charset=utf-8'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = 'generated-page.html';
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    // 恢复：刷新页面时若 session 中有活跃任务
+    {% if active_task %}
+    (function() {
+        currentTaskId = '{{ active_task.task_id|escapejs }}';
+        {% if active_task.status == 'completed' %}
+        resultCodeEl.textContent = '{{ active_task.result_html|escapejs }}';
+        showArea(resultArea);
+        {% elif active_task.status == 'failed' %}
+        document.getElementById('genErrorMessage').textContent = '{{ active_task.error_message|escapejs }}';
+        showArea(errorArea);
+        {% else %}
+        showArea(progressArea);
+        updateProgress({{ active_task.progress|default:0 }}, '{{ active_task.message|escapejs }}');
+        startPolling(currentTaskId);
+        {% endif %}
+    })();
+    {% endif %}
+})();
+</script>

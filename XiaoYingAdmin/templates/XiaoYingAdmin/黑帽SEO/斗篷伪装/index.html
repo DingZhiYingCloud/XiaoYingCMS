@@ -1,0 +1,25 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+
+{% block title %}斗篷伪装 — 黑帽SEO{% endblock %}
+
+{% block body %}
+
+{# ===== 顶部状态卡片 ===== #}
+{% include 'XiaoYingAdmin/黑帽SEO/斗篷伪装/子组件/状态卡片.html' %}
+
+{# ===== 参考说明（手风琴，3 个折叠项） ===== #}
+<div class="layui-collapse" lay-accordion>
+    {% include 'XiaoYingAdmin/黑帽SEO/斗篷伪装/子组件/手风琴_决策矩阵.html' %}
+    {% include 'XiaoYingAdmin/黑帽SEO/斗篷伪装/子组件/手风琴_HTTP状态码.html' %}
+    {% include 'XiaoYingAdmin/黑帽SEO/斗篷伪装/子组件/手风琴_推荐策略.html' %}
+</div>
+
+{# ===== 底部规则配置表单 ===== #}
+{% include 'XiaoYingAdmin/黑帽SEO/斗篷伪装/子组件/斗篷伪装配置.html' %}
+
+<script>
+// LayUI 折叠面板依赖 element 模块；显式 use 以确保 DOM 渲染完成后再绑定事件
+layui.use('element', function(){});
+</script>
+
+{% endblock %}

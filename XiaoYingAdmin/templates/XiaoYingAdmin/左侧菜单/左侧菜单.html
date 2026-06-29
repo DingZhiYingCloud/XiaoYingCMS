@@ -1,0 +1,7 @@
+{# 侧边栏容器 — LayUI 垂直导航结构 #}
+<div class="sidebar-menu">
+    <div class="sidebar-header"><h3>{{ site_name }}</h3></div>
+    <ul class="layui-nav layui-nav-tree" id="sidebar-menu" lay-filter="sidebar-menu" lay-accordion>
+        {% include 'XiaoYingAdmin/左侧菜单/左侧菜单_项.html' with menu_items=sidebar_menu_data is_child=False %}
+    </ul>
+</div>

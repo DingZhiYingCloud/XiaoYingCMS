@@ -1,0 +1,43 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+
+{% block title %}首页 - {{ site_name }}{% endblock %}
+
+{% block head %}
+<style>
+    .welcome-card {
+        background: #fff;
+        padding: 30px;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    .welcome-card h1 {
+        margin: 0 0 10px;
+        color: #393D49;
+    }
+    .welcome-card p {
+        color: #666;
+        margin: 6px 0;
+        line-height: 1.7;
+    }
+    .welcome-card code {
+        background: #f0f0f0;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 13px;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="welcome-card">
+    <h1>{{ site_name }} 管理后台</h1>
+    <p>欢迎使用本系统，请通过左侧菜单进行操作。</p>
+    <p>站点名称：<code>{{ site_name }}</code></p>
+    <p>当前域名：<code>{{ site_domain }}</code></p>
+    <p>当前路径：<code>{{ request.path }}</code></p>
+</div>
+{% endblock %}
+
+{% block js %}
+{# 首页专用脚本（暂留空） #}
+{% endblock %}

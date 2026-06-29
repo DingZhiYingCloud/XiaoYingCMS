@@ -1,0 +1,54 @@
+[
+
+    {
+    "name": "首页",
+    "icon": "",
+    "url": "/xiaoying_admin/index/",
+    "children": []
+  },
+  {
+    "name": "核心设置",
+    "icon": "",
+    "url": "",
+    "children": [
+      {
+        "name": "网站设置",
+        "icon": "",
+        "url": "/xiaoying_admin/site_settings/",
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "单页面管理",
+    "icon": "",
+    "url": "",
+    "children": [
+      {
+        "name": "页面生成",
+        "icon": "",
+        "url": "/xiaoying_admin/pages/generate/",
+        "children": []
+      },
+      {
+        "name": "页面列表",
+        "icon": "",
+        "url": "/xiaoying_admin/pages/list/",
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "黑帽SEO",
+    "icon": "",
+    "url": "",
+    "children": [
+      {
+        "name": "斗篷伪装",
+        "icon": "",
+        "url": "/xiaoying_admin/seo/cloak/",
+        "children": []
+      }
+    ]
+  }
+]

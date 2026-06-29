@@ -1,0 +1,66 @@
+{# 全局通用头部组件 — 始终位于内容区域顶部，由 template.html 引入 #}
+<div class="global-header">
+    <div class="global-header-inner">
+        <span class="header-spacer"></span>
+        <span class="version-badge">版本 v{{ version }}</span>
+        <button type="button" class="preview-btn" id="previewSiteBtn"><i class="fas fa-external-link-alt"></i> 预览网站</button>
+    </div>
+</div>
+
+<style>
+    .global-header {
+        /* sticky 跟随滚动容器（.main-content）顶部固定，滚动时不下移。
+           top 用 -15px 抵消 .main-content 的 padding-top:15px，让 header 容器紧贴容器物理顶部。
+           header 内部用对称 padding + flex 居中，让版本徽章、按钮等元素视觉居中 */
+        position: sticky;
+        top: -15px;
+        z-index: 100;
+        background: #fff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.10);
+        border-bottom: 1px solid #e6e6e6;
+        padding: 4px 15px;
+        margin: -15px -15px 12px -15px;
+    }
+    .global-header-inner {
+        display: flex;
+        align-items: center;            /* 居中：让版本徽章/按钮/文字视觉居中 */
+        gap: 10px;
+        line-height: 1;
+        min-height: 24px;               /* 给个最小高度，避免按钮/徽章挤压文字 */
+    }
+    .header-spacer { flex: 1; }
+    .version-badge {
+        display: inline-block;
+        padding: 2px 10px;
+        background: #5FB878;
+        color: #fff;
+        border-radius: 10px;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+    .preview-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 14px;
+        border: 1px solid #d2d2d2;
+        border-radius: 4px;
+        background: #fff;
+        color: #666;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all .2s;
+    }
+    .preview-btn:hover { border-color: #5FB878; color: #5FB878; }
+    .preview-btn:active { opacity: .8; }
+</style>
+
+<script>
+(function() {
+    var btn = document.getElementById('previewSiteBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+        window.open(window.location.origin, '_blank');
+    });
+})();
+</script>
