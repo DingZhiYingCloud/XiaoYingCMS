@@ -1,3 +1,4 @@
+from django.db import models
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
@@ -22,6 +23,7 @@ from XiaoYingAdmin.models.spider_log import SpiderAccessLog
 from XiaoYingAdmin.models.operation_log import OperationLog
 from XiaoYingAdmin.models.login_log import LoginLog
 from XiaoYingAdmin.models.task import PageGenerationTask
+from XiaoYingAdmin.models.firewall import FirewallRule
 
 
 # =============================================================================
@@ -37,6 +39,36 @@ def template_view(request):
 def index_view(request):
     """首页仪表盘 — 展示项目概览统计"""
     today = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # 登录统计
+    login_success_today = LoginLog.objects.filter(
+        login_time__gte=today, status='success'
+    ).count()
+    login_failed_today = LoginLog.objects.filter(
+        login_time__gte=today
+    ).exclude(status='success').count()
+    login_total = LoginLog.objects.count()
+
+    # 最近操作
+    recent_ops = list(
+        OperationLog.objects.select_related('user')
+        .defer('detail', 'user_agent')
+        .order_by('-created_at')[:8]
+    )
+
+    # 今日活跃蜘蛛 TOP 5
+    active_spiders_today = list(
+        SpiderAccessLog.objects.filter(
+            create_time__gte=today
+        ).exclude(spider_name='')
+        .values('spider_name')
+        .annotate(count=models.Count('id'))
+        .order_by('-count')[:5]
+    )
+
+    # 防火墙统计
+    firewall_active = FirewallRule.objects.filter(is_active=True).count()
+    firewall_total = FirewallRule.objects.count()
 
     context = {
         # 用户统计
@@ -55,6 +87,17 @@ def index_view(request):
         'login_log_today': LoginLog.objects.filter(login_time__gte=today).count(),
         'total_tasks': PageGenerationTask.objects.count(),
         'failed_tasks': PageGenerationTask.objects.filter(status='failed').count(),
+        # 登录统计
+        'login_success_today': login_success_today,
+        'login_failed_today': login_failed_today,
+        'login_total': login_total,
+        'login_success_rate': round(login_success_today / max(login_success_today + login_failed_today, 1) * 100),
+        # 最近动态 & 蜘蛛活跃
+        'recent_ops': recent_ops,
+        'active_spiders_today': active_spiders_today,
+        # 防火墙
+        'firewall_active': firewall_active,
+        'firewall_total': firewall_total,
     }
     return render(request, 'XiaoYingAdmin/index.html', context)
 

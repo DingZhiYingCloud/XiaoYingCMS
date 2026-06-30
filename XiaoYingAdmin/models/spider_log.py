@@ -103,6 +103,11 @@ class SpiderLogConfig(BaseModel):
         verbose_name="记录模式",
         help_text="控制 SpiderLogMiddleware 记录哪些访问",
     )
+    ignore_paths = models.TextField(
+        blank=True, default='',
+        verbose_name="忽略路径",
+        help_text="一行一个路径前缀，匹配的请求不会被记录到蜘蛛日志中",
+    )
 
     class Meta:
         verbose_name = "蜘蛛日志配置"

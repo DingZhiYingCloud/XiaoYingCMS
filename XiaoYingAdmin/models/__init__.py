@@ -9,6 +9,7 @@ from XiaoYingAdmin.models.user import User
 from XiaoYingAdmin.models.user_config import UserConfig
 from XiaoYingAdmin.models.login_log import LoginLog
 from XiaoYingAdmin.models.operation_log import OperationLog
+from XiaoYingAdmin.models.firewall import FirewallRule
 
 __all__ = [
     'BaseModel',
@@ -23,4 +24,5 @@ __all__ = [
     'UserConfig',
     'LoginLog',
     'OperationLog',
+    'FirewallRule',
 ]

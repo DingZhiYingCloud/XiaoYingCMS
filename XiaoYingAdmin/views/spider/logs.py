@@ -358,7 +358,8 @@ def spider_logs_view(request):
         if new_mode not in valid_modes:
             return redirect(reverse('spider_logs') + '?error=invalid_mode')
         config.log_mode = new_mode
-        config.save(update_fields=['log_mode', 'updated_time'])
+        config.ignore_paths = request.POST.get('ignore_paths', '')
+        config.save(update_fields=['log_mode', 'ignore_paths', 'updated_time'])
         return redirect(reverse('spider_logs') + '?saved=1')
 
     # GET 渲染
@@ -398,6 +399,21 @@ def spider_logs_view(request):
 
     # 访问者类型计数（基于 base_qs，不含 who 过滤本身,便于切换 who 后计数仍正确）
     who_counts = _compute_who_counts(base_qs)
+
+    # TOP 页面 & TOP IP（基于当前筛选，单查询完成）
+    total_for_pct = max(total, 1)  # 复用已计算的 total
+    top_pages_raw = base_qs.values('path').annotate(count=Count('id')).order_by('-count')[:8]
+    top_pages = [{'path': r['path'], 'count': r['count'],
+                  'percent': round(r['count'] / total_for_pct * 100)} for r in top_pages_raw]
+    # 单次查询同时获取总次数和爬虫次数（避免额外 distinct 查询）
+    from django.db.models import Q
+    top_ips_raw = base_qs.values('ip').annotate(
+        count=Count('id'),
+        spider_count=Count('id', filter=Q(spider_name__gt='')),
+    ).order_by('-count')[:8]
+    top_ips = [{'ip': r['ip'], 'count': r['count'],
+                'percent': round(r['count'] / total_for_pct * 100),
+                'is_spider': r['spider_count'] > 0} for r in top_ips_raw]
 
     # 构造卡片用 query 字符串（保留所有筛选,只切换 who,移除 page）
     base_query_no_who = _build_base_query(request, override={'who': ''}, drop=('page',))
@@ -440,6 +456,8 @@ def spider_logs_view(request):
         'pagination_html': pagination_html,
         'period_stats': period_stats,
         'counts': who_counts,
+        'top_pages': top_pages,
+        'top_ips': top_ips,
         'base_query_no_who': base_query_no_who,
         'base_query_with_who_spider': base_query_with_who_spider,
         'base_query_with_who_human': base_query_with_who_human,

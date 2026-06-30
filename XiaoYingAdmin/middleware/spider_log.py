@@ -59,6 +59,19 @@ class SpiderLogMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+    @staticmethod
+    def _is_ignored_path(path: str, ignore_text: str) -> bool:
+        """检查路径是否在忽略列表中（按行分割，前缀匹配）。"""
+        if not ignore_text or not ignore_text.strip():
+            return False
+        for line in ignore_text.splitlines():
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if path.startswith(line):
+                return True
+        return False
+
     def __call__(self, request):
         # === 1. 读取配置 ===
         config = SpiderLogConfig.get_singleton()
@@ -68,11 +81,15 @@ class SpiderLogMiddleware:
         if log_mode == 'disabled':
             return self.get_response(request)
 
-        # === 3. 跳过后台路径（与 SeoCloak 一致） ===
+        # === 4. 跳过后台路径（与 SeoCloak 一致） ===
         if request.path.startswith('/xiaoying_admin/'):
             return self.get_response(request)
 
-        # === 4. 跳过白名单（与 SeoCloak 共享） ===
+        # === 4b. 跳过用户配置的忽略路径 ===
+        if self._is_ignored_path(request.path, config.ignore_paths):
+            return self.get_response(request)
+
+        # === 5. 跳过白名单（与 SeoCloak 共享） ===
         cloak_rule = SeoCloakRule.get_singleton()
         if cloak_rule.is_whitelisted(request.path):
             return self.get_response(request)

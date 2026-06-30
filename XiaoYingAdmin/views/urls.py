@@ -18,6 +18,20 @@ from XiaoYingAdmin.views.spider.logs import (
     spider_logs_api_clear,
     spider_logs_api_export,
 )
+from XiaoYingAdmin.views.spider.ignore_paths import (
+    ignore_paths_view,
+    ignore_paths_api_list,
+    ignore_paths_api_save,
+)
+from XiaoYingAdmin.views.spider.analytics import spider_analytics_view
+from XiaoYingAdmin.views.firewall import (
+    firewall_view,
+    firewall_api_list,
+    firewall_api_save,
+    firewall_api_toggle,
+    firewall_api_delete,
+    firewall_api_test,
+)
 
 # 域名前缀: /xiaoying_admin/
 urlpatterns = [
@@ -82,4 +96,20 @@ urlpatterns = [
     path('spider/logs/api/list/', spider_logs_api_list, name='spider_logs_api_list'),
     path('spider/logs/api/clear/', spider_logs_api_clear, name='spider_logs_api_clear'),
     path('spider/logs/api/export/', spider_logs_api_export, name='spider_logs_api_export'),
+
+    # 蜘蛛日志 → 路径过滤
+    path('spider/logs/ignore-paths/', ignore_paths_view, name='ignore_paths'),
+    path('spider/logs/api/ignore-paths/', ignore_paths_api_list, name='ignore_paths_api_list'),
+    path('spider/logs/api/ignore-paths/save/', ignore_paths_api_save, name='ignore_paths_api_save'),
+
+    # 蜘蛛日志 → 数据分析
+    path('spider/logs/analytics/', spider_analytics_view, name='spider_analytics'),
+
+    # 防火墙管理
+    path('firewall/', firewall_view, name='firewall'),
+    path('api/firewall/list/', firewall_api_list, name='firewall_api_list'),
+    path('api/firewall/save/', firewall_api_save, name='firewall_api_save'),
+    path('api/firewall/<int:pk>/toggle/', firewall_api_toggle, name='firewall_api_toggle'),
+    path('api/firewall/<int:pk>/delete/', firewall_api_delete, name='firewall_api_delete'),
+    path('api/firewall/test/', firewall_api_test, name='firewall_api_test'),
 ]

@@ -34,6 +34,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware', # 全站批量设置安全相关 HTTP 响应头，防御多种浏览器层面攻击，是全站安全第一道防线
+    'XiaoYingAdmin.middleware.firewall.FirewallMiddleware', # 防火墙：放在最外层（洋葱模型最外层），IP/页面黑名单拦截优先于所有中间件
     'XiaoYingAdmin.middleware.spider_log.SpiderLogMiddleware', # 蜘蛛日志：放在最外层（洋葱模型 response 阶段最后处理），即便 SeoCloak/DomainBind 短路 return response 也能被记录
     'XiaoYingAdmin.middleware.statistics_code.StatisticsCodeMiddleware', # 统计代码注入：必须放在最前面！响应阶段是反向洋葱模型，SeoCloak/DomainBind 直接 return HttpResponse 会短路后续中间件。放最前面可保证它们的 response 也能被注入
     'XiaoYingAdmin.middleware.seo_cloak.SeoCloakMiddleware', # 斗篷伪装：先按 UA/Referer 决定是否替换/重定向（必须在 DomainBind 之前，否则被截胡）
@@ -77,7 +78,7 @@ WSGI_APPLICATION = 'XiaoYingCMS.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db_new.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 

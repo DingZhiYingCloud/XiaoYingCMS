@@ -1,4 +1,4 @@
-{# 蜘蛛日志 — 记录模式配置 #}
+{# 蜘蛛日志 — 记录模式 #}
 <div class="layui-card">
     <div class="layui-card-header">
         <i class="fas fa-cog"></i> 记录模式
@@ -16,29 +16,74 @@
             <div class="layui-form-item" style="margin-bottom:10px;">
                 <div style="display:flex; gap:30px; align-items:center; flex-wrap:wrap;">
 
-                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <label class="mode-radio">
                         <input type="radio" name="log_mode" value="all"
                                {% if config.log_mode == 'all' %}checked{% endif %}>
+                        <span class="mode-radio-dot" style="border-color:#5FB878;"></span>
+                        <span class="mode-radio-inner" style="background:#5FB878;"></span>
                         <span><strong style="color:#5FB878;">全部访问</strong> — 记录所有请求（爬虫+真人）</span>
                     </label>
 
-                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <label class="mode-radio">
                         <input type="radio" name="log_mode" value="spider_only"
                                {% if config.log_mode == 'spider_only' %}checked{% endif %}>
+                        <span class="mode-radio-dot" style="border-color:#FFB800;"></span>
+                        <span class="mode-radio-inner" style="background:#FFB800;"></span>
                         <span><strong style="color:#FFB800;">仅爬虫</strong> — 只记录被识别的爬虫访问</span>
                     </label>
 
-                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <label class="mode-radio">
                         <input type="radio" name="log_mode" value="disabled"
                                {% if config.log_mode == 'disabled' %}checked{% endif %}>
+                        <span class="mode-radio-dot" style="border-color:#999;"></span>
+                        <span class="mode-radio-inner" style="background:#999;"></span>
                         <span><strong style="color:#999;">关闭</strong> — 不记录任何访问</span>
                     </label>
 
                 </div>
             </div>
+
+            <div style="margin-bottom:6px;font-size:12px;color:#999;">
+                <i class="fas fa-ban" style="color:#e74c3c;"></i>
+                路径过滤（配置哪些路径不记录）
+                <a href="/xiaoying_admin/spider/logs/ignore-paths/" target="_blank" style="color:#1E9FFF;text-decoration:none;">
+                    前往配置 <i class="fas fa-external-link-alt" style="font-size:10px;"></i>
+                </a>
+            </div>
+
             <button type="submit" class="layui-btn layui-btn-sm">
                 <i class="fas fa-save"></i> 保存模式
             </button>
         </form>
     </div>
 </div>
+
+<style>
+/* ===== 自定义单选框 ===== */
+.mode-radio {
+  cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+  position:relative;padding-left:24px;user-select:none;
+}
+.mode-radio input {
+  position:absolute;width:0;height:0;opacity:0;
+}
+/* 外圈 */
+.mode-radio-dot {
+  position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:16px;height:16px;border-radius:50%;border:2px solid #ccc;
+  box-sizing:border-box;transition:all .2s;
+}
+/* 内圆点（默认隐藏） */
+.mode-radio-inner {
+  position:absolute;left:4px;top:50%;transform:translateY(-50%) scale(0);
+  width:8px;height:8px;border-radius:50%;transition:transform .2s;
+}
+/* 选中态：外圈不变色+内圆点展开 */
+.mode-radio input:checked ~ .mode-radio-inner {
+  transform:translateY(-50%) scale(1);
+}
+/* hover 外圈变主题色 */
+.mode-radio:hover .mode-radio-dot {
+  border-color:inherit !important;
+}
+</style>

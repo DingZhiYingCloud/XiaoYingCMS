@@ -97,6 +97,31 @@
         "icon": "",
         "url": "/xiaoying_admin/spider/logs/",
         "children": []
+      },
+      {
+        "name": "数据分析",
+        "icon": "",
+        "url": "/xiaoying_admin/spider/logs/analytics/",
+        "children": []
+      },
+      {
+        "name": "路径过滤",
+        "icon": "",
+        "url": "/xiaoying_admin/spider/logs/ignore-paths/",
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "安全防护",
+    "icon": "",
+    "url": "",
+    "children": [
+      {
+        "name": "防火墙",
+        "icon": "",
+        "url": "/xiaoying_admin/firewall/",
+        "children": []
       }
     ]
   }
