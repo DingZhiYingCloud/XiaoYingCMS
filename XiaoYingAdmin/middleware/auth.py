@@ -16,6 +16,8 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.deprecation import MiddlewareMixin
 
+from XiaoYingAdmin.models.user import User
+
 
 # 无需登录的白名单路径（支持正则）
 LOGIN_WHITELIST = [
@@ -32,6 +34,12 @@ class LoginRequiredMiddleware(MiddlewareMixin):
     """确保后台页面必须登录才能访问"""
 
     def process_request(self, request):
+        # =====================================================================
+        # 首次运行：系统中无超级管理员时自动创建默认账号
+        # =====================================================================
+        if not User.objects.filter(is_superuser=True).exists():
+            User.objects.create_superuser('xiaoying', password='xiaoyingadmin')
+
         # 如果用户已认证,通行
         if request.user.is_authenticated:
             return None
