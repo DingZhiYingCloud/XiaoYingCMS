@@ -49,6 +49,32 @@
     background-color: transparent;
 }
 
+/* ================================
+   自定义细滚动条
+   同时使用标准属性 + WebKit 伪元素确保全浏览器兼容
+   ================================ */
+
+/* 标准属性（Chrome 121+, Firefox 64+） */
+.sidebar-menu .layui-nav-tree {
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent !important;
+}
+
+/* WebKit 伪元素（旧版 Chrome/Edge/Safari 兜底） */
+.sidebar-menu .layui-nav-tree::-webkit-scrollbar {
+    width: 4px !important;
+}
+.sidebar-menu .layui-nav-tree::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+.sidebar-menu .layui-nav-tree::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 2px !important;
+}
+.sidebar-menu .layui-nav-tree::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+}
+
 /* 侧边栏内菜单链接文字 */
 .sidebar-menu .layui-nav-item a {
     font-size: 14px;

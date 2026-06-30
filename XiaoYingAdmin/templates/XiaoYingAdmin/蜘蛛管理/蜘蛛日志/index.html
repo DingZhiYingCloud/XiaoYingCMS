@@ -1,0 +1,127 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% load static %}
+
+{% block title %}蜘蛛访问日志 — 蜘蛛管理{% endblock %}
+
+{% block head %}
+{% endblock %}
+
+{% block body %}
+
+{# ===== 成功/失败提示 ===== #}
+{% if saved %}
+<div class="layui-alert layui-alert-success" style="margin-bottom:12px;">
+    <i class="fas fa-check-circle"></i> 记录模式已保存
+</div>
+{% endif %}
+{% if error == 'invalid_mode' %}
+<div class="layui-alert layui-alert-danger" style="margin-bottom:12px;">
+    <i class="fas fa-exclamation-circle"></i> 记录模式值非法
+</div>
+{% endif %}
+
+{# ===== 统计概览（4 卡片） ===== #}
+{% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/统计概览.html' %}
+
+{# ===== 图表分析（左右双栏: 爬虫时段分布 + 访问者类型分布） ===== #}
+<div class="chart-row" style="display:flex; gap:16px; margin-bottom:15px; flex-wrap:wrap;">
+
+    <div class="chart-left" style="flex:1.7; min-width:340px;">
+        <div class="layui-card" style="margin-bottom:0;">
+            <div class="layui-card-header" style="border-bottom:1px solid #f0f0f0;">
+                <i class="fas fa-chart-bar"></i> 爬虫时段分布
+                <span style="float:right; font-size:12px; color:#999;">
+                    基于当前筛选 · 共 <strong style="color:#5FB878;">{{ period_stats.total }}</strong> 次爬虫访问
+                </span>
+            </div>
+            <div class="layui-card-body" style="padding:10px 14px;">
+                {% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/爬虫时段树状图.html' %}
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-right" style="flex:1; min-width:260px;">
+        <div class="layui-card" style="margin-bottom:0;">
+            <div class="layui-card-header" style="border-bottom:1px solid #f0f0f0;">
+                <i class="fas fa-chart-pie"></i> 访问者类型分布
+                <span style="float:right; font-size:12px; color:#999;">
+                    共 <strong style="color:#1E9FFF;">{{ counts.total }}</strong> 次 · <strong>{{ who_label }}</strong>
+                </span>
+            </div>
+            <div class="layui-card-body" style="padding:10px 12px;">
+                {% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/访问者类型统计.html' %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{# ===== 记录模式配置（log_mode 切换） ===== #}
+{% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/记录模式配置.html' %}
+
+{# ===== 筛选 + 日志列表 ===== #}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <i class="fas fa-list"></i> 访问日志
+        <span style="float:right; font-size:12px; color:#999;">
+            共 {{ total }} 条 · 第 {{ page }} / {{ total_pages }} 页
+        </span>
+    </div>
+    <div class="layui-card-body">
+
+        {# 筛选工具栏 #}
+        {% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/筛选工具栏.html' %}
+
+        {# 日志列表 #}
+        {% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/日志列表.html' %}
+
+        {# 分页（view 已渲染好 HTML） #}
+        {{ pagination_html|safe }}
+
+    </div>
+</div>
+
+{# ===== 识别规则说明（spider_keywords 只读展示 + 跳转斗篷配置） ===== #}
+{% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/识别规则说明.html' %}
+
+{% endblock %}
+
+
+{% block js %}
+<script>
+// ===== 工具函数 =====
+function escHtml(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+function copyClip(text, msg) { msg = msg || '已复制'; if (navigator.clipboard) { navigator.clipboard.writeText(text).then(function(){ if(window.layer) layer.msg(msg,{icon:1}); }); } }
+
+// ===== 二次确认清空 =====
+function clearAllLogs() {
+    if (!confirm('⚠️ 危险操作：即将清空所有蜘蛛日志，且不可恢复！\n\n确定要继续吗？')) return;
+    if (!confirm('请再次确认：真的要清空全部日志吗？')) return;
+
+    var form = new FormData();
+    form.append('confirm', 'yes');
+    form.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch('{% url "spider_logs_api_clear" %}', {
+        method: 'POST',
+        body: form,
+        credentials: 'same-origin',
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (window.layer) layer.msg(data.message || '已清空', {icon: 1});
+        setTimeout(function() { location.reload(); }, 800);
+    })
+    .catch(function(err) {
+        if (window.layer) layer.msg('清空失败：' + err, {icon: 2});
+    });
+}
+
+// ===== 一键复制 IP =====
+function copyIp(ip, btn) {
+    copyClip(ip, '已复制 IP: ' + ip);
+}
+
+
+</script>
+{% endblock %}

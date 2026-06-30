@@ -34,6 +34,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware', # 全站批量设置安全相关 HTTP 响应头，防御多种浏览器层面攻击，是全站安全第一道防线
+    'XiaoYingAdmin.middleware.spider_log.SpiderLogMiddleware', # 蜘蛛日志：放在最外层（洋葱模型 response 阶段最后处理），即便 SeoCloak/DomainBind 短路 return response 也能被记录
     'XiaoYingAdmin.middleware.statistics_code.StatisticsCodeMiddleware', # 统计代码注入：必须放在最前面！响应阶段是反向洋葱模型，SeoCloak/DomainBind 直接 return HttpResponse 会短路后续中间件。放最前面可保证它们的 response 也能被注入
     'XiaoYingAdmin.middleware.seo_cloak.SeoCloakMiddleware', # 斗篷伪装：先按 UA/Referer 决定是否替换/重定向（必须在 DomainBind 之前，否则被截胡）
     'XiaoYingAdmin.middleware.domain_bind.DomainBindMiddleware', # 域名绑定：斗篷未处理时，按域名匹配渲染已绑定页面
@@ -41,7 +42,9 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', # 跨域请求中间件
     'django.middleware.common.CommonMiddleware', # 用来处理如日志记录、请求计数等通用任务的中间件
     # 'django.middleware.csrf.CsrfViewMiddleware', # 用来处理CSRF攻击的中间件
-    'django.contrib.auth.middleware.AuthenticationMiddleware', # 认证中间件,用来处理用户认证相关的请求和响应
+    'django.contrib.auth.middleware.AuthenticationMiddleware', # 认证中间件,用来处理用户认证相关的请求
+    'XiaoYingAdmin.middleware.auth.LoginRequiredMiddleware', # 登录认证中间件,未登录跳转登录页
+    'XiaoYingAdmin.middleware.operation_log.OperationLogMiddleware', # 操作日志中间件,记录用户后台操作
     'django.contrib.messages.middleware.MessageMiddleware', # 消息中间件,用来处理消息相关的请求和响应
     'django.middleware.clickjacking.XFrameOptionsMiddleware', # 用来处理点击劫持攻击的中间件
     'XiaoYingAdmin.middleware.layout.LayoutMiddleware', # 菜单布局中间件,注入侧边栏菜单数据
@@ -74,7 +77,7 @@ WSGI_APPLICATION = 'XiaoYingCMS.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR / 'db_new.sqlite3',
     }
 }
 
@@ -123,6 +126,12 @@ STATICFILES_DIRS = [
     BASE_DIR / 'XiaoYingAdmin' / 'static',
 ]
 
+
+# 自定义用户模型
+AUTH_USER_MODEL = 'XiaoYingAdmin.User'
+
+# 登录 URL（未登录跳转地址）
+LOGIN_URL = '/xiaoying_admin/login/'
 
 # 默认主键字段类型配置
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

@@ -6,5 +6,42 @@
 
 {% include 'XiaoYingAdmin/核心设置/子组件/网站设置/全局代码统计.html' %}
 
+{# 用户系统配置 #}
+<div class="site-section" style="margin-top:20px;">
+    <div class="site-section-header">
+        <h3>用户系统配置</h3>
+        <span class="section-desc">管理用户注册、登录相关功能</span>
+    </div>
+    <div class="site-section-body">
+        <form class="layui-form" method="post" action="">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <div class="layui-input-block site-switch-row">
+                    <input type="checkbox" name="registration_enabled" lay-skin="switch" lay-text="开启|关闭" lay-filter="regSwitch"
+                           {% if user_config.registration_enabled %}checked{% endif %}>
+                    <span class="site-switch-desc"><i class="fas fa-info-circle"></i> 开启后，用户可通过登录页的"注册新账号"链接自行注册</span>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit lay-filter="userConfigSubmit">保存配置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
-{% block js %}{% endblock %}
+{% block js %}
+
+<script>
+layui.use(['form'], function() {
+    var form = layui.form;
+    form.render();
+
+    form.on('submit(userConfigSubmit)', function(data) {
+        return true;
+    });
+});
+</script>
+{% endblock %}

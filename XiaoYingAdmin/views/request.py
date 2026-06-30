@@ -2,10 +2,12 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
 
 from XiaoYingAdmin.common.http import parse_json_body, err, get_or_404
+from XiaoYingAdmin.middleware.operation_log import log_operation
 from XiaoYingAdmin.views.page_generator import (
     get_task_progress,
     start_generation,
@@ -14,6 +16,12 @@ from XiaoYingAdmin.views.page_generator import (
 from XiaoYingAdmin.models.prompt import Prompt
 from XiaoYingAdmin.models.generated_page import GeneratedPage
 from XiaoYingAdmin.models.site_settings import SiteSettings
+from XiaoYingAdmin.models.user_config import UserConfig
+from XiaoYingAdmin.models.user import User
+from XiaoYingAdmin.models.spider_log import SpiderAccessLog
+from XiaoYingAdmin.models.operation_log import OperationLog
+from XiaoYingAdmin.models.login_log import LoginLog
+from XiaoYingAdmin.models.task import PageGenerationTask
 
 
 # =============================================================================
@@ -27,28 +35,55 @@ def template_view(request):
 
 # IndexView: 首页视图
 def index_view(request):
-    return render(request, 'XiaoYingAdmin/index.html')
+    """首页仪表盘 — 展示项目概览统计"""
+    today = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    context = {
+        # 用户统计
+        'total_users': User.objects.count(),
+        'active_users': User.objects.filter(is_active=True).count(),
+        'staff_users': User.objects.filter(is_staff=True).count(),
+        # 内容统计
+        'total_pages': GeneratedPage.objects.count(),
+        'total_prompts': Prompt.objects.count(),
+        'active_prompts': Prompt.objects.filter(is_active=True).count(),
+        # 蜘蛛统计
+        'spider_total': SpiderAccessLog.objects.count(),
+        'spider_today': SpiderAccessLog.objects.filter(create_time__gte=today).count(),
+        # 日志统计
+        'op_log_today': OperationLog.objects.filter(created_at__gte=today).count(),
+        'login_log_today': LoginLog.objects.filter(login_time__gte=today).count(),
+        'total_tasks': PageGenerationTask.objects.count(),
+        'failed_tasks': PageGenerationTask.objects.filter(status='failed').count(),
+    }
+    return render(request, 'XiaoYingAdmin/index.html', context)
 
 
 # CoreSettingsView: 网站设置视图
 def site_settings_view(request):
     """
-    网站设置页：单例 SiteSettings 读写。
+    网站设置页：单例 SiteSettings + UserConfig 读写。
 
     GET:  渲染表单（带当前值）
-    POST: 保存 statistics_code / is_active，然后 PRG 重定向回 GET 防止重复提交
+    POST: 保存 statistics_code / is_active / user_config 配置，然后 PRG 重定向回 GET
     """
     settings, _ = SiteSettings.objects.get_or_create(pk=1)
+    user_config = UserConfig.get_singleton()
 
     if request.method == 'POST':
         settings.statistics_code = request.POST.get('statistics_code', '') or ''
-        # checkbox: 未勾选时字段不会出现在 POST 中
         settings.is_active = request.POST.get('is_active') == 'on'
         settings.save(update_fields=['statistics_code', 'is_active', 'updated_time'])
+
+        # 用户系统配置
+        user_config.registration_enabled = request.POST.get('registration_enabled') == 'on'
+        user_config.save(update_fields=['registration_enabled', 'updated_time'])
+
         return redirect(reverse('site_settings') + '?saved=1')
 
     return render(request, 'XiaoYingAdmin/核心设置/网站设置.html', {
         'site_settings': settings,
+        'user_config': user_config,
         'saved': request.GET.get('saved') == '1',
     })
 
@@ -107,6 +142,10 @@ def api_start_generate(request):
 
     # 写入 session：刷新页面后可恢复进度
     request.session['page_gen_task_id'] = str(task.task_id)
+
+    log_operation(request, 'create', 'PageGeneration', str(task.task_id),
+                  f'页面生成「{content[:50]}」',
+                  detail={'changes': {'需求描述': {'new': content[:100]}}})
 
     return JsonResponse({
         'task_id': str(task.task_id),
@@ -192,6 +231,10 @@ def api_prompt_save(request):
         description=description,
     )
 
+    log_operation(request, 'create', 'Prompt', prompt.id,
+                  f'提示词「{name}」v{prompt.version}',
+                  detail={'changes': {'分类': {'new': category}, '名称': {'new': name}}})
+
     return JsonResponse({
         'id': prompt.id,
         'version': prompt.version,
@@ -221,6 +264,11 @@ def api_prompt_activate(request):
     prompt.is_active = body.get('is_active', True)
     prompt.save(update_fields=['is_active', 'updated_time'])
 
+    status_text = '启用' if prompt.is_active else '禁用'
+    log_operation(request, 'update', 'Prompt', prompt.id,
+                  f'提示词「{prompt.name}」→ {status_text}',
+                  detail={'changes': {'启用状态': {'new': status_text}}})
+
     return JsonResponse({'message': '已更新', 'is_active': prompt.is_active})
 
 
@@ -237,14 +285,15 @@ def api_prompt_delete(request):
     if error is not None:
         return error
 
-    if not body.get('id'):
-        return err('缺少 id 参数')
-
     prompt, error = get_or_404(Prompt, id=body.get('id'))
     if error is not None:
         return error
 
+    prompt_name = prompt.name
     prompt.delete()
+    log_operation(request, 'delete', 'Prompt', body.get('id'),
+                  f'提示词「{prompt_name}」',
+                  detail={'changes': {'已删除提示词': {'new': prompt_name}}})
     return JsonResponse({'message': '已删除'})
 
 
@@ -306,14 +355,15 @@ def api_saved_page_delete(request):
     if error is not None:
         return error
 
-    if not body.get('id'):
-        return err('缺少 id 参数')
-
     page, error = get_or_404(GeneratedPage, id=body.get('id'), not_found_msg='页面不存在')
     if error is not None:
         return error
 
+    page_name = page.name
     page.delete()
+    log_operation(request, 'delete', 'GeneratedPage', body.get('id'),
+                  f'生成页面「{page_name}」',
+                  detail={'changes': {'已删除页面': {'new': page_name}}})
     return JsonResponse({'message': '已删除'})
 
 
@@ -341,18 +391,30 @@ def api_saved_page_update(request):
     if error is not None:
         return error
 
-    changed = False
+    changed_fields = []
     for field in ('name', 'input_content', 'html_content'):
         if field in body:
             val = (body[field] or '').strip()
             if getattr(page, field) != val:
+                changed_fields.append(field)
                 setattr(page, field, val)
-                changed = True
 
-    if not changed:
+    if not changed_fields:
         return JsonResponse({'message': '未检测到修改', 'page': page.to_dict(with_html=True)})
 
     page.save(update_fields=['name', 'input_content', 'html_content', 'updated_time'])
+
+    # 构建变更详情
+    field_labels = {'name': '页面名称', 'input_content': '需求描述', 'html_content': 'HTML内容'}
+    changes = {}
+    for f in changed_fields:
+        label = field_labels.get(f, f)
+        val = (body[f] or '').strip()
+        changes[label] = {'new': val[:100] + ('…' if len(val) > 100 else ''), 'old': None}
+    log_operation(request, 'update', 'GeneratedPage', body.get('id'),
+                  f'生成页面「{page.name}」',
+                  detail={'changes': changes})
+
     return JsonResponse({'message': '已更新', 'page': page.to_dict(with_html=True)})
 
 
@@ -388,8 +450,12 @@ def api_saved_page_set_domain(request):
 
     if not domain:
         # 清空域名
+        old_domain = page.domain
         page.domain = None
         page.save(update_fields=['domain', 'updated_time'])
+        log_operation(request, 'update', 'GeneratedPage', body.get('id'),
+                      f'生成页面「{page.name}」清除域名',
+                      detail={'changes': {'绑定域名': {'old': old_domain, 'new': '(空)'}}})
         return JsonResponse({
             'message': '域名已清除',
             'page': page.to_dict(),
@@ -401,11 +467,16 @@ def api_saved_page_set_domain(request):
         return err(f'域名 "{domain}" 已被页面「{existing.name}」占用')
 
     # 如果其他页面之前绑定过同一域名但已经被清除的（domain=None），这不会冲突
+    old_domain = page.domain
     page.domain = domain
     try:
         page.save(update_fields=['domain', 'updated_time'])
     except Exception:
         return err(f'域名 "{domain}" 已被其他页面占用')
+
+    log_operation(request, 'update', 'GeneratedPage', body.get('id'),
+                  f'生成页面「{page.name}」绑定域名 {domain}',
+                  detail={'changes': {'绑定域名': {'old': old_domain, 'new': domain}}})
 
     return JsonResponse({
         'message': f'域名已设置为 {domain}',

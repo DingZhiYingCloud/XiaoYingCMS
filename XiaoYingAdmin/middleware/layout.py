@@ -17,8 +17,12 @@
 import json
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 from django.conf import settings
 from loguru import logger
+
+# 加载一次 .env（后续 os.getenv 直接读内存，无需重复读文件）
+load_dotenv()
 
 # =============================================================================
 # 配置
@@ -36,9 +40,7 @@ MENU_CONFIG_PATHS = [
 
 
 def _get_log_debug():
-    """读取 LOG_DEBUG 环境变量，判断是否开启调试日志"""
-    from dotenv import load_dotenv
-    load_dotenv()
+    """读取 LOG_DEBUG 环境变量，判断是否开启调试日志（.env 已在模块顶部加载一次）"""
     return os.getenv('LOG_DEBUG', 'False').lower() in ('true', '1', 'yes')
 
 
@@ -206,6 +208,16 @@ class LayoutMiddleware:
         """
         # 默认显示侧边栏
         request.show_sidebar = getattr(request, 'show_sidebar', True)
+
+        # 登录/登出/注册/忘记密码页不显示侧边栏
+        path = request.path_info
+        if any(path.startswith(p) for p in [
+            '/xiaoying_admin/login/',
+            '/xiaoying_admin/logout/',
+            '/xiaoying_admin/register/',
+            '/xiaoying_admin/forgot_password/',
+        ]):
+            request.show_sidebar = False
 
         if request.show_sidebar:
             menu_data = self._get_menu_data()

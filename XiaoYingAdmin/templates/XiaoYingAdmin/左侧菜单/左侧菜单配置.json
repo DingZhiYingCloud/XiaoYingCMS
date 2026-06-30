@@ -1,6 +1,5 @@
 [
-
-    {
+  {
     "name": "首页",
     "icon": "",
     "url": "/xiaoying_admin/index/",
@@ -15,6 +14,43 @@
         "name": "网站设置",
         "icon": "",
         "url": "/xiaoying_admin/site_settings/",
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "用户管理",
+    "icon": "",
+    "url": "",
+    "children": [
+      {
+        "name": "用户列表",
+        "icon": "",
+        "url": "/xiaoying_admin/users/",
+        "children": []
+      },
+      {
+        "name": "创建用户",
+        "icon": "",
+        "url": "/xiaoying_admin/users/create/",
+        "children": []
+      },
+      {
+        "name": "登录日志",
+        "icon": "",
+        "url": "/xiaoying_admin/login_logs/",
+        "children": []
+      },
+      {
+        "name": "操作日志",
+        "icon": "",
+        "url": "/xiaoying_admin/operation_logs/",
+        "children": []
+      },
+      {
+        "name": "修改密码",
+        "icon": "",
+        "url": "/xiaoying_admin/change_password/",
         "children": []
       }
     ]
@@ -47,6 +83,19 @@
         "name": "斗篷伪装",
         "icon": "",
         "url": "/xiaoying_admin/seo/cloak/",
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "蜘蛛管理",
+    "icon": "",
+    "url": "",
+    "children": [
+      {
+        "name": "蜘蛛日志",
+        "icon": "",
+        "url": "/xiaoying_admin/spider/logs/",
         "children": []
       }
     ]

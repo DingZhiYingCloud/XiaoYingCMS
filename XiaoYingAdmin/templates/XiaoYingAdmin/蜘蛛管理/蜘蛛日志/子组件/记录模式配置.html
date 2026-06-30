@@ -1,0 +1,44 @@
+{# 蜘蛛日志 — 记录模式配置 #}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <i class="fas fa-cog"></i> 记录模式
+        {% if config.log_mode == 'disabled' %}
+            <span class="layui-badge layui-bg-gray" style="margin-left:8px;">已关闭</span>
+        {% elif config.log_mode == 'spider_only' %}
+            <span class="layui-badge layui-bg-orange" style="margin-left:8px;">仅爬虫</span>
+        {% else %}
+            <span class="layui-badge layui-bg-green" style="margin-left:8px;">全部访问</span>
+        {% endif %}
+    </div>
+    <div class="layui-card-body">
+        <form method="post" action="">
+            {% csrf_token %}
+            <div class="layui-form-item" style="margin-bottom:10px;">
+                <div style="display:flex; gap:30px; align-items:center; flex-wrap:wrap;">
+
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                        <input type="radio" name="log_mode" value="all"
+                               {% if config.log_mode == 'all' %}checked{% endif %}>
+                        <span><strong style="color:#5FB878;">全部访问</strong> — 记录所有请求（爬虫+真人）</span>
+                    </label>
+
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                        <input type="radio" name="log_mode" value="spider_only"
+                               {% if config.log_mode == 'spider_only' %}checked{% endif %}>
+                        <span><strong style="color:#FFB800;">仅爬虫</strong> — 只记录被识别的爬虫访问</span>
+                    </label>
+
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                        <input type="radio" name="log_mode" value="disabled"
+                               {% if config.log_mode == 'disabled' %}checked{% endif %}>
+                        <span><strong style="color:#999;">关闭</strong> — 不记录任何访问</span>
+                    </label>
+
+                </div>
+            </div>
+            <button type="submit" class="layui-btn layui-btn-sm">
+                <i class="fas fa-save"></i> 保存模式
+            </button>
+        </form>
+    </div>
+</div>

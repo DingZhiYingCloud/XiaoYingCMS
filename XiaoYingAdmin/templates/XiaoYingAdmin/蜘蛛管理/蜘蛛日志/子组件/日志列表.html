@@ -1,0 +1,81 @@
+{# 蜘蛛日志 — 日志列表（LayUI 表格）#}
+<table class="layui-table" lay-size="sm">
+    <thead>
+        <tr>
+            <th style="width:140px;">时间</th>
+            <th style="width:130px;">IP</th>
+            <th style="width:130px;">爬虫名</th>
+            <th style="width:60px;">方法</th>
+            <th>路径</th>
+            <th style="width:80px;">状态</th>
+            <th style="width:80px;">大小</th>
+            <th>来源</th>
+            <th>UA</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if logs %}
+            {% for log in logs %}
+            <tr>
+                <td><small>{{ log.create_time|date:'Y-m-d H:i:s' }}</small></td>
+                <td>
+                    <a href="javascript:;" onclick="copyIp('{{ log.ip|escapejs }}', this)" title="点击复制" style="color:#1E9FFF;">
+                        <i class="fas fa-copy" style="font-size:10px;"></i> {{ log.ip }}
+                    </a>
+                </td>
+                <td>
+                    {% if log.spider_name %}
+                        <span class="layui-badge layui-bg-orange">{{ log.spider_name }}</span>
+                    {% else %}
+                        <span style="color:#999; font-size:12px;">真人</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="layui-badge
+                        {% if log.method == 'GET' %}layui-bg-blue
+                        {% elif log.method == 'POST' %}layui-bg-green
+                        {% else %}layui-bg-gray{% endif %}" style="font-size:11px;">
+                        {{ log.method }}
+                    </span>
+                </td>
+                <td>
+                    <code style="font-size:12px; color:#393D49;">{{ log.path|truncatechars:60 }}</code>
+                </td>
+                <td>
+                    {% if log.status_code %}
+                        <span style="color:{% if log.status_code < 300 %}#5FB878{% elif log.status_code < 400 %}#1E9FFF{% elif log.status_code < 500 %}#FFB800{% else %}#FF7676{% endif %};">
+                            {{ log.status_code }}
+                        </span>
+                    {% else %}
+                        <span style="color:#999;">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if log.response_size is not None %}
+                        <small style="color:#999;">{{ log.response_size }} B</small>
+                    {% else %}
+                        <span style="color:#ccc;">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if log.referer %}
+                        <small style="color:#999;" title="{{ log.referer }}">{{ log.referer|truncatechars:40 }}</small>
+                    {% else %}
+                        <span style="color:#ccc;">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <small style="color:#999;" title="{{ log.user_agent }}">{{ log.user_agent|truncatechars:50 }}</small>
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="9" style="text-align:center; color:#999; padding:30px;">
+                    <i class="fas fa-inbox" style="font-size:24px; display:block; margin-bottom:8px;"></i>
+                    当前筛选条件下暂无访问记录
+                </td>
+            </tr>
+        {% endif %}
+    </tbody>
+</table>

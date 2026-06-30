@@ -26,7 +26,7 @@
 
 import json
 
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpRequest
 
 # 统一的日期时间格式 —— 全项目共用，避免在各视图里硬编码格式字符串
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S'
@@ -78,3 +78,11 @@ def get_or_404(model, *, not_found_msg: str = None, **lookup):
 def fmt_dt(value, fmt: str = DATETIME_FMT) -> str:
     """安全格式化 datetime 字段；为空时返回空串。"""
     return value.strftime(fmt) if value else ''
+
+
+def get_client_ip(request: HttpRequest) -> str:
+    """获取客户端真实 IP（支持代理透传）。"""
+    xff = request.META.get('HTTP_X_FORWARDED_FOR')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '')

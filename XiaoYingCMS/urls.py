@@ -1,10 +1,14 @@
 # 项目URL配置
 from django.conf.urls.static import static
 from django.conf import settings
+from django.shortcuts import redirect
 from django.urls import path, include, re_path
 from django.views.static import serve
 
 urlpatterns = [
+    # 根路径 → 跳转到登录页
+    path('', lambda request: redirect('login')),
+
     path('xiaoying_admin/', include('XiaoYingAdmin.views.urls')),
 ]
 
