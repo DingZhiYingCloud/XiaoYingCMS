@@ -11,6 +11,7 @@
             <th style="width:80px;">大小</th>
             <th>来源</th>
             <th>UA</th>
+            <th style="width:60px;">操作</th>
         </tr>
     </thead>
     <tbody>
@@ -67,11 +68,16 @@
                 <td>
                     <small style="color:#999;" title="{{ log.user_agent }}">{{ log.user_agent|truncatechars:50 }}</small>
                 </td>
+                <td>
+                    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="blockIp('{{ log.ip|escapejs }}')" title="封禁此 IP">
+                        <i class="fas fa-ban"></i>
+                    </button>
+                </td>
             </tr>
             {% endfor %}
         {% else %}
             <tr>
-                <td colspan="9" style="text-align:center; color:#999; padding:30px;">
+                <td colspan="10" style="text-align:center; color:#999; padding:30px;">
                     <i class="fas fa-inbox" style="font-size:24px; display:block; margin-bottom:8px;"></i>
                     当前筛选条件下暂无访问记录
                 </td>
@@ -79,3 +85,39 @@
         {% endif %}
     </tbody>
 </table>
+
+<script>
+function blockIp(ip) {
+    if (!ip) return;
+    layui.layer.confirm(
+        '确定要封禁 IP <strong>' + ip + '</strong> 吗？<br><small style="color:#999;">将创建一条防火墙 IP 黑名单规则，该 IP 的所有请求将被拦截。</small>',
+        { icon: 0, title: '封禁确认', btn: ['确认封禁', '取消'] },
+        function(index) {
+            var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+            fetch('/xiaoying_admin/api/firewall/save/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf ? csrf.value : ''},
+                body: JSON.stringify({
+                    rule_type: 'ip_block',
+                    value: ip,
+                    is_active: true,
+                    response_type: 'forbidden',
+                    description: '从蜘蛛日志一键封禁',
+                }),
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok) {
+                    layui.layer.msg('✅ 已封禁 ' + ip, { icon: 1, time: 2000 });
+                } else {
+                    layui.layer.msg(data.error || '封禁失败', { icon: 2 });
+                }
+            })
+            .catch(function() {
+                layui.layer.msg('请求失败', { icon: 2 });
+            });
+            layui.layer.close(index);
+        }
+    );
+}
+</script>
