@@ -10,6 +10,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
 from XiaoYingAdmin.models.spider_log import SpiderAccessLog
+from XiaoYingAdmin.models.firewall import FirewallRule
 from XiaoYingAdmin.views.spider.logs import (
     DAYS_OPTIONS, PERIOD_DEFS, WHO_LABELS,
     _parse_days_param, _parse_who, _apply_who,
@@ -28,6 +29,12 @@ def spider_analytics_view(request):
     since = _parse_days_param(request)
     filters = _build_filters(request)
     current_who = _parse_who(request)
+    hide_blocked = request.GET.get('hide_blocked') == '1'
+    blocked_ips = set(
+        FirewallRule.objects.filter(
+            rule_type='ip_block', is_active=True
+        ).values_list('value', flat=True)
+    )
 
     # 基础 queryset
     base_qs = SpiderAccessLog.objects.filter(**filters)
@@ -94,4 +101,6 @@ def spider_analytics_view(request):
             SpiderAccessLog.objects.exclude(spider_name='')
             .values_list('spider_name', flat=True).distinct().order_by('spider_name')
         ),
+        'blocked_ips': blocked_ips,
+        'hide_blocked': hide_blocked,
     })

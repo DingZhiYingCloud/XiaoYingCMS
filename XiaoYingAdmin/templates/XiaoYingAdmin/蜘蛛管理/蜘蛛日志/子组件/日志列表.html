@@ -23,6 +23,11 @@
                     <a href="javascript:;" onclick="copyIp('{{ log.ip|escapejs }}', this)" title="点击复制" style="color:#1E9FFF;">
                         <i class="fas fa-copy" style="font-size:10px;"></i> {{ log.ip }}
                     </a>
+                    {% if log.ip in blocked_ips %}
+                        <span class="layui-badge layui-bg-red" style="margin-left:4px;font-size:10px;">
+                            <i class="fas fa-ban"></i> 已封禁
+                        </span>
+                    {% endif %}
                 </td>
                 <td>
                     {% if log.spider_name %}

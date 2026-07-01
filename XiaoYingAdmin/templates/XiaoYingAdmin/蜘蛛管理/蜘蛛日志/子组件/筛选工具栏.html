@@ -42,6 +42,15 @@
         <button type="submit" class="layui-btn layui-btn-sm">
             <i class="fas fa-search"></i> 应用
         </button>
+
+        <label style="cursor:pointer;display:flex;align-items:center;gap:4px;font-size:13px;color:#666;user-select:none;">
+            <input type="checkbox" name="hide_blocked" value="1"
+                onchange="this.form.submit();"
+                {% if hide_blocked %}checked{% endif %}
+                style="width:15px;height:15px;cursor:pointer;">
+            <i class="fas fa-shield-alt" style="color:#e74c3c;font-size:12px;"></i> 排除已封禁
+        </label>
+
         <a href="{% url 'spider_logs' %}" class="layui-btn layui-btn-sm layui-btn-primary">
             <i class="fas fa-undo"></i> 重置
         </a>

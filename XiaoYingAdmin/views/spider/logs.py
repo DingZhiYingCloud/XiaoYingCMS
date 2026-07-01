@@ -18,6 +18,7 @@ from django.views.decorators.http import require_GET, require_POST
 from XiaoYingAdmin.common.http import err
 from XiaoYingAdmin.models.seo_cloak import SeoCloakRule
 from XiaoYingAdmin.models.spider_log import SpiderAccessLog, SpiderLogConfig
+from XiaoYingAdmin.models.firewall import FirewallRule
 
 
 PAGE_SIZE = 10  # 每页条数（默认 10，可在请求参数 ?page_size= 覆盖）
@@ -366,6 +367,14 @@ def spider_logs_view(request):
     since = _parse_days_param(request)
     filters = _build_filters(request)
     current_who = _parse_who(request)
+    hide_blocked = request.GET.get('hide_blocked') == '1'
+
+    # 获取已封禁的 IP 列表
+    blocked_ips = set(
+        FirewallRule.objects.filter(
+            rule_type='ip_block', is_active=True
+        ).values_list('value', flat=True)
+    )
 
     # 基础 qs（不含 who 过滤）—— 用于计算 who 计数 + 树状图
     base_qs = SpiderAccessLog.objects.filter(**filters)
@@ -374,6 +383,11 @@ def spider_logs_view(request):
 
     # 应用 who 过滤 —— 用于列表分页
     qs = _apply_who(base_qs, current_who)
+
+    # 排除已封禁 IP
+    if hide_blocked and blocked_ips:
+        qs = qs.exclude(ip__in=blocked_ips)
+        base_qs = base_qs.exclude(ip__in=blocked_ips)
 
     # 分页（支持自定义 page_size）
     try:
@@ -464,6 +478,8 @@ def spider_logs_view(request):
         'base_query_with_who_direct': base_query_with_who_direct,
         'saved': request.GET.get('saved') == '1',
         'error': request.GET.get('error', ''),
+        'blocked_ips': blocked_ips,
+        'hide_blocked': hide_blocked,
     })
 
 
