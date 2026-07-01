@@ -36,13 +36,18 @@ class GeneratedPage(BaseModel):
         help_text='用户提交的原始需求描述',
     )
     domain = models.CharField(
-        '使用域名',
+        '使用域名（旧）',
         max_length=255,
         null=True,
         blank=True,
         default=None,
-        unique=True,
-        help_text='该页面绑定的域名，如"domain.com"。全局唯一，只能有一条记录占用。',
+        help_text='已废弃，请使用 domains 字段。仅用于兼容旧数据。',
+    )
+    domains = models.JSONField(
+        '绑定域名列表',
+        default=list,
+        blank=True,
+        help_text='支持多个域名及 *. 通配符，如 ["example.com", "*.example.com"]',
     )
 
     class Meta:
@@ -67,6 +72,7 @@ class GeneratedPage(BaseModel):
             'name': self.name,
             'input_content': self.input_content,
             'domain': self.domain,
+            'domains': self.domains or [],
             'create_time': fmt_dt(self.create_time, DATETIME_FMT_SHORT),
         }
         if with_html:

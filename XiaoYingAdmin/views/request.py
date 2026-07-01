@@ -469,17 +469,15 @@ def api_saved_page_update(request):
 @require_POST
 def api_saved_page_set_domain(request):
     """
-    设置或清除页面的绑定域名。
-
-    域名在全局唯一：同一时间只能有一条记录的 domain 非空。
-    清空域名：传入 domain="" 即可。
+    设置或清除页面的绑定域名（支持多个域名及 *. 通配符）。
 
     请求: application/json
-      {"id": 1, "domain": "example.com"}  设置域名
-      {"id": 1, "domain": ""}             清除域名
+      {"id": 1, "domains": ["example.com", "*.example.com"]}  设置多个域名
+      {"id": 1, "domains": []}                                 清除所有域名
+      {"id": 1, "domain": "example.com"}                       兼容旧版（单域名）
 
     响应: application/json
-      {"message": "...", "page": {id, name, domain, ...}}
+      {"message": "...", "page": {id, name, domains, ...}}
     """
     body, error = parse_json_body(request)
     if error is not None:
@@ -489,40 +487,84 @@ def api_saved_page_set_domain(request):
     if error is not None:
         return error
 
-    domain = (body.get('domain') or '').strip()
+    # ------- 解析域名列表 -------
+    if 'domains' in body:
+        new_domains = body['domains']
+        if not isinstance(new_domains, list):
+            return err('domains 必须是一个数组')
+        # 清洗：去空、去重、保留顺序
+        seen = set()
+        cleaned = []
+        for d in new_domains:
+            d = (d or '').strip().lower()
+            if d and d not in seen:
+                seen.add(d)
+                # 校验格式：普通域名 或 *.domain 通配符
+                if d.startswith('*.'):
+                    if len(d) <= 2 or '.' not in d[2:]:
+                        return err(f'通配符域名格式无效: {d}')
+                else:
+                    if '.' not in d or d.count('.') < 1:
+                        return err(f'域名格式无效: {d}')
+                cleaned.append(d)
+        new_domains = cleaned
+    elif 'domain' in body:
+        # 兼容旧版：单域名
+        d = (body['domain'] or '').strip().lower()
+        new_domains = [d] if d else []
+    else:
+        return err('请提供 domains 或 domain 参数')
 
-    if not domain:
-        # 清空域名
-        old_domain = page.domain
-        page.domain = None
-        page.save(update_fields=['domain', 'updated_time'])
+    # ------- 冲突检查：任一域名已被其他页面占用 -------
+    old_domains = set(page.domains or [])
+    new_set = set(new_domains)
+
+    # 新增的域名（不在旧列表中）需要检查冲突
+    added = new_set - old_domains
+    if added:
+        # 从所有其他页面收集已占用的域名
+        other_pages = GeneratedPage.objects.exclude(id=page.id).exclude(domains=[])
+        all_occupied = set()
+        for p in other_pages:
+            for d in (p.domains or []):
+                all_occupied.add(d)
+        # 兼容旧版：domain 字段也可能有值
+        for p in GeneratedPage.objects.exclude(id=page.id).exclude(domain__isnull=True).exclude(domain=''):
+            all_occupied.add(p.domain.lower())
+
+        conflict = added & all_occupied
+        if conflict:
+            return err(f'域名已被其他页面占用: {", ".join(sorted(conflict))}')
+
+    # ------- 保存 -------
+    old_domains_list = page.domains or []
+    page.domains = new_domains
+    # 保持旧 domain 字段同步（第一个域名）
+    page.domain = new_domains[0] if new_domains else None
+    save_fields = ['domains', 'domain', 'updated_time']
+    # 如果 domain 原来有值但被清空，要把 null 写入
+    page.save(update_fields=save_fields)
+
+    # ------- 日志 -------
+    if not new_domains:
         log_operation(request, 'update', 'GeneratedPage', body.get('id'),
-                      f'生成页面「{page.name}」清除域名',
-                      detail={'changes': {'绑定域名': {'old': old_domain, 'new': '(空)'}}})
-        return JsonResponse({
-            'message': '域名已清除',
-            'page': page.to_dict(),
-        })
-
-    # 检查域名是否已被其他页面占用
-    existing = GeneratedPage.objects.filter(domain=domain).exclude(id=page.id).first()
-    if existing:
-        return err(f'域名 "{domain}" 已被页面「{existing.name}」占用')
-
-    # 如果其他页面之前绑定过同一域名但已经被清除的（domain=None），这不会冲突
-    old_domain = page.domain
-    page.domain = domain
-    try:
-        page.save(update_fields=['domain', 'updated_time'])
-    except Exception:
-        return err(f'域名 "{domain}" 已被其他页面占用')
-
-    log_operation(request, 'update', 'GeneratedPage', body.get('id'),
-                  f'生成页面「{page.name}」绑定域名 {domain}',
-                  detail={'changes': {'绑定域名': {'old': old_domain, 'new': domain}}})
+                      f'生成页面「{page.name}」清除所有域名',
+                      detail={'changes': {'绑定域名': {'old': old_domains_list, 'new': []}}})
+    else:
+        added_str = ', '.join(sorted(new_set - old_domains))
+        removed_str = ', '.join(sorted(old_domains - new_set))
+        parts = []
+        if added_str:
+            parts.append(f'+{added_str}')
+        if removed_str:
+            parts.append(f'-{removed_str}')
+        change_desc = ' '.join(parts) if parts else ', '.join(new_domains)
+        log_operation(request, 'update', 'GeneratedPage', body.get('id'),
+                      f'生成页面「{page.name}」域名变更: {change_desc}',
+                      detail={'changes': {'绑定域名': {'old': old_domains_list, 'new': new_domains}}})
 
     return JsonResponse({
-        'message': f'域名已设置为 {domain}',
+        'message': f'已设置 {len(new_domains)} 个域名',
         'page': page.to_dict(),
     })
 
