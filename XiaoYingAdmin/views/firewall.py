@@ -112,6 +112,13 @@ def firewall_api_save(request):
                       f'防火墙规则「{old_value}」→「{value}」')
         return JsonResponse({'ok': True, 'message': '规则已更新'})
     else:
+        # 创建 — 先检查是否已存在相同规则（防止重复创建）
+        existing = FirewallRule.objects.filter(rule_type=rule_type, value=value).first()
+        if existing:
+            return JsonResponse({
+                'ok': False,
+                'error': f'规则「{value}」已存在（{existing.get_rule_type_display()}），请勿重复添加',
+            })
         # 创建
         rule = FirewallRule.objects.create(
             rule_type=rule_type,

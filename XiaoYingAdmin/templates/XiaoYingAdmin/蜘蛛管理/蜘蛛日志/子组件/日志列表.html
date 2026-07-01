@@ -92,8 +92,20 @@
 </table>
 
 <script>
+// 已封禁 IP 列表（从后端传入）
+var BLOCKED_IPS = [
+    {% for ip in blocked_ips %}'{{ ip|escapejs }}',{% endfor %}
+];
+
 function blockIp(ip) {
     if (!ip) return;
+
+    // 检查是否已经封禁
+    if (BLOCKED_IPS.indexOf(ip) !== -1) {
+        layui.layer.msg('❌ ' + ip + ' 已被封禁，无需重复操作', { icon: 0, time: 2500 });
+        return;
+    }
+
     layui.layer.confirm(
         '确定要封禁 IP <strong>' + ip + '</strong> 吗？<br><small style="color:#999;">将创建一条防火墙 IP 黑名单规则，该 IP 的所有请求将被拦截。</small>',
         { icon: 0, title: '封禁确认', btn: ['确认封禁', '取消'] },
@@ -114,6 +126,8 @@ function blockIp(ip) {
             .then(function(data) {
                 if (data.ok) {
                     layui.layer.msg('✅ 已封禁 ' + ip, { icon: 1, time: 2000 });
+                    // 加入本地缓存，避免重复提醒
+                    if (BLOCKED_IPS.indexOf(ip) === -1) BLOCKED_IPS.push(ip);
                 } else {
                     layui.layer.msg(data.error || '封禁失败', { icon: 2 });
                 }
