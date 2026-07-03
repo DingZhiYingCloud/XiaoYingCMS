@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from django.db.models import Count
 from django.db.models.functions import ExtractHour
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -480,6 +481,7 @@ def spider_logs_view(request):
         'error': request.GET.get('error', ''),
         'blocked_ips': blocked_ips,
         'hide_blocked': hide_blocked,
+        'xiaoying_api_url': settings.XIAOYING_API_URL,
     })
 
 

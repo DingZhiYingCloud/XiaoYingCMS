@@ -17,10 +17,20 @@
     <tbody>
         {% if logs %}
             {% for log in logs %}
-            <tr>
+            <tr class="log-row" style="cursor:pointer;"
+                data-id="{{ log.id }}"
+                data-time="{{ log.create_time|date:'Y-m-d H:i:s' }}"
+                data-ip="{{ log.ip }}"
+                data-spider="{{ log.spider_name }}"
+                data-method="{{ log.method }}"
+                data-path="{{ log.path }}"
+                data-status="{{ log.status_code|default_if_none:'' }}"
+                data-size="{{ log.response_size|default_if_none:'' }}"
+                data-referer="{{ log.referer }}"
+                data-ua="{{ log.user_agent }}">
                 <td><small>{{ log.create_time|date:'Y-m-d H:i:s' }}</small></td>
                 <td>
-                    <a href="javascript:;" onclick="copyIp('{{ log.ip|escapejs }}', this)" title="点击复制" style="color:#1E9FFF;">
+                    <a href="javascript:;" onclick="event.stopPropagation();copyIp('{{ log.ip|escapejs }}', this)" title="点击复制" style="color:#1E9FFF;">
                         <i class="fas fa-copy" style="font-size:10px;"></i> {{ log.ip }}
                     </a>
                     {% if log.ip in blocked_ips %}
@@ -74,7 +84,7 @@
                     <small style="color:#999;" title="{{ log.user_agent }}">{{ log.user_agent|truncatechars:50 }}</small>
                 </td>
                 <td>
-                    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="blockIp('{{ log.ip|escapejs }}')" title="封禁此 IP">
+                    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();blockIp('{{ log.ip|escapejs }}')" title="封禁此 IP">
                         <i class="fas fa-ban"></i>
                     </button>
                 </td>
@@ -96,6 +106,92 @@
 var BLOCKED_IPS = [
     {% for ip in blocked_ips %}'{{ ip|escapejs }}',{% endfor %}
 ];
+
+// ===== 点击日志行查看详情 =====
+document.addEventListener('click', function(e) {
+    var row = e.target.closest('.log-row');
+    if (!row) return;
+
+    var data = row.dataset;
+
+    // 格式化大小：字节 → 可读格式
+    function fmtSize(bytes) {
+        if (!bytes && bytes !== 0) return '-';
+        var n = Number(bytes);
+        if (n < 1024) return n + ' B';
+        if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+        return (n / 1048576).toFixed(1) + ' MB';
+    }
+
+    // 格式化状态码颜色
+    function statusColor(code) {
+        if (!code) return '#999';
+        var c = Number(code);
+        if (c < 300) return '#5FB878';
+        if (c < 400) return '#1E9FFF';
+        if (c < 500) return '#FFB800';
+        return '#FF7676';
+    }
+
+    // 相对时间：距离现在过了多久
+    function timeAgo(timeStr) {
+        if (!timeStr) return '';
+        var parts = timeStr.split(/[- :]/);
+        var d = new Date(parts[0], parts[1]-1, parts[2], parts[3]||0, parts[4]||0, parts[5]||0);
+        var diff = Date.now() - d.getTime();
+        if (diff < 0) return '';
+        var sec = Math.floor(diff / 1000);
+        var min = Math.floor(sec / 60);
+        var hr  = Math.floor(min / 60);
+        var day = Math.floor(hr / 24);
+        var mon = Math.floor(day / 30);
+        var yr  = Math.floor(mon / 12);
+        if (yr > 0) return yr + '年前';
+        if (mon > 0) return mon + '个月前';
+        if (day > 0) return day + '天前';
+        if (hr > 0) return hr + '小时前';
+        if (min > 0) return min + '分钟前';
+        return '刚刚';
+    }
+
+    var html = '<div style="padding:10px 20px; line-height:1.8; font-size:13px;">' +
+        '<table style="width:100%; border-collapse:collapse;">' +
+        '<tr><td style="width:80px; color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">ID</td>' +
+        '<td style="padding:4px 0;">' + escHtml(data.id) + '</td></tr>' +
+        '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">时间</td>' +
+        '<td style="padding:4px 0;">' + escHtml(data.time) + ' <span style="color:#999; font-size:12px;">（' + timeAgo(data.time) + '）</span></td></tr>' +
+        '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">IP</td>' +
+        '<td style="padding:4px 0;">' + escHtml(data.ip) + ' <a href="javascript:;" onclick="copyClip(\'' + data.ip.replace(/'/g, "\\'") + '\', \'已复制 IP\')" style="color:#1E9FFF; font-size:12px; text-decoration:underline;">复制</a>' +
+        ' <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="detectIp(\'' + data.ip.replace(/'/g, "\\'") + '\', this)" title="检测是否为爬虫"><i class="fas fa-shield-alt"></i> 检测</button></td></tr>' +
+        '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">访问者</td>' +
+        '<td style="padding:4px 0;">' + (data.spider ? '<span style="color:#FF9800;">🕷️ ' + escHtml(data.spider) + '</span>' : '<span style="color:#666;">👤 真人</span>') + '</td></tr>' +
+        '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">方法</td>' +
+        '<td style="padding:4px 0;"><span class="layui-badge' +
+        (data.method === 'GET' ? ' layui-bg-blue' : data.method === 'POST' ? ' layui-bg-green' : ' layui-bg-gray') +
+        '">' + escHtml(data.method) + '</span></td></tr>' +
+        '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">路径</td>' +
+        '<td style="padding:4px 0; word-break:break-all;"><code style="font-size:12px; background:#f6f6f6; padding:2px 6px; border-radius:3px;">' + escHtml(data.path) + '</code></td></tr>' +
+        '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">状态码</td>' +
+        '<td style="padding:4px 0;"><span style="color:' + statusColor(data.status) + '; font-weight:bold;">' + (data.status || '-') + '</span></td></tr>' +
+        '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">响应大小</td>' +
+        '<td style="padding:4px 0;">' + fmtSize(data.size) + '</td></tr>' +
+        '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">来源</td>' +
+        '<td style="padding:4px 0; word-break:break-all;">' + (data.referer ? escHtml(data.referer) : '<span style="color:#ccc;">直接访问 / 无来源</span>') + '</td></tr>' +
+        '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">User-Agent</td>' +
+        '<td style="padding:4px 0; word-break:break-all;"><small style="color:#666;">' + escHtml(data.ua) + '</small></td></tr>' +
+        '</table></div>';
+
+    layer.open({
+        type: 1,
+        title: '<i class="fas fa-info-circle"></i> 日志详情 #' + escHtml(data.id),
+        area: ['640px', '520px'],
+        shadeClose: true,
+        content: html,
+        btn: ['关闭'],
+        yes: function(index) { layer.close(index); },
+    });
+});
+
 
 function blockIp(ip) {
     if (!ip) return;

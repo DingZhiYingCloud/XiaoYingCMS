@@ -53,11 +53,58 @@
 
 {% block js %}
 <script>
+// ===== API 地址 =====
+var XIAOYING_API_URL = '{{ xiaoying_api_url }}';
+
 // ===== 工具函数 =====
 function escHtml(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
 function copyClip(text, msg) { msg = msg || '已复制'; if (navigator.clipboard) { navigator.clipboard.writeText(text).then(function(){ if(window.layer) layer.msg(msg,{icon:1}); }); } }
 
-// ===== 二次确认清空 =====
+// ===== IP 检测（调用小影API验证是否为爬虫） =====
+function detectIp(ip, btn) {
+    if (!ip) return;
+    var origText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 检测中…';
+
+    fetch(XIAOYING_API_URL + '/api/spider_verification/sv4759/verify?ip=' + encodeURIComponent(ip))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+            if (data.code === 10000 && data.data) {
+                var d = data.data;
+                var html = '<div style="padding:10px 20px; line-height:2; font-size:13px;">' +
+                    '<table style="width:100%; border-collapse:collapse;">' +
+                    '<tr><td style="width:100px; color:#999; padding:4px 8px 4px 0;">IP 地址</td><td style="padding:4px 0;">' + escHtml(d.ip) + '</td></tr>' +
+                    '<tr><td style="color:#999; padding:4px 8px 4px 0;">检测结果</td><td style="padding:4px 0;">' + (d.is_spider
+                        ? '<span style="color:#FF9800;">🕷️ 爬虫</span>'
+                        : '<span style="color:#5FB878;">👤 正常用户</span>') + '</td></tr>' +
+                    (d.spider_type ? '<tr><td style="color:#999; padding:4px 8px 4px 0;">爬虫类型</td><td style="padding:4px 0;"><strong>' + escHtml(d.spider_type) + '</strong></td></tr>' : '') +
+                    (d.ptr_domain ? '<tr><td style="color:#999; padding:4px 8px 4px 0;">PTR 域名</td><td style="padding:4px 0; word-break:break-all;"><code style="font-size:12px; background:#f6f6f6; padding:2px 6px; border-radius:3px;">' + escHtml(d.ptr_domain) + '</code></td></tr>' : '') +
+                    (d.matched_domain ? '<tr><td style="color:#999; padding:4px 8px 4px 0;">匹配域名</td><td style="padding:4px 0;">' + escHtml(d.matched_domain) + '</td></tr>' : '') +
+                    '<tr><td style="color:#999; padding:4px 8px 4px 0;">验证方式</td><td style="padding:4px 0;">' + escHtml(d.verify_method || '-') + '</td></tr>' +
+                    '<tr><td style="color:#999; padding:4px 8px 4px 0;">状态</td><td style="padding:4px 0;"><span style="color:#5FB878;">' + escHtml(d.result || '查询成功') + '</span></td></tr>' +
+                    '</table></div>';
+                layer.open({
+                    type: 1,
+                    title: '<i class="fas fa-shield-alt"></i> IP 检测报告 — ' + escHtml(ip),
+                    area: ['500px', '360px'],
+                    shadeClose: true,
+                    content: html,
+                    btn: ['关闭'],
+                    yes: function(idx) { layer.close(idx); },
+                });
+            } else {
+                layer.msg(data.msg || '查询失败', {icon: 2});
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+            layer.msg('网络错误：' + (err.message || err), {icon: 2});
+        });
+}
 function clearAllLogs() {
     if (!confirm('⚠️ 危险操作：即将清空所有蜘蛛日志，且不可恢复！\n\n确定要继续吗？')) return;
     if (!confirm('请再次确认：真的要清空全部日志吗？')) return;
