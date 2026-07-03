@@ -5,3 +5,9 @@
 - 微信: duyanbz
 - tg: <https://t.me/xiaoying1216>
 
+<br />
+
+### 注意: 
+
+- 需要创建migrations目录和\_\_init\_\_.py文件
+

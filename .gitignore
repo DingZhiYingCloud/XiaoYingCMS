@@ -41,7 +41,6 @@ TuLianVenv/
 
 unpackage/
 
-# migrations — 只忽略迁移编号文件（如 0001_initial.py），保留 __init__.py
-migrations/[0-9]*.py
+migrations/
 
 Test/
