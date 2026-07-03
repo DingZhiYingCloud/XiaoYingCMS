@@ -5,6 +5,7 @@
 （如"爱思助手"），然后以该名称保存到本表。
 """
 
+from django.conf import settings
 from django.db import models
 
 from XiaoYingAdmin.common.base import BaseModel
@@ -49,6 +50,18 @@ class GeneratedPage(BaseModel):
         blank=True,
         help_text='支持多个域名及 *. 通配符，如 ["example.com", "*.example.com"]',
     )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name='创建者',
+        help_text='生成该页面的用户；超级管理员可查看全部，普通用户只能看自己的',
+    )
+    crosslink_excluded = models.BooleanField(
+        '排除智能互链',
+        default=False,
+        help_text='勾选后，该页面不参与智能互链，其他页面也不会链接到它',
+    )
 
     class Meta:
         verbose_name = '已保存页面'
@@ -74,6 +87,9 @@ class GeneratedPage(BaseModel):
             'domain': self.domain,
             'domains': self.domains or [],
             'create_time': fmt_dt(self.create_time, DATETIME_FMT_SHORT),
+            'created_by': self.created_by.username if self.created_by else None,
+            'created_by_id': self.created_by_id,
+            'crosslink_excluded': self.crosslink_excluded,
         }
         if with_html:
             data['html_content'] = self.html_content

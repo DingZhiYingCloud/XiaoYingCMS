@@ -31,6 +31,7 @@
         <input type="text" id="searchKeyword" class="layui-input" placeholder="搜索页面名称或需求描述..." style="width:260px;">
         <button class="layui-btn layui-btn-sm" id="btnSearch"><i class="fas fa-search"></i> 搜索</button>
         <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnReset"><i class="fas fa-undo"></i> 重置</button>
+        <button class="layui-btn layui-btn-sm layui-btn-warm" id="btnCrosslink"><i class="fas fa-link"></i> 智能互链</button>
         <span class="total-label" id="totalLabel">共 0 条</span>
     </div>
 
@@ -40,13 +41,15 @@
                 <th style="width:50px;">ID</th>
                 <th style="width:130px;">页面名称</th>
                 <th>需求描述</th>
+                <th style="width:90px;">创建者</th>
                 <th style="width:140px;">使用域名</th>
                 <th style="width:130px;">创建时间</th>
+                <th style="width:60px;text-align:center;">互链</th>
                 <th style="width:140px; text-align:center;">操作</th>
             </tr>
         </thead>
         <tbody id="pageTableBody">
-            <tr><td colspan="6" class="loading-mask">加载中...</td></tr>
+            <tr><td colspan="8" class="loading-mask">加载中...</td></tr>
         </tbody>
     </table>
 
@@ -69,7 +72,7 @@
         var url = '/xiaoying_admin/api/pages/saved/?page=' + page + '&limit=' + pageSize;
         if (keyword) url += '&keyword=' + encodeURIComponent(keyword);
 
-        tbody.innerHTML = '<tr><td colspan="6" class="loading-mask">加载中...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="loading-mask">加载中...</td></tr>';
 
         fetch(url)
             .then(function(r) { return r.json(); })
@@ -78,7 +81,7 @@
                 totalLabel.textContent = '共 ' + totalCount + ' 条';
                 var items = resp.items || [];
                 if (items.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="loading-mask">暂无数据</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" class="loading-mask">暂无数据</td></tr>';
                     pagWrap.innerHTML = '';
                     return;
                 }
@@ -89,6 +92,7 @@
                     html += '<td>' + p.id + '</td>';
                     html += '<td class="page-name">' + escHtml(p.name) + '</td>';
                     html += '<td class="page-input" title="' + escAttr(p.input_content || '') + '">' + escHtml(p.input_content || '') + '</td>';
+                    html += '<td style="color:#999;font-size:12px;">' + (p.created_by || '<span style="color:#ccc;">-</span>') + '</td>';
                     html += '<td>';
                     var domains = p.domains && p.domains.length ? p.domains : (p.domain ? [p.domain] : []);
                     if (domains.length) {
@@ -101,6 +105,7 @@
                     }
                     html += '</td>';
                     html += '<td>' + (p.create_time || '') + '</td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" class="crosslink-exclude" data-id="' + p.id + '" lay-skin="primary"' + (p.crosslink_excluded ? ' checked' : '') + '></td>';
                     html += '<td style="text-align:center;">';
                     html += '<button class="layui-btn layui-btn-xs layui-btn-primary btn-edit-page" data-id="' + p.id + '" title="编辑" style="margin-left:2px;"><i class="fas fa-edit"></i></button>';
                     html += '<button class="layui-btn layui-btn-xs layui-btn-primary btn-domain" data-id="' + p.id + '" data-domains=\'' + escAttr(JSON.stringify(domains)) + '\' title="域名设置"><i class="fas fa-globe"></i></button>';
@@ -113,7 +118,7 @@
                 renderPagination();
             })
             .catch(function() {
-                tbody.innerHTML = '<tr><td colspan="6" class="loading-mask" style="color:#FF5722;">加载失败</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="loading-mask" style="color:#FF5722;">加载失败</td></tr>';
             });
     }
 
@@ -360,6 +365,43 @@
     document.getElementById('btnSearch').addEventListener('click', function() { loadList(1); });
     document.getElementById('btnReset').addEventListener('click', function() { searchInput.value = ''; loadList(1); });
     searchInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') loadList(1); });
+
+    // 智能互链
+    document.getElementById('btnCrosslink').addEventListener('click', function() {
+        layer.confirm(
+            '将遍历所有<strong>未排除</strong>的页面，提取根域名并为每个页面底部追加合作域名链接。<br>' +
+            '<span style="color:#FF9800;font-size:12px;">此操作不可撤销，请确认已备份重要数据。</span>',
+            { icon: 3, title: '智能互链', btn: ['开始生成', '取消'] },
+            function(index) {
+                layer.close(index);
+                var idx = layer.load(1, { shade: [0.3, '#000'] });
+                fetch('/xiaoying_admin/api/crosslinks/generate/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                }).then(function(r) { return r.json(); }).then(function(resp) {
+                    layer.close(idx);
+                    if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                    layer.msg(resp.message, {icon:1, time:2000});
+                }).catch(function() { layer.close(idx); layer.msg('网络错误', {icon:2}); });
+            }
+        );
+    });
+
+    // 排除互链复选框
+    tbody.addEventListener('change', function(e) {
+        var cb = e.target.closest('.crosslink-exclude');
+        if (!cb) return;
+        var id = parseInt(cb.getAttribute('data-id'));
+        var excluded = cb.checked;
+        fetch('/xiaoying_admin/api/crosslinks/exclude-toggle/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, excluded: excluded }),
+        }).then(function(r) { return r.json(); }).then(function(resp) {
+            if (resp.error) { layer.msg(resp.error, {icon:2}); cb.checked = !excluded; return; }
+            layer.msg(resp.message, {icon:1, time:1000, shadeClose: false});
+        }).catch(function() { layer.msg('操作失败', {icon:2}); cb.checked = !excluded; });
+    });
 
     loadList(1);
 })();

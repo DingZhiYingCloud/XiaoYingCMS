@@ -179,12 +179,14 @@
                    placeholder="至少 6 位">
         </div>
         {% else %}
-        <div class="form-group">
-            <label>重置密码</label>
-            <input type="password" name="new_password"
-                   placeholder="留空则不修改密码">
-            <div class="help-text">如需修改密码，请输入新密码（至少 6 位）</div>
-        </div>
+            {% if can_reset_password %}
+            <div class="form-group">
+                <label>重置密码</label>
+                <input type="password" name="new_password"
+                       placeholder="留空则不修改密码">
+                <div class="help-text">如需修改密码，请输入新密码（至少 6 位）</div>
+            </div>
+            {% endif %}
         {% endif %}
 
         <div class="form-group">

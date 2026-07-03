@@ -199,15 +199,19 @@
                 </td>
                 <td style="font-size:12px;color:#999;">{{ u.date_joined|date:'Y-m-d H:i' }}</td>
                 <td>
+                    {% if request.user.is_superuser or u == request.user %}
                     <a href="{% url 'user_edit' pk=u.pk %}" class="action-btn">
                         <i class="fas fa-edit"></i> 编辑
                     </a>
+                    {% endif %}
+                    {% if request.user.is_superuser %}
                     <button type="button" class="action-btn toggle-active"
                             data-pk="{{ u.pk }}" data-username="{{ u.username }}"
                             data-active="{{ u.is_active|lower }}">
                         <i class="fas {% if u.is_active %}fa-ban{% else %}fa-check{% endif %}"></i>
                         {% if u.is_active %}禁用{% else %}启用{% endif %}
                     </button>
+                    {% endif %}
                     {% if u != request.user %}
                     <button type="button" class="action-btn danger delete-user"
                             data-pk="{{ u.pk }}" data-username="{{ u.username }}">

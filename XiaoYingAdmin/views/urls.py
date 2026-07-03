@@ -91,6 +91,10 @@ urlpatterns = [
     path('api/pages/saved/delete/', admin_request.api_saved_page_delete, name='api_saved_page_delete'),
     path('api/pages/saved/update/', admin_request.api_saved_page_update, name='api_saved_page_update'),
 
+    # 智能互链
+    path('api/crosslinks/generate/', admin_request.api_generate_crosslinks, name='api_crosslinks_generate'),
+    path('api/crosslinks/exclude-toggle/', admin_request.api_crosslink_exclude_toggle, name='api_crosslinks_exclude_toggle'),
+
     # 蜘蛛访问日志
     path('spider/logs/', spider_logs_view, name='spider_logs'),
     path('spider/logs/api/list/', spider_logs_api_list, name='spider_logs_api_list'),

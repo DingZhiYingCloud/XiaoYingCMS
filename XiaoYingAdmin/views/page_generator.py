@@ -203,6 +203,7 @@ def _run_generation(task_id: str):
                 html_content=result,
                 task_id=task.task_id,
                 input_content=task.input_content,
+                created_by=task.created_by,
             )
         except Exception:
             pass  # 保存失败不影响主流程
@@ -242,13 +243,15 @@ def _strip_code_fence(text: str) -> str:
     return text.strip()
 
 
-def start_generation(input_content: str, session_key: str = '') -> PageGenerationTask:
+def start_generation(input_content: str, session_key: str = '',
+                     created_by=None) -> PageGenerationTask:
     """
     启动一次页面生成任务（主线程调用，立即返回）。
 
     参数：
       input_content: 用户输入的页面描述
       session_key: 当前 session_key，用于跨请求查询
+      created_by: 发起任务的用户对象（User 实例或 None）
 
     返回：
       新创建的 PageGenerationTask 实例
@@ -259,6 +262,7 @@ def start_generation(input_content: str, session_key: str = '') -> PageGeneratio
         status=PageGenerationTask.STATUS_PENDING,
         progress=0,
         message='任务已创建，等待执行...',
+        created_by=created_by,
     )
 
     thread = threading.Thread(

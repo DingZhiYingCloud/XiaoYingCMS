@@ -20,6 +20,7 @@
 
 import uuid
 
+from django.conf import settings
 from django.db import models
 
 from XiaoYingAdmin.common.base import BaseModel
@@ -102,6 +103,13 @@ class PageGenerationTask(BaseModel):
         blank=True,
         default='',
         help_text='AI 总结出的简短页面名称，如"爱思助手"',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name='创建者',
+        help_text='发起该任务的用户',
     )
 
     class Meta:

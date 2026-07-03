@@ -380,6 +380,19 @@ def user_edit_view(request, pk):
     error = None
     success = None
 
+    # 权限校验：非超级管理员只能编辑自己
+    if not request.user.is_superuser and request.user.pk != target_user.pk:
+        return render(request, USER_FORM_TEMPLATE, {
+            'error': '权限不足，普通管理员只能编辑自己的信息',
+            'form_mode': 'edit',
+            'all_groups': Group.objects.all().order_by('name'),
+            'user_group_ids': [],
+            'target_user': target_user,
+        })
+
+    # 是否允许重置密码：仅超级管理员可以
+    can_reset_password = request.user.is_superuser
+
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         email = request.POST.get('email', '').strip()
@@ -409,11 +422,16 @@ def user_edit_view(request, pk):
             target_user.email = email
             target_user.phone = phone
             target_user.is_active = is_active
-            target_user.is_staff = is_staff
-            target_user.is_superuser = is_superuser
+            # 权限保护：非超级管理员不可提升自己或他人的权限
+            if request.user.is_superuser:
+                target_user.is_staff = is_staff
+                target_user.is_superuser = is_superuser
+            # is_active 不做回退（保留表单提交值）
 
             if new_password:
-                if len(new_password) < 6:
+                if not can_reset_password:
+                    error = '权限不足，仅超级管理员可重置密码'
+                elif len(new_password) < 6:
                     error = '密码至少 6 个字符'
                 else:
                     target_user.set_password(new_password)
@@ -463,6 +481,7 @@ def user_edit_view(request, pk):
         'all_groups': all_groups,
         'user_group_ids': user_group_ids,
         'target_user': target_user,
+        'can_reset_password': can_reset_password,
     })
 
 
@@ -470,8 +489,8 @@ def user_edit_view(request, pk):
 @require_http_methods(['POST'])
 def user_toggle_active_api(request, pk):
     """切换用户激活状态（AJAX）"""
-    if not _check_admin(request):
-        return JsonResponse({'ok': False, 'error': '权限不足'})
+    if not request.user.is_superuser:
+        return JsonResponse({'ok': False, 'error': '权限不足，仅超级管理员可禁用/启用用户'})
 
     if request.user.pk == pk:
         return JsonResponse({'ok': False, 'error': '不能禁用自己'})

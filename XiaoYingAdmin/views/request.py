@@ -27,6 +27,34 @@ from XiaoYingAdmin.models.firewall import FirewallRule
 
 
 # =============================================================================
+# 工具函数
+# =============================================================================
+
+def _filter_pages_for_user(request, qs):
+    """
+    根据当前用户过滤页面查询集：
+      - 超级管理员 → 查看全部
+      - 普通用户 → 只看自己的
+      - 未登录 → 空结果
+    """
+    if request.user.is_superuser:
+        return qs
+    if request.user.is_authenticated:
+        return qs.filter(created_by=request.user)
+    return qs.none()
+
+
+def _check_page_owner(request, page):
+    """检查当前用户是否有权限操作该页面。返回 error JsonResponse 或 None。"""
+    if request.user.is_superuser:
+        return None
+    if page.created_by_id != request.user.id:
+        from XiaoYingAdmin.common.http import err
+        return err('无权操作此页面', status=403)
+    return None
+
+
+# =============================================================================
 # 页面视图（模板渲染）
 # =============================================================================
 
@@ -181,6 +209,7 @@ def api_start_generate(request):
     task = start_generation(
         input_content=content,
         session_key=request.session.session_key,
+        created_by=request.user if request.user.is_authenticated else None,
     )
 
     # 写入 session：刷新页面后可恢复进度
@@ -364,6 +393,7 @@ def api_saved_pages(request):
     qs = GeneratedPage.objects.all()
     if keyword:
         qs = qs.filter(Q(name__icontains=keyword) | Q(input_content__icontains=keyword))
+    qs = _filter_pages_for_user(request, qs)
 
     total = qs.count()
     offset = (page - 1) * limit
@@ -382,6 +412,9 @@ def api_saved_page_detail(request, page_id):
     page, error = get_or_404(GeneratedPage, id=page_id, not_found_msg='页面不存在')
     if error is not None:
         return error
+    err = _check_page_owner(request, page)
+    if err:
+        return err
     return JsonResponse(page.to_dict(with_html=True))
 
 
@@ -401,6 +434,9 @@ def api_saved_page_delete(request):
     page, error = get_or_404(GeneratedPage, id=body.get('id'), not_found_msg='页面不存在')
     if error is not None:
         return error
+    err = _check_page_owner(request, page)
+    if err:
+        return err
 
     page_name = page.name
     page.delete()
@@ -433,7 +469,11 @@ def api_saved_page_update(request):
     page, error = get_or_404(GeneratedPage, id=body.get('id'), not_found_msg='页面不存在')
     if error is not None:
         return error
+    err = _check_page_owner(request, page)
+    if err:
+        return err
 
+    old_name = page.name
     changed_fields = []
     for field in ('name', 'input_content', 'html_content'):
         if field in body:
@@ -446,6 +486,10 @@ def api_saved_page_update(request):
         return JsonResponse({'message': '未检测到修改', 'page': page.to_dict(with_html=True)})
 
     page.save(update_fields=['name', 'input_content', 'html_content', 'updated_time'])
+
+    # 如果页面名称变更，同步更新其他页面中的互链名称
+    if 'name' in changed_fields:
+        _update_crosslink_names(page, old_name)
 
     # 构建变更详情
     field_labels = {'name': '页面名称', 'input_content': '需求描述', 'html_content': 'HTML内容'}
@@ -486,6 +530,9 @@ def api_saved_page_set_domain(request):
     page, error = get_or_404(GeneratedPage, id=body.get('id'), not_found_msg='页面不存在')
     if error is not None:
         return error
+    err = _check_page_owner(request, page)
+    if err:
+        return err
 
     # ------- 解析域名列表 -------
     if 'domains' in body:
@@ -566,6 +613,236 @@ def api_saved_page_set_domain(request):
     return JsonResponse({
         'message': f'已设置 {len(new_domains)} 个域名',
         'page': page.to_dict(),
+    })
+
+
+# =============================================================================
+# 智能互链
+# =============================================================================
+
+import re as _re
+
+
+def _extract_root_domain(domain: str) -> str:
+    """
+    从域名中提取根域名，统一为 ``https://二级域名.顶级域名/`` 格式。
+
+    >>> _extract_root_domain('www.example.com')      → 'https://example.com/'
+    >>> _extract_root_domain('*.example.com')          → 'https://example.com/'
+    >>> _extract_root_domain('blog.example.com')       → 'https://example.com/'
+    >>> _extract_root_domain('example.com')            → 'https://example.com/'
+    >>> _extract_root_domain('example.com.cn')         → 'https://example.com.cn/'
+    """
+    d = domain.strip().lower()
+    # 移除 *. 和 . 前缀
+    d = d.lstrip('*')
+    d = d.lstrip('.')
+    # 移除 www 前缀
+    if d.startswith('www.'):
+        d = d[4:]
+    # 保留最后 2~3 段（处理 .com.cn 等二级顶级域）
+    parts = d.split('.')
+    # 常见二级顶级域列表（可根据需要扩展）
+    _slds = {
+        'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'edu.cn',
+        'co.uk', 'org.uk', 'ac.uk', 'gov.uk',
+        'com.au', 'net.au', 'org.au',
+        'co.nz', 'net.nz', 'org.nz',
+        'co.jp', 'ne.jp', 'or.jp', 'ac.jp', 'go.jp',
+        'com.br', 'org.br', 'net.br',
+    }
+    if len(parts) >= 3 and '.'.join(parts[-2:]) in _slds:
+        d = '.'.join(parts[-3:])
+    else:
+        d = '.'.join(parts[-2:])
+    return f'https://{d}/'
+
+
+def _crosslink_html_block(partner_links: list) -> str:
+    """
+    生成合作域名 HTML 块（内联样式，SEO 友好的排版）。
+
+    partner_links: [{"url": "https://xxx.com/", "title": "页面名称"}, ...]
+    """
+    if not partner_links:
+        return ''
+    items_html = '\n'.join(
+        f'      <a href="{_to_attr(p["url"])}" '
+        f'title="{_to_attr(p["title"])}" '
+        f'rel="friend" target="_blank">{_to_attr(p["title"])}</a>'
+        for p in partner_links
+    )
+    return (
+        '\n<!-- ====== 智能互链 ====== -->\n'
+        '<div style="'
+        '  max-width:1200px; margin:40px auto 0; padding:24px 20px 16px;'
+        '  border-top:1px solid #e8e8e8; text-align:center;'
+        '">\n'
+        '  <div style="'
+        '    font-size:13px; color:#999; margin-bottom:12px;'
+        '    letter-spacing:1px;'
+        '  ">— 友情链接 —</div>\n'
+        '  <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:8px;">\n'
+        f'{items_html}\n'
+        '  </div>\n'
+        '</div>\n'
+        '<!-- ====== /智能互链 ====== -->\n'
+    )
+
+
+def _to_attr(s: str) -> str:
+    """HTML 属性转义。"""
+    return str(s).replace('&', '&amp;').replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+@csrf_exempt
+@require_POST
+def api_generate_crosslinks(request):
+    """
+    一键生成所有未排除页面的智能互链。
+    遍历每个页面的域名，提取根域名，为每个页面底部追加合作域名列表。
+    """
+    # 1. 获取当前用户可见且未排除的页面
+    qs = GeneratedPage.objects.filter(crosslink_excluded=False)
+    qs = _filter_pages_for_user(request, qs)
+    pages = list(qs)
+
+    # 2. 构建 {page_id: {根域名集合}}
+    page_root_domains = {}  # page_id -> set of root domains
+    for p in pages:
+        domains = set()
+        for d in (p.domains or []):
+            if d.strip():
+                domains.add(_extract_root_domain(d))
+        if (p.domain or '').strip() and not domains:
+            domains.add(_extract_root_domain(p.domain))
+        page_root_domains[p.id] = domains
+
+    # 3. 构建 {根域名 → page_name} 映射（用于 link title）
+    root_to_page = {}
+    for p in pages:
+        for rd in page_root_domains.get(p.id, set()):
+            root_to_page[rd] = p.name
+
+    # 4. 为每个页面生成合作域名列表（排除自身）
+    updated_count = 0
+    for p in pages:
+        own_domains = page_root_domains.get(p.id, set())
+        partner_links = []
+        for other_p in pages:
+            if other_p.id == p.id:
+                continue
+            for rd in page_root_domains.get(other_p.id, set()):
+                if rd not in own_domains:
+                    partner_links.append({
+                        'url': rd,
+                        'title': root_to_page.get(rd, other_p.name),
+                    })
+        # 去重
+        seen = set()
+        unique_links = []
+        for link in partner_links:
+            if link['url'] not in seen:
+                seen.add(link['url'])
+                unique_links.append(link)
+
+        if unique_links:
+            block = _crosslink_html_block(unique_links)
+            # 如果已有智能互链块，替换它；否则追加
+            start_tag = '<!-- ====== 智能互链 ====== -->'
+            end_tag = '<!-- ====== /智能互链 ====== -->'
+            start_idx = p.html_content.find(start_tag)
+            end_idx = p.html_content.find(end_tag)
+            if start_idx != -1 and end_idx != -1:
+                # 替换旧块（含结束标记之后的换行）
+                after_end = end_idx + len(end_tag)
+                if after_end < len(p.html_content) and p.html_content[after_end] == '\n':
+                    after_end += 1
+                p.html_content = p.html_content[:start_idx] + block + p.html_content[after_end:]
+            else:
+                p.html_content += block
+            p.save(update_fields=['html_content', 'updated_time'])
+            updated_count += 1
+
+    return JsonResponse({
+        'message': f'智能互链完成，已更新 {updated_count} 个页面',
+        'updated_count': updated_count,
+        'total_pages': len(pages),
+    })
+
+
+def _update_crosslink_names(page, old_name: str):
+    """
+    当页面名称变更后，同步更新其他页面中指向该页面的互链文字和 title。
+
+    匹配方式：遍历每个绑定域名 → 提取根域名 URL → 在所有其他页面的 HTML
+    中找到该 URL 对应的 <a> 标签 → 只替换该标签内的 title 和文字。
+    """
+    new_name = page.name
+    if old_name == new_name:
+        return 0
+
+    # 收集该页面所有根域名 URL
+    root_urls = set()
+    for d in (page.domains or []):
+        if d.strip():
+            root_urls.add(_extract_root_domain(d))
+    if (page.domain or '').strip() and not root_urls:
+        root_urls.add(_extract_root_domain(page.domain))
+    if not root_urls:
+        return 0
+
+    updated = 0
+    other_pages = GeneratedPage.objects.exclude(id=page.id).only('id', 'html_content')
+    for other in other_pages:
+        content = other.html_content
+        modified = False
+        for url in root_urls:
+            # 定位到该 URL 的 <a> 标签范围，只在此范围内替换
+            tag_start = content.find(f'<a href="{url}"')
+            if tag_start == -1:
+                continue
+            tag_end = content.find('</a>', tag_start)
+            if tag_end == -1:
+                continue
+            tag_end += 4  # 包含 </a>
+            before = content[:tag_start]
+            snippet = content[tag_start:tag_end]
+            after = content[tag_end:]
+            snippet = snippet.replace(f'title="{old_name}"', f'title="{new_name}"')
+            snippet = snippet.replace(f'>{old_name}</a>', f'>{new_name}</a>')
+            content = before + snippet + after
+            modified = True
+        if modified:
+            GeneratedPage.objects.filter(id=other.id).update(html_content=content, updated_time=timezone.now())
+            updated += 1
+    return updated
+
+
+@csrf_exempt
+@require_POST
+def api_crosslink_exclude_toggle(request):
+    """
+    切换页面的智能互链排除状态。
+
+    请求: application/json
+      {"id": 1, "excluded": true}
+    """
+    body, error = parse_json_body(request)
+    if error is not None:
+        return error
+
+    page, error = get_or_404(GeneratedPage, id=body.get('id'), not_found_msg='页面不存在')
+    if error is not None:
+        return error
+
+    excluded = body.get('excluded', False)
+    page.crosslink_excluded = bool(excluded)
+    page.save(update_fields=['crosslink_excluded', 'updated_time'])
+
+    return JsonResponse({
+        'message': '已' + ('排除' if excluded else '纳入') + '智能互链',
+        'crosslink_excluded': page.crosslink_excluded,
     })
 
 
