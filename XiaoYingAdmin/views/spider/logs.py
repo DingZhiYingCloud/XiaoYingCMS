@@ -514,7 +514,7 @@ def spider_logs_api_list(request):
     logs_qs = qs[start:start + page_size].values(
         'id', 'ip', 'user_agent', 'spider_name', 'path',
         'method', 'referer', 'status_code', 'response_size',
-        'create_time',
+        'create_time', 'page_id', 'page_name', 'matched_domain',
     )
     return JsonResponse({
         'logs': [
@@ -564,10 +564,11 @@ def spider_logs_api_export(request):
     writer = csv.writer(response)
     # BOM 让 Excel 识别 UTF-8
     response.write('\ufeff')
-    writer.writerow(['ID', '时间', 'IP', '爬虫名', '方法', '路径', '状态码', '大小(字节)', '来源', 'User-Agent'])
+    writer.writerow(['ID', '时间', 'IP', '爬虫名', '方法', '路径', '状态码', '大小(字节)', '来源', '关联页面ID', '关联页面名称', '匹配域名', 'User-Agent'])
     for row in qs.values_list(
         'id', 'create_time', 'ip', 'spider_name', 'method', 'path',
-        'status_code', 'response_size', 'referer', 'user_agent',
+        'status_code', 'response_size', 'referer',
+        'page_id', 'page_name', 'matched_domain', 'user_agent',
     ):
         writer.writerow([
             row[0],
@@ -579,6 +580,9 @@ def spider_logs_api_export(request):
             row[6] if row[6] is not None else '',
             row[7] if row[7] is not None else '',
             row[8],
-            row[9][:200],  # UA 截断，避免单行过长
+            row[9] if row[9] is not None else '',    # page_id
+            row[10][:200] if row[10] else '',          # page_name
+            row[11][:255] if row[11] else '',          # matched_domain
+            row[12][:200] if row[12] else '',          # UA 截断
         ])
     return response

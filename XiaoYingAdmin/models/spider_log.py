@@ -68,6 +68,21 @@ class SpiderAccessLog(BaseModel):
         verbose_name="响应字节数",
         help_text="由中间件在响应阶段回填（len(response.content)）",
     )
+    page_id = models.IntegerField(
+        null=True, blank=True,
+        verbose_name="关联页面 ID",
+        help_text="匹配到的 GeneratedPage.id",
+    )
+    page_name = models.CharField(
+        max_length=128, blank=True, default="",
+        verbose_name="关联页面名称",
+        help_text="匹配到的页面名称，方便快速查看",
+    )
+    matched_domain = models.CharField(
+        max_length=255, blank=True, default="",
+        verbose_name="匹配域名",
+        help_text="请求 Host 匹配到的域名（如 127.0.0.1:8000）",
+    )
 
     class Meta:
         verbose_name = "蜘蛛访问日志"

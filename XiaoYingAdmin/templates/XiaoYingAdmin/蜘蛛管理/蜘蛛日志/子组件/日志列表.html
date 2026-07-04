@@ -7,6 +7,7 @@
             <th style="width:130px;">爬虫名</th>
             <th style="width:60px;">方法</th>
             <th>路径</th>
+            <th style="width:80px;">关联页面</th>
             <th style="width:80px;">状态</th>
             <th style="width:80px;">大小</th>
             <th>来源</th>
@@ -27,7 +28,9 @@
                 data-status="{{ log.status_code|default_if_none:'' }}"
                 data-size="{{ log.response_size|default_if_none:'' }}"
                 data-referer="{{ log.referer }}"
-                data-ua="{{ log.user_agent }}">
+                data-ua="{{ log.user_agent }}"
+                data-page-name="{{ log.page_name }}"
+                data-matched-domain="{{ log.matched_domain }}">
                 <td><small>{{ log.create_time|date:'Y-m-d H:i:s' }}</small></td>
                 <td>
                     <a href="javascript:;" onclick="event.stopPropagation();copyIp('{{ log.ip|escapejs }}', this)" title="点击复制" style="color:#1E9FFF;">
@@ -56,6 +59,19 @@
                 </td>
                 <td>
                     <code style="font-size:12px; color:#393D49;">{{ log.path|truncatechars:60 }}</code>
+                </td>
+                <td>
+                    {% if log.page_name %}
+                        <a href="/xiaoying_admin/pages/list/?search={{ log.page_name|urlencode }}"
+                           target="_blank" style="color:#5FB878;text-decoration:none;"
+                           title="点击查看页面详情">
+                            <i class="fas fa-file-alt" style="font-size:11px;"></i>
+                            {{ log.page_name|truncatechars:15 }}
+                        </a>
+                        <br><small style="color:#bbb;font-size:10px;">{{ log.matched_domain|truncatechars:20 }}</small>
+                    {% else %}
+                        <span style="color:#ccc;font-size:11px;">-</span>
+                    {% endif %}
                 </td>
                 <td>
                     {% if log.status_code %}
@@ -170,11 +186,13 @@ document.addEventListener('click', function(e) {
         (data.method === 'GET' ? ' layui-bg-blue' : data.method === 'POST' ? ' layui-bg-green' : ' layui-bg-gray') +
         '">' + escHtml(data.method) + '</span></td></tr>' +
         '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">路径</td>' +
-        '<td style="padding:4px 0; word-break:break-all;"><code style="font-size:12px; background:#f6f6f6; padding:2px 6px; border-radius:3px;">' + escHtml(data.path) + '</code></td></tr>' +
+        '<td style="padding:4px 0; word-break:break-all;"><code style="font-size:12px; background:#f6f6f6; padding:2px 6px; border-radius:3px;">' + escHtml(data.matchedDomain ? 'http://' + data.matchedDomain + data.path : data.path) + '</code></td></tr>' +
         '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">状态码</td>' +
         '<td style="padding:4px 0;"><span style="color:' + statusColor(data.status) + '; font-weight:bold;">' + (data.status || '-') + '</span></td></tr>' +
         '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">响应大小</td>' +
         '<td style="padding:4px 0;">' + fmtSize(data.size) + '</td></tr>' +
+        '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">关联页面</td>' +
+        '<td style="padding:4px 0;">' + (data.pageName ? '<a href="/xiaoying_admin/pages/list/?search=' + encodeURIComponent(data.pageName) + '" target="_blank" style="color:#5FB878;text-decoration:none;" title="点击查看页面详情"><i class="fas fa-file-alt" style="font-size:11px;"></i> ' + escHtml(data.pageName) + '</a><br><small style="color:#bbb;">' + escHtml(data.matchedDomain) + '</small>' : '<span style="color:#ccc;">未匹配</span>') + '</td></tr>' +
         '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">来源</td>' +
         '<td style="padding:4px 0; word-break:break-all;">' + (data.referer ? escHtml(data.referer) : '<span style="color:#ccc;">直接访问 / 无来源</span>') + '</td></tr>' +
         '<tr><td style="color:#999; white-space:nowrap; vertical-align:top; padding:4px 8px 4px 0;">User-Agent</td>' +

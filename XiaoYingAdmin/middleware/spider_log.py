@@ -10,9 +10,10 @@
   3. 跳过 SeoCloakRule 白名单路径（与斗篷共享）
   4. 收集请求元数据：IP / UA / path / method / referer
   5. 复用 SeoCloakRule.is_spider() 识别爬虫 + 提取爬虫名
-  6. 调用下游 get_response(request) 拿到 response
-  7. 收集 status_code / response_size 后 try/except 写 DB
-  8. 写 DB 异常被捕获，不影响主响应返回
+  6. 匹配请求域名是否在页面列表（GeneratedPage）中
+  7. 调用下游 get_response(request) 拿到 response
+  8. 收集 status_code / response_size 后 try/except 写 DB
+  9. 写 DB 异常被捕获，不影响主响应返回
 
 放置位置：MIDDLEWARE 列表靠前（在 SeoCloakMiddleware / DomainBindMiddleware 之前）。
 这样即便斗篷/域名中间件直接 return HttpResponse 短路 view，本中间件的
@@ -23,11 +24,69 @@ import logging
 
 from django.db import DatabaseError
 
+from XiaoYingAdmin.models.generated_page import GeneratedPage
 from XiaoYingAdmin.models.seo_cloak import SeoCloakRule
 from XiaoYingAdmin.models.spider_log import SpiderAccessLog, SpiderLogConfig
 
 
 logger = logging.getLogger(__name__)
+
+# 缓存：{host: (page_id, page_name, matched_domain), ...}
+# 为了避免每次请求都查 DB，只在模块首次加载时查询一次。
+# 如果页面列表有变更，需要重启进程。这对开发/生产都合理。
+_cache_pages = None
+
+
+def _build_page_cache():
+    """构建 {host_pattern: (page_id, page_name, matched_domain)} 缓存。
+
+    支持格式：
+      - 精确匹配：127.0.0.1:8000 → 精确匹配
+      - 通配符：*.example.com → 后缀匹配
+    """
+    cache = {}
+    pages = GeneratedPage.objects.only('id', 'name', 'domain', 'domains')
+    for p in pages:
+        # 旧字段 domain
+        if p.domain:
+            d = p.domain.strip().lower()
+            if d:
+                cache[d] = (p.id, p.name, d)
+        # JSON 字段 domains
+        for d in (p.domains or []):
+            d = d.strip().lower()
+            if not d:
+                continue
+            cache[d] = (p.id, p.name, d)
+    return cache
+
+
+def _find_matching_page(host: str):
+    """从缓存中查找匹配 host 的页面。
+
+    返回 (page_id, page_name, matched_domain) 或 (None, '', '')。
+    """
+    global _cache_pages
+    if _cache_pages is None:
+        _cache_pages = _build_page_cache()
+
+    if not host:
+        return None, '', ''
+
+    host_lower = host.strip().lower()
+
+    # 1. 精确匹配
+    if host_lower in _cache_pages:
+        return _cache_pages[host_lower]
+
+    # 2. 通配符后缀匹配：*.example.com → 检查 host 是否以 .example.com 结尾
+    for pattern, (pid, pname, pd) in _cache_pages.items():
+        if pattern.startswith('*.'):
+            suffix = pattern[1:]  # .example.com
+            if host_lower.endswith(suffix):
+                return pid, pname, pd
+
+    return None, '', ''
 
 
 def _get_client_ip(meta) -> str:
@@ -94,19 +153,23 @@ class SpiderLogMiddleware:
         if cloak_rule.is_whitelisted(request.path):
             return self.get_response(request)
 
-        # === 5. 收集请求元数据 ===
+        # === 6. 收集请求元数据 ===
         user_agent = request.META.get('HTTP_USER_AGENT', '')
         is_spider = cloak_rule.is_spider(user_agent)
         spider_name = _extract_spider_name(user_agent, cloak_rule.get_spider_keywords()) if is_spider else ''
 
-        # === 6. 根据 log_mode 决定是否记录 ===
+        # === 7. 匹配域名 → 页面 ===
+        host = request.get_host()
+        page_id, page_name, matched_domain = _find_matching_page(host)
+
+        # === 8. 根据 log_mode 决定是否记录 ===
         if log_mode == 'spider_only' and not is_spider:
             return self.get_response(request)
 
-        # === 7. 调用下游，拿到 response ===
+        # === 9. 调用下游，拿到 response ===
         response = self.get_response(request)
 
-        # === 8. 收集响应数据后写 DB（异常隔离） ===
+        # === 10. 收集响应数据后写 DB（异常隔离） ===
         try:
             status_code = response.status_code
             response_size = len(response.content) if hasattr(response, 'content') else None
@@ -119,6 +182,9 @@ class SpiderLogMiddleware:
                 referer=request.META.get('HTTP_REFERER', '')[:500],
                 status_code=status_code,
                 response_size=response_size,
+                page_id=page_id,
+                page_name=page_name[:128] if page_name else '',
+                matched_domain=matched_domain[:255] if matched_domain else '',
             )
         except (DatabaseError, ValueError, TypeError, Exception) as e:  # noqa: BLE001 — 故意捕获所有异常，避免日志写入影响主响应
             logger.warning('SpiderLogMiddleware 写日志失败: %s', e)
