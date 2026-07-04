@@ -675,36 +675,22 @@ _CROSSLINK_TAG_END = '<!-- ====== /智能互链 ====== -->'
 
 def _extract_root_domain(domain: str) -> str:
     """
-    从域名中提取根域名，统一为 ``https://二级域名.顶级域名/`` 格式。
+    规范化域名，统一为 ``https://域名/`` 格式，用于互链匹配。
 
-    >>> _extract_root_domain('www.example.com')      → 'https://example.com/'
-    >>> _extract_root_domain('*.example.com')          → 'https://example.com/'
-    >>> _extract_root_domain('blog.example.com')       → 'https://example.com/'
-    >>> _extract_root_domain('example.com')            → 'https://example.com/'
-    >>> _extract_root_domain('example.com.cn')         → 'https://example.com.cn/'
+    只做最小化处理：
+      - 移除 *. 通配符前缀
+      - 统一小写
+      - 移除 www. 前缀（www.example.com → example.com）
+      - **不会截断域名层次结构**（app-xiaoying.hl.cn 保持为 app-xiaoying.hl.cn）
+      - 保留端口号（127.0.0.1:8000 保持原样）
     """
     d = domain.strip().lower()
-    # 移除 *. 和 . 前缀
+    # 移除 *. 前缀（通配符匹配）
     d = d.lstrip('*')
     d = d.lstrip('.')
-    # 移除 www 前缀
+    # 移除 www. 前缀
     if d.startswith('www.'):
         d = d[4:]
-    # 保留最后 2~3 段（处理 .com.cn 等二级顶级域）
-    parts = d.split('.')
-    # 常见二级顶级域列表（可根据需要扩展）
-    _slds = {
-        'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'edu.cn',
-        'co.uk', 'org.uk', 'ac.uk', 'gov.uk',
-        'com.au', 'net.au', 'org.au',
-        'co.nz', 'net.nz', 'org.nz',
-        'co.jp', 'ne.jp', 'or.jp', 'ac.jp', 'go.jp',
-        'com.br', 'org.br', 'net.br',
-    }
-    if len(parts) >= 3 and '.'.join(parts[-2:]) in _slds:
-        d = '.'.join(parts[-3:])
-    else:
-        d = '.'.join(parts[-2:])
     return f'https://{d}/'
 
 
