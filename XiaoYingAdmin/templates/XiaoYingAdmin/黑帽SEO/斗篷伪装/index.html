@@ -4,6 +4,72 @@
 
 {% block body %}
 
+<style>
+/* ===== 斗篷弹窗表单样式 ===== */
+#cloakFormEl { display:flex; flex-direction:column; gap:4px; }
+.cloak-section {
+  background:#fafafa; border:1px solid #eee; border-radius:6px; padding:10px 12px;
+}
+.cloak-section-title {
+  font-size:14px; font-weight:600; color:#393D49; margin-bottom:8px;
+  display:flex; align-items:center; gap:6px;
+}
+.cloak-section-title i { color:#5FB878; font-size:14px; }
+.cloak-form-row { display:flex; gap:12px; flex-wrap:wrap; }
+.cloak-3col > .cloak-form-group { flex:1; min-width:140px; }
+.cloak-form-group { display:flex; flex-direction:column; gap:4px; }
+.cloak-label {
+  font-size:12px; color:#666; font-weight:500; display:flex; align-items:center; gap:6px;
+}
+.cloak-input {
+  height:34px; border:1px solid #d2d2d2; border-radius:4px; padding:0 10px; font-size:13px;
+  outline:none; transition:border .2s; width:100%; box-sizing:border-box;
+}
+.cloak-input:focus { border-color:#5FB878; }
+.cloak-select {
+  height:34px; border:1px solid #d2d2d2; border-radius:4px; padding:0 8px; font-size:13px;
+  outline:none; background:#fff; width:100%; box-sizing:border-box; cursor:pointer;
+}
+.cloak-select:focus { border-color:#5FB878; }
+.cloak-textarea {
+  width:100%; box-sizing:border-box; min-height:52px; padding:8px 10px;
+  border:1px solid #d2d2d2; border-radius:4px; font-size:13px; line-height:1.5;
+  outline:none; resize:vertical; font-family:inherit; transition:border .2s;
+}
+.cloak-textarea:focus { border-color:#5FB878; }
+.cloak-textarea-lg { min-height:90px; }
+.cloak-aux { font-size:12px; color:#999; margin-top:2px; line-height:1.4; }
+.cloak-tag {
+  display:inline-block; font-size:10px; font-weight:600; padding:1px 6px;
+  border-radius:3px; letter-spacing:0.5px;
+}
+.cloak-tag-spider { background:#fff3e0; color:#e65100; }
+.cloak-tag-search { background:#e3f2fd; color:#1565c0; }
+.cloak-tag-direct { background:#f3e5f5; color:#7b1fa2; }
+.cloak-switch { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
+.cloak-switch input { opacity:0; width:0; height:0; }
+.cloak-switch-slider {
+  position:absolute; cursor:pointer; inset:0; background:#ccc; border-radius:24px; transition:.3s;
+}
+.cloak-switch-slider::before {
+  content:''; position:absolute; left:3px; bottom:3px; width:18px; height:18px;
+  background:#fff; border-radius:50%; transition:.3s;
+}
+.cloak-switch input:checked + .cloak-switch-slider { background:#5FB878; }
+.cloak-switch input:checked + .cloak-switch-slider::before { transform:translateX(20px); }
+.domain-tag {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:2px 8px; border-radius:3px; font-size:12px; margin:2px 4px 2px 0;
+}
+.domain-del-tag { color:#999; text-decoration:none; font-size:14px; line-height:1; cursor:pointer; }
+.domain-del-tag:hover { color:#e54d4d; }
+@media (max-width:700px) {
+  .cloak-3col { flex-direction:column; }
+  .cloak-3col > .cloak-form-group { min-width:unset; }
+  .cloak-section { padding:8px 10px; }
+}
+</style>
+
 {# ===== 顶部状态卡片 ===== #}
 {% include 'XiaoYingAdmin/黑帽SEO/斗篷伪装/子组件/状态卡片.html' %}
 
@@ -87,6 +153,55 @@
 </script>
 
 <script>
+// ===== 域名标签管理（供弹窗使用） =====
+(function() {
+  var _tags = [];
+  window.__cloakDomainTags = function() { return _tags.slice(); };
+  window.__cloakSetDomainTags = function(arr) {
+    _tags = (arr || []).filter(function(t){ return t.trim().length > 0; });
+    renderTags();
+  };
+  window.__cloakAddDomainTag = function(domain) {
+    domain = domain.trim().toLowerCase();
+    if (!domain) return false;
+    // 检查重复
+    for (var i = 0; i < _tags.length; i++) {
+      if (_tags[i] === domain) return false;
+    }
+    _tags.push(domain);
+    renderTags();
+    return true;
+  };
+  window.__cloakRemoveDomainTag = function(domain) {
+    var idx = _tags.indexOf(domain);
+    if (idx === -1) return;
+    _tags.splice(idx, 1);
+    renderTags();
+  };
+  function renderTags() {
+    var wrap = document.getElementById('domainTagsWrap');
+    if (!wrap) return;
+    if (_tags.length === 0) {
+      wrap.innerHTML = '<span style="color:#bbb;font-size:12px;">暂无绑定域名（留空 = 全局默认）</span>';
+      return;
+    }
+    wrap.innerHTML = _tags.map(function(d) {
+      return '<span class="domain-tag" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;margin:2px 4px 2px 0;background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9;">'
+        + '<span>' + d + '</span>'
+        + '<a href="javascript:;" class="domain-del-tag" style="color:#999;text-decoration:none;font-size:14px;line-height:1;cursor:pointer;" data-domain="' + d.replace(/"/g,'&quot;') + '">&times;</a>'
+        + '</span>';
+    }).join('');
+    // 绑定删除事件
+    wrap.querySelectorAll('.domain-del-tag').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var domain = this.dataset.domain;
+        if (domain && window.__cloakRemoveDomainTag) window.__cloakRemoveDomainTag(domain);
+      });
+    });
+  }
+})();
+
 // ===== 初始化：LayUI 折叠面板 =====
 layui.use('element', function(){});
 
@@ -311,6 +426,28 @@ function goTo(page) {
   loadRules();
 }
 
+// ===== 绑定弹窗内的域名输入事件 =====
+function bindDomainInputEvents() {
+  var input = document.getElementById('domainInput');
+  var addBtn = document.getElementById('domainAddBtn');
+  if (!input || !addBtn) return;
+
+  function addDomain() {
+    var val = input.value.trim();
+    if (!val) { input.focus(); return; }
+    if (typeof window.__cloakAddDomainTag === 'function') {
+      window.__cloakAddDomainTag(val);
+    }
+    input.value = '';
+    input.focus();
+  }
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addDomain(); }
+  });
+  addBtn.addEventListener('click', function() { addDomain(); });
+}
+
 // ===== 打开编辑/新增弹窗 =====
 function openCloakForm(rule) {
   var isNew = !rule || !rule.id;
@@ -336,7 +473,7 @@ function openCloakForm(rule) {
 
   // 填充表单值
   tpl = tpl.replace(/<!-- RULE_ID -->/g, rule.id || '');
-  tpl = tpl.replace(/<!-- RULE_DOMAIN -->/g, rule.domain || '');
+  tpl = tpl.replace(/<!-- RULE_DOMAIN -->/g, '');  // 不再用单域名占位
   tpl = tpl.replace(/<!-- CHECKED_IF_ENABLED -->/g, rule.is_enabled ? 'checked' : '');
   tpl = tpl.replace(/<!-- SEARCH_ENGINES_LIST -->/g, (rule.search_engines || []).join('\n'));
   tpl = tpl.replace(/<!-- SPIDER_KEYWORDS_LIST -->/g, (rule.spider_keywords || []).join('\n'));
@@ -382,9 +519,15 @@ function openCloakForm(rule) {
       layer.close(index);
     },
     success: function(layero) {
-      layui.use('form', function() {
-        layui.form.render();
-      });
+      // 初始化域名标签
+      setTimeout(function() {
+        if (typeof window.__cloakSetDomainTags === 'function') {
+          var tags = rule.domain ? [rule.domain] : [];
+          window.__cloakSetDomainTags(tags);
+        }
+        // 绑定域名输入框事件
+        bindDomainInputEvents();
+      }, 50);
     }
   });
 }
@@ -399,10 +542,13 @@ function submitCloakForm(ruleId, callback) {
     return JSON.stringify(arr);
   }
 
+  // 收集域名标签
+  var domains = typeof window.__cloakDomainTags === 'function' ? window.__cloakDomainTags() : [];
+  // 如果标签为空，视为全局默认规则（domain=''）
+  if (domains.length === 0) domains = [''];
+
   var fd = new FormData(form);
-  var payload = {
-    id: ruleId || null,
-    domain: fd.get('domain') || '',
+  var basePayload = {
     is_enabled: fd.get('is_enabled') === 'on',
     search_engines: linesToJson(fd.get('search_engines')),
     spider_keywords: linesToJson(fd.get('spider_keywords')),
@@ -418,9 +564,57 @@ function submitCloakForm(ruleId, callback) {
     cloak_content: fd.get('cloak_content') || '',
   };
 
+  // 如果是编辑模式，只更新当前规则（只用一个域名）
+  if (ruleId) {
+    basePayload.id = ruleId;
+    basePayload.domain = domains[0] || '';
+    sendSaveRequest(basePayload, callback);
+    return;
+  }
+
+  // 新增模式：对每个域名创建一条规则
+  var successCount = 0;
+  var failCount = 0;
+  var total = domains.length;
+  var idxEl = layer.load(1, { shade: [0.3, '#000'] });
+
+  function processNext(i) {
+    if (i >= total) {
+      layer.close(idxEl);
+      if (failCount === 0) {
+        layer.msg('成功创建 ' + successCount + ' 条规则', {icon: 1});
+        if (callback) callback();
+      } else {
+        layer.msg('创建完成：成功 ' + successCount + ' 条，失败 ' + failCount + ' 条', {icon: 2});
+        if (callback) callback();
+      }
+      return;
+    }
+    var payload = JSON.parse(JSON.stringify(basePayload));
+    payload.domain = domains[i];
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '{% url "seo_cloak_config_save" %}');
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        successCount++;
+      } else {
+        failCount++;
+      }
+      processNext(i + 1);
+    };
+    xhr.onerror = function() { failCount++; processNext(i + 1); };
+    xhr.send(JSON.stringify(payload));
+  }
+  processNext(0);
+}
+
+function sendSaveRequest(payload, callback) {
   var xhr = new XMLHttpRequest();
   xhr.open('POST', '{% url "seo_cloak_config_save" %}');
   xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
   xhr.onload = function() {
     if (xhr.status === 200) {
       layer.msg('保存成功', {icon: 1});
