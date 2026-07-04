@@ -32,6 +32,7 @@
         <button class="layui-btn layui-btn-sm" id="btnSearch"><i class="fas fa-search"></i> 搜索</button>
         <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnReset"><i class="fas fa-undo"></i> 重置</button>
         <button class="layui-btn layui-btn-sm layui-btn-warm" id="btnCrosslink"><i class="fas fa-link"></i> 智能互链</button>
+        <button class="layui-btn layui-btn-sm layui-btn-normal" id="btnCreatePage"><i class="fas fa-plus"></i> 新增页面</button>
         <span class="total-label" id="totalLabel">共 0 条</span>
     </div>
 
@@ -146,6 +147,58 @@
         html += '<span class="page-info">第 ' + currentPage + '/' + totalPages + ' 页</span>';
 
         pagWrap.innerHTML = html;
+    }
+
+    function openCreatePage() {
+        var html = '<form class="layui-form" style="padding:20px 15px 10px;">';
+        html += '<div class="layui-form-item"><label class="layui-form-label">页面名称 <span style="color:#e54d4d;">*</span></label><div class="layui-input-block"><input type="text" id="createName" class="layui-input" placeholder="输入页面名称"></div></div>';
+        html += '<div class="layui-form-item"><label class="layui-form-label">需求描述</label><div class="layui-input-block"><textarea id="createInput" class="layui-textarea" rows="3" placeholder="可选，备注该页面的用途"></textarea></div></div>';
+        html += '<div class="layui-form-item"><label class="layui-form-label">HTML 代码 <span style="color:#e54d4d;">*</span></label><div class="layui-input-block"><textarea id="createHtml" class="layui-textarea" style="font-family:Consolas,Monaco,monospace;font-size:12px;min-height:280px;line-height:1.5;" placeholder="粘贴完整的 HTML 代码"></textarea></div></div>';
+        html += '<div class="layui-form-item"><label class="layui-form-label">绑定域名</label><div class="layui-input-block"><input type="text" id="createDomains" class="layui-input" placeholder="可选，多个域名用逗号分隔，如 example.com,*.example.com"></div></div>';
+        html += '<div class="layui-form-item" style="margin-top:20px;text-align:center;"><button type="button" class="layui-btn" id="createSaveBtn"><i class="fas fa-save"></i> 创建页面</button></div>';
+        html += '</form>';
+
+        layer.open({
+            type: 1,
+            title: '<i class="fas fa-plus-circle" style="color:#5FB878;"></i> 新增页面',
+            area: ['800px', '580px'],
+            shadeClose: false,
+            content: html,
+            success: function(layero) {
+                layero.find('#createSaveBtn').on('click', function() {
+                    var name = layero.find('#createName').val().trim();
+                    var htmlContent = layero.find('#createHtml').val().trim();
+                    var inputContent = layero.find('#createInput').val().trim();
+                    var domainsStr = layero.find('#createDomains').val().trim();
+
+                    if (!name) { layer.msg('请输入页面名称', {icon:5}); return; }
+                    if (!htmlContent) { layer.msg('请输入 HTML 内容', {icon:5}); return; }
+
+                    var domains = [];
+                    if (domainsStr) {
+                        domains = domainsStr.split(',').map(function(s) { return s.trim().toLowerCase(); }).filter(function(s) { return s.length > 0; });
+                    }
+
+                    var idx = layer.load(1);
+                    fetch('/xiaoying_admin/api/pages/saved/create/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: name,
+                            html_content: htmlContent,
+                            input_content: inputContent,
+                            domains: domains,
+                        }),
+                    }).then(function(r) { return r.json(); }).then(function(resp) {
+                        layer.close(idx);
+                        if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                        layer.closeAll();
+                        layer.msg(resp.message, {icon:1});
+                        loadList(currentPage);
+                    }).catch(function() { layer.close(idx); layer.msg('创建失败', {icon:2}); });
+                });
+            },
+        });
     }
 
     function openPreview(html, name) {
@@ -365,6 +418,9 @@
     document.getElementById('btnSearch').addEventListener('click', function() { loadList(1); });
     document.getElementById('btnReset').addEventListener('click', function() { searchInput.value = ''; loadList(1); });
     searchInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') loadList(1); });
+
+    // 新增页面
+    document.getElementById('btnCreatePage').addEventListener('click', openCreatePage);
 
     // 智能互链
     document.getElementById('btnCrosslink').addEventListener('click', function() {

@@ -92,6 +92,7 @@ urlpatterns = [
 
     # AJAX API: 已保存页面
     path('api/pages/saved/', admin_request.api_saved_pages, name='api_saved_pages'),
+    path('api/pages/saved/create/', admin_request.api_saved_page_create, name='api_saved_page_create'),
     path('api/pages/saved/<int:page_id>/', admin_request.api_saved_page_detail, name='api_saved_page_detail'),
     path('api/pages/saved/set-domain/', admin_request.api_saved_page_set_domain, name='api_saved_page_set_domain'),
     path('api/pages/saved/delete/', admin_request.api_saved_page_delete, name='api_saved_page_delete'),

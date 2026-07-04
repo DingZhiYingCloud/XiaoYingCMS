@@ -406,7 +406,55 @@ def api_saved_pages(request):
     }, safe=False)
 
 
-@require_GET
+@csrf_exempt
+@require_POST
+def api_saved_page_create(request):
+    """
+    手动创建已保存页面（用于从旧项目迁移页面）。
+
+    请求: application/json
+      {
+        "name": "页面名称",          // 必填
+        "html_content": "HTML 代码",  // 必填
+        "input_content": "需求描述",  // 可选
+        "domains": ["example.com"],  // 可选，域名列表
+      }
+    """
+    body, error = parse_json_body(request)
+    if error is not None:
+        return error
+
+    name = (body.get('name') or '').strip()
+    html_content = (body.get('html_content') or '').strip()
+
+    if not name:
+        return err('页面名称不能为空')
+    if not html_content:
+        return err('HTML 内容不能为空')
+
+    import uuid
+
+    domains = body.get('domains')
+    if domains is not None and not isinstance(domains, list):
+        return err('domains 必须为数组')
+
+    page = GeneratedPage(
+        name=name,
+        html_content=html_content,
+        input_content=(body.get('input_content') or '').strip(),
+        domains=domains or [],
+        task_id=uuid.uuid4(),  # 手动创建的页面用随机 UUID
+        created_by=request.user if request.user.is_authenticated else None,
+    )
+    page.save()
+
+    log_operation(request, 'create', 'GeneratedPage', page.id,
+                  f'手动创建页面「{page.name}」',
+                  detail={'changes': {'页面名称': {'new': page.name}}})
+
+    return JsonResponse({'message': '页面创建成功', 'page': page.to_dict(with_html=True)})
+
+
 def api_saved_page_detail(request, page_id):
     """获取已保存页面的详情（含 HTML 内容）。"""
     page, error = get_or_404(GeneratedPage, id=page_id, not_found_msg='页面不存在')
