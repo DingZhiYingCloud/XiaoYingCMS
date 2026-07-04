@@ -480,12 +480,12 @@ function openCloakForm(rule) {
 
   // 行为选择框
   for (var k in {spider_action:1, search_action:1, direct_action:1}) {
-    var re = new RegExp('<select name="' + k + '">[\\s\\S]*?<\\/select>');
+    var re = new RegExp('<select\\s+name="' + k + '"[\\s\\S]*?<\\/select>');
     tpl = tpl.replace(re, renderSelect(k, rule[k] || 'pass_through', ACTION_OPTIONS));
   }
 
   // 重定向状态码
-  tpl = tpl.replace(/<select name="redirect_status_code">[\s\S]*?<\/select>/, renderRedirectSelect('redirect_status_code', rule.redirect_status_code || 302, REDIRECT_OPTIONS));
+  tpl = tpl.replace(/<select\s+name="redirect_status_code"[\s\S]*?<\/select>/, renderRedirectSelect('redirect_status_code', rule.redirect_status_code || 302, REDIRECT_OPTIONS));
 
   // 重定向 URL
   tpl = tpl.replace(/<!-- SPIDER_REDIRECT_URL -->/g, rule.spider_redirect_url || '');
