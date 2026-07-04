@@ -668,8 +668,6 @@ def api_saved_page_set_domain(request):
 # 智能互链
 # =============================================================================
 
-import re as _re
-
 # 互链标签常量（前后端保持一致）
 _CROSSLINK_TAG_START = '<!-- ====== 智能互链 ====== -->'
 _CROSSLINK_TAG_END = '<!-- ====== /智能互链 ====== -->'
@@ -753,137 +751,102 @@ def _crosslink_html_block(partner_links: list) -> str:
     )
 
 
-def _parse_existing_crosslink_urls(html: str) -> set:
+def _replace_crosslink_block(html: str, new_block_html: str) -> str:
     """
-    解析页面 HTML 中已有的互链 URL，返回 set。
+    将页面 HTML 中已有的互链块完整替换为新块。
+    如果页面还没有互链块，则在末尾追加。
 
-    通过正则提取 <a href="..."> 中 href 的值。
-    只会扫描 _CROSSLINK_TAG_START .. _CROSSLINK_TAG_END 之间的内容。
-    """
-    start_idx = html.find(_CROSSLINK_TAG_START)
-    end_idx = html.find(_CROSSLINK_TAG_END)
-    if start_idx == -1 or end_idx == -1:
-        return set()
-    block = html[start_idx:end_idx + len(_CROSSLINK_TAG_END)]
-    urls = set()
-    for m in _re.finditer(r'<a\s+[^>]*href="([^"]+)"', block):
-        urls.add(m.group(1))
-    return urls
-
-
-def _append_crosslink_items(html: str, new_items_html: str) -> str:
-    """
-    将新的 <a> 标签行追加到已有的互链块中（插在链接容器 </div> 之前）。
-    如果不存在互链块，返回原 html。
+    返回替换后的完整 HTML。
     """
     start_idx = html.find(_CROSSLINK_TAG_START)
     end_idx = html.find(_CROSSLINK_TAG_END)
     if start_idx == -1 or end_idx == -1:
-        return html
-
-    # 找到容器 div（flex 容器）的闭合 </div>
-    # 从后往前在块内找第一个 </div>
-    container_close = html.rfind('</div>', start_idx, end_idx)
-    if container_close == -1:
-        return html
-
-    before = html[:container_close]
-    after = html[container_close:]
-    return before + '\n' + new_items_html + after
+        return html + '\n' + new_block_html
+    end_idx += len(_CROSSLINK_TAG_END)
+    return html[:start_idx] + new_block_html + html[end_idx:]
 
 
 @csrf_exempt
 @require_POST
 def api_generate_crosslinks(request):
     """
-    增量生成智能互链 —— 保留已有链接，只追加尚未收录的域名。
+    全量生成智能互链 —— 为每个页面完整替换互链块，保证不遗漏。
 
     行为：
       1. 遍历所有未排除的页面
-      2. 为每个页面计算"应当链接的所有合作域名"（其他页面的根域名）
-      3. 若页面已存在互链块 → 解析其中已有的 URL，只追加新域名
-      4. 若页面没有互链块 → 创建完整的新块
-      5. 后续新增页面后再点"智能互链"，已有页面只会追加新域名，不会丢失旧链接
+      2. 为每个页面计算"应当链接的所有合作域名"（其他页面的根域名，排除自己的）
+      3. 若页面已有互链块 → 整体替换为新块（包含全部链接）
+      4. 若页面没有互链块 → 在末尾追加新块
+      5. 无论点多少次，结果始终一致：每个页面链接所有其他非排除域名
     """
     # 1. 获取当前用户可见且未排除的页面
     qs = GeneratedPage.objects.filter(crosslink_excluded=False)
     qs = _filter_pages_for_user(request, qs)
     pages = list(qs)
 
-    # 2. 构建 {page_id: {根域名集合}}
+    if not pages:
+        return JsonResponse({'message': '没有可互链的页面', 'updated_count': 0, 'new_link_count': 0, 'total_pages': 0})
+
+    # 2. 构建 {page_id: {根域名集合}}  + {根域名 → page_name}
     page_root_domains = {}
+    root_to_page = {}
     for p in pages:
         domains = set()
         for d in (p.domains or []):
             if d.strip():
-                domains.add(_extract_root_domain(d))
+                rd = _extract_root_domain(d)
+                domains.add(rd)
+                root_to_page[rd] = p.name
         if (p.domain or '').strip() and not domains:
-            domains.add(_extract_root_domain(p.domain))
+            rd = _extract_root_domain(p.domain)
+            domains.add(rd)
+            root_to_page[rd] = p.name
         page_root_domains[p.id] = domains
 
-    # 3. 构建 {根域名 → page_name} 映射
-    root_to_page = {}
-    for p in pages:
-        for rd in page_root_domains.get(p.id, set()):
-            root_to_page[rd] = p.name
-
-    # 4. 为每个页面增量追加互链
+    # 3. 为每个页面完整生成互链块
     updated_count = 0
     new_link_count = 0
     for p in pages:
         own_domains = page_root_domains.get(p.id, set())
 
-        # 计算"应当出现的所有合作域名"
-        all_desired = []
+        # 构建所有合作链接（去重）
+        seen = set()
+        desired_links = []
         for other_p in pages:
             if other_p.id == p.id:
                 continue
             for rd in page_root_domains.get(other_p.id, set()):
-                if rd not in own_domains:
-                    all_desired.append({
+                if rd not in own_domains and rd not in seen:
+                    seen.add(rd)
+                    desired_links.append({
                         'url': rd,
                         'title': root_to_page.get(rd, other_p.name),
                     })
 
-        # 去重（按 url）
-        seen = set()
-        desired_links = []
-        for link in all_desired:
-            if link['url'] not in seen:
-                seen.add(link['url'])
-                desired_links.append(link)
-
         if not desired_links:
             continue
 
-        existing_urls = _parse_existing_crosslink_urls(p.html_content)
+        new_block = _crosslink_html_block(desired_links)
+        new_html = _replace_crosslink_block(p.html_content, new_block)
 
-        if existing_urls:
-            # ---- 已有互链块：只追加新域名 ----
-            new_links = [ln for ln in desired_links if ln['url'] not in existing_urls]
-            if not new_links:
-                continue  # 无需更新
-            new_items = _crosslink_items_html(new_links)
-            p.html_content = _append_crosslink_items(p.html_content, new_items)
-            new_link_count += len(new_links)
-        else:
-            # ---- 没有互链块：创建完整块 ----
-            p.html_content += _crosslink_html_block(desired_links)
-            new_link_count += len(desired_links)
+        if new_html == p.html_content:
+            continue  # 内容无变化，跳过保存
 
+        p.html_content = new_html
         p.save(update_fields=['html_content', 'updated_time'])
         updated_count += 1
+        new_link_count += len(desired_links)
 
     if updated_count == 0:
         return JsonResponse({
-            'message': '所有页面已是最新，无需追加',
+            'message': '所有页面已是最新，无需更新',
             'updated_count': 0,
             'new_link_count': 0,
             'total_pages': len(pages),
         })
 
     return JsonResponse({
-        'message': f'智能互链完成，已更新 {updated_count} 个页面，新增 {new_link_count} 条链接',
+        'message': f'智能互链完成，已更新 {updated_count} 个页面，共 {new_link_count} 条链接',
         'updated_count': updated_count,
         'new_link_count': new_link_count,
         'total_pages': len(pages),
