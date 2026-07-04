@@ -24,6 +24,24 @@
 .pagination .page-btn.disabled { cursor: not-allowed; opacity: .5; }
 .pagination .page-info { font-size: 13px; color: #999; margin: 0 8px; }
 .loading-mask { padding: 40px; text-align: center; color: #999; }
+.action-dropdown { position: relative; display: inline-block; }
+.action-dropdown .dropdown-menu {
+  display: none; position: absolute; right: 0; top: 100%; z-index: 999;
+  min-width: 140px; background: #fff; border: 1px solid #e6e6e6;
+  border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); padding: 4px 0; margin-top: 2px;
+}
+.action-dropdown.open .dropdown-menu { display: block; }
+.action-dropdown .dropdown-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+  color: #393D49; font-size: 13px; text-decoration: none; transition: background .1s; cursor: pointer;
+}
+.action-dropdown .dropdown-item:hover { background: #f0f7f0; color: #5FB878; }
+.action-dropdown .dropdown-item i { width: 16px; text-align: center; color: #999; font-size: 13px; }
+.action-dropdown .dropdown-item:hover i { color: #5FB878; }
+.action-dropdown .dropdown-item.dropdown-danger { color: #e54d4d; }
+.action-dropdown .dropdown-item.dropdown-danger:hover { background: #fff5f5; color: #e54d4d; }
+.action-dropdown .dropdown-item.dropdown-danger:hover i { color: #e54d4d; }
+.action-dropdown .dropdown-divider { height: 1px; background: #e6e6e6; margin: 4px 0; }
 </style>
 
 <div class="page-list-wrap">
@@ -46,7 +64,7 @@
                 <th style="width:140px;">使用域名</th>
                 <th style="width:130px;">创建时间</th>
                 <th style="width:60px;text-align:center;">互链</th>
-                <th style="width:140px; text-align:center;">操作</th>
+                <th style="width:60px;text-align:center;">操作</th>
             </tr>
         </thead>
         <tbody id="pageTableBody">
@@ -108,10 +126,15 @@
                     html += '<td>' + (p.create_time || '') + '</td>';
                     html += '<td style="text-align:center;"><input type="checkbox" class="crosslink-exclude" data-id="' + p.id + '" lay-skin="primary"' + (p.crosslink_excluded ? ' checked' : '') + '></td>';
                     html += '<td style="text-align:center;">';
-                    html += '<button class="layui-btn layui-btn-xs layui-btn-primary btn-edit-page" data-id="' + p.id + '" title="编辑" style="margin-left:2px;"><i class="fas fa-edit"></i></button>';
-                    html += '<button class="layui-btn layui-btn-xs layui-btn-primary btn-domain" data-id="' + p.id + '" data-domains=\'' + escAttr(JSON.stringify(domains)) + '\' title="域名设置"><i class="fas fa-globe"></i></button>';
-                    html += '<button class="layui-btn layui-btn-xs layui-btn-primary btn-view" data-id="' + p.id + '" title="查看" style="margin-left:2px;"><i class="fas fa-eye"></i></button>';
-                    html += '<button class="layui-btn layui-btn-xs layui-btn-danger btn-del-page" data-id="' + p.id + '" style="margin-left:2px;" title="删除"><i class="fas fa-trash"></i></button>';
+                    html += '<div class="action-dropdown">';
+                    html += '<button class="layui-btn layui-btn-sm layui-btn-primary dropdown-trigger" title="操作" style="font-size:16px;padding:0 10px;line-height:30px;height:30px;"><i class="fas fa-caret-down"></i></button>';
+                    html += '<div class="dropdown-menu">';
+                    html += '<a href="javascript:;" class="dropdown-item btn-edit-page" data-id="' + p.id + '"><i class="fas fa-edit"></i> 编辑</a>';
+                    html += '<a href="javascript:;" class="dropdown-item btn-domain" data-id="' + p.id + '" data-domains=\'' + escAttr(JSON.stringify(domains)) + '\'><i class="fas fa-globe"></i> 域名设置</a>';
+                    html += '<a href="javascript:;" class="dropdown-item btn-view" data-id="' + p.id + '" data-domains=\'' + escAttr(JSON.stringify(domains)) + '\'><i class="fas fa-external-link-alt"></i> 打开</a>';
+                    html += '<div class="dropdown-divider"></div>';
+                    html += '<a href="javascript:;" class="dropdown-item btn-del-page dropdown-danger" data-id="' + p.id + '"><i class="fas fa-trash"></i> 删除</a>';
+                    html += '</div></div>';
                     html += '</td>';
                     html += '</tr>';
                 }
@@ -198,19 +221,6 @@
                     }).catch(function() { layer.close(idx); layer.msg('创建失败', {icon:2}); });
                 });
             },
-        });
-    }
-
-    function openPreview(html, name) {
-        // 用 iframe srcdoc 渲染 HTML，纯预览不出格
-        var iframe = '<iframe srcdoc="' + escAttr(html) + '" style="width:100%;height:100%;border:none;background:#fff;"></iframe>';
-        layer.open({
-            type: 1,
-            title: '预览: ' + name,
-            area: ['1180px', '92%'],
-            offset: 't',
-            shadeClose: true,
-            content: '<div style="height:calc(100vh - 100px);min-height:500px;">' + iframe + '</div>',
         });
     }
 
@@ -365,23 +375,21 @@
     tbody.addEventListener('click', function(e) {
         var btn = e.target.closest('.btn-view');
         if (btn) {
-            var id = parseInt(btn.getAttribute('data-id'));
-            fetch('/xiaoying_admin/api/pages/saved/' + id + '/')
-                .then(function(r) { return r.json(); })
-                .then(function(page) {
-                    var content = '<div style="text-align:right; margin-bottom:8px;">';
-                    content += '<button class="layui-btn layui-btn-sm layui-btn-primary copy-detail-btn"><i class="fas fa-copy"></i> 复制代码</button>';
-                    content += '<button class="layui-btn layui-btn-sm layui-btn-normal preview-detail-btn" style="margin-left:6px;"><i class="fas fa-eye"></i> 预览</button>';
-                    content += '</div><pre style="padding:15px; max-height:480px; overflow:auto; font-size:13px; line-height:1.5; white-space:pre-wrap; word-break:break-all; border:1px solid #eee; border-radius:4px; background:#f9f9f9;">' + escHtml(page.html_content) + '</pre>';
-                    layer.open({
-                        type: 1, title: page.name, area: ['800px', '580px'], shadeClose: true,
-                        content: content,
-                        success: function(layero) {
-                            layero.find('.copy-detail-btn').on('click', function() { copyClip(page.html_content); });
-                            layero.find('.preview-detail-btn').on('click', function() { openPreview(page.html_content, page.name); });
-                        },
-                    });
-                });
+            var domainsStr = btn.getAttribute('data-domains') || '[]';
+            var domains;
+            try { domains = JSON.parse(domainsStr); } catch(e) { domains = []; }
+            if (domains.length === 0) { layer.msg('该页面未绑定域名，无法打开', {icon:0}); return; }
+            var raw = domains[0];
+            // 提取根域名：去掉 *. 和 www. 前缀，只保留二级域名.顶级域名
+            var root = raw.replace(/^\*\.|^www\./i, '');
+            // 去端口（127.0.0.1:8000 保留端口）
+            if (root.indexOf('127.0.0.1') === 0) {
+                // 本地地址保持原样
+            } else if (root.indexOf(':') > 0) {
+                root = root.split(':')[0];
+            }
+            var url = (root.indexOf('://') > 0) ? root : 'https://' + root + '/';
+            window.open(url, '_blank');
             return;
         }
         btn = e.target.closest('.btn-domain');
@@ -457,6 +465,26 @@
             if (resp.error) { layer.msg(resp.error, {icon:2}); cb.checked = !excluded; return; }
             layer.msg(resp.message, {icon:1, time:1000, shadeClose: false});
         }).catch(function() { layer.msg('操作失败', {icon:2}); cb.checked = !excluded; });
+    });
+
+    // 下拉菜单 toggle（事件委托）
+    tbody.addEventListener('click', function(e) {
+        var trigger = e.target.closest('.dropdown-trigger');
+        if (trigger) {
+            e.stopPropagation();
+            var dropdown = trigger.closest('.action-dropdown');
+            // 关闭其他所有下拉
+            document.querySelectorAll('.action-dropdown.open').forEach(function(d) {
+                if (d !== dropdown) d.classList.remove('open');
+            });
+            dropdown.classList.toggle('open');
+            return;
+        }
+    });
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.action-dropdown.open').forEach(function(d) {
+            d.classList.remove('open');
+        });
     });
 
     loadList(1);
