@@ -670,6 +670,10 @@ def api_saved_page_set_domain(request):
 
 import re as _re
 
+# 互链标签常量（前后端保持一致）
+_CROSSLINK_TAG_START = '<!-- ====== 智能互链 ====== -->'
+_CROSSLINK_TAG_END = '<!-- ====== /智能互链 ====== -->'
+
 
 def _extract_root_domain(domain: str) -> str:
     """
@@ -706,22 +710,33 @@ def _extract_root_domain(domain: str) -> str:
     return f'https://{d}/'
 
 
-def _crosslink_html_block(partner_links: list) -> str:
-    """
-    生成合作域名 HTML 块（内联样式，SEO 友好的排版）。
+def _to_attr(s: str) -> str:
+    """HTML 属性转义。"""
+    return str(s).replace('&', '&amp;').replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
 
-    partner_links: [{"url": "https://xxx.com/", "title": "页面名称"}, ...]
-    """
+
+def _crosslink_items_html(partner_links: list) -> str:
+    """生成 <a> 标签行（不含外层包装），供新增/追加共用。"""
     if not partner_links:
         return ''
-    items_html = '\n'.join(
+    return '\n'.join(
         f'      <a href="{_to_attr(p["url"])}" '
         f'title="{_to_attr(p["title"])}" '
         f'rel="friend" target="_blank">{_to_attr(p["title"])}</a>'
         for p in partner_links
     )
+
+
+def _crosslink_html_block(partner_links: list) -> str:
+    """
+    生成完整的互链 HTML 块（含 header + wrapper）。
+    partner_links: [{"url": "https://xxx.com/", "title": "页面名称"}, ...]
+    """
+    items_html = _crosslink_items_html(partner_links)
+    if not items_html:
+        return ''
     return (
-        '\n<!-- ====== 智能互链 ====== -->\n'
+        f'\n{_CROSSLINK_TAG_START}\n'
         '<div style="'
         '  max-width:1200px; margin:40px auto 0; padding:24px 20px 16px;'
         '  border-top:1px solid #e8e8e8; text-align:center;'
@@ -734,21 +749,61 @@ def _crosslink_html_block(partner_links: list) -> str:
         f'{items_html}\n'
         '  </div>\n'
         '</div>\n'
-        '<!-- ====== /智能互链 ====== -->\n'
+        f'{_CROSSLINK_TAG_END}\n'
     )
 
 
-def _to_attr(s: str) -> str:
-    """HTML 属性转义。"""
-    return str(s).replace('&', '&amp;').replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
+def _parse_existing_crosslink_urls(html: str) -> set:
+    """
+    解析页面 HTML 中已有的互链 URL，返回 set。
+
+    通过正则提取 <a href="..."> 中 href 的值。
+    只会扫描 _CROSSLINK_TAG_START .. _CROSSLINK_TAG_END 之间的内容。
+    """
+    start_idx = html.find(_CROSSLINK_TAG_START)
+    end_idx = html.find(_CROSSLINK_TAG_END)
+    if start_idx == -1 or end_idx == -1:
+        return set()
+    block = html[start_idx:end_idx + len(_CROSSLINK_TAG_END)]
+    urls = set()
+    for m in _re.finditer(r'<a\s+[^>]*href="([^"]+)"', block):
+        urls.add(m.group(1))
+    return urls
+
+
+def _append_crosslink_items(html: str, new_items_html: str) -> str:
+    """
+    将新的 <a> 标签行追加到已有的互链块中（插在链接容器 </div> 之前）。
+    如果不存在互链块，返回原 html。
+    """
+    start_idx = html.find(_CROSSLINK_TAG_START)
+    end_idx = html.find(_CROSSLINK_TAG_END)
+    if start_idx == -1 or end_idx == -1:
+        return html
+
+    # 找到容器 div（flex 容器）的闭合 </div>
+    # 从后往前在块内找第一个 </div>
+    container_close = html.rfind('</div>', start_idx, end_idx)
+    if container_close == -1:
+        return html
+
+    before = html[:container_close]
+    after = html[container_close:]
+    return before + '\n' + new_items_html + after
 
 
 @csrf_exempt
 @require_POST
 def api_generate_crosslinks(request):
     """
-    一键生成所有未排除页面的智能互链。
-    遍历每个页面的域名，提取根域名，为每个页面底部追加合作域名列表。
+    增量生成智能互链 —— 保留已有链接，只追加尚未收录的域名。
+
+    行为：
+      1. 遍历所有未排除的页面
+      2. 为每个页面计算"应当链接的所有合作域名"（其他页面的根域名）
+      3. 若页面已存在互链块 → 解析其中已有的 URL，只追加新域名
+      4. 若页面没有互链块 → 创建完整的新块
+      5. 后续新增页面后再点"智能互链"，已有页面只会追加新域名，不会丢失旧链接
     """
     # 1. 获取当前用户可见且未排除的页面
     qs = GeneratedPage.objects.filter(crosslink_excluded=False)
@@ -756,7 +811,7 @@ def api_generate_crosslinks(request):
     pages = list(qs)
 
     # 2. 构建 {page_id: {根域名集合}}
-    page_root_domains = {}  # page_id -> set of root domains
+    page_root_domains = {}
     for p in pages:
         domains = set()
         for d in (p.domains or []):
@@ -766,55 +821,71 @@ def api_generate_crosslinks(request):
             domains.add(_extract_root_domain(p.domain))
         page_root_domains[p.id] = domains
 
-    # 3. 构建 {根域名 → page_name} 映射（用于 link title）
+    # 3. 构建 {根域名 → page_name} 映射
     root_to_page = {}
     for p in pages:
         for rd in page_root_domains.get(p.id, set()):
             root_to_page[rd] = p.name
 
-    # 4. 为每个页面生成合作域名列表（排除自身）
+    # 4. 为每个页面增量追加互链
     updated_count = 0
+    new_link_count = 0
     for p in pages:
         own_domains = page_root_domains.get(p.id, set())
-        partner_links = []
+
+        # 计算"应当出现的所有合作域名"
+        all_desired = []
         for other_p in pages:
             if other_p.id == p.id:
                 continue
             for rd in page_root_domains.get(other_p.id, set()):
                 if rd not in own_domains:
-                    partner_links.append({
+                    all_desired.append({
                         'url': rd,
                         'title': root_to_page.get(rd, other_p.name),
                     })
-        # 去重
+
+        # 去重（按 url）
         seen = set()
-        unique_links = []
-        for link in partner_links:
+        desired_links = []
+        for link in all_desired:
             if link['url'] not in seen:
                 seen.add(link['url'])
-                unique_links.append(link)
+                desired_links.append(link)
 
-        if unique_links:
-            block = _crosslink_html_block(unique_links)
-            # 如果已有智能互链块，替换它；否则追加
-            start_tag = '<!-- ====== 智能互链 ====== -->'
-            end_tag = '<!-- ====== /智能互链 ====== -->'
-            start_idx = p.html_content.find(start_tag)
-            end_idx = p.html_content.find(end_tag)
-            if start_idx != -1 and end_idx != -1:
-                # 替换旧块（含结束标记之后的换行）
-                after_end = end_idx + len(end_tag)
-                if after_end < len(p.html_content) and p.html_content[after_end] == '\n':
-                    after_end += 1
-                p.html_content = p.html_content[:start_idx] + block + p.html_content[after_end:]
-            else:
-                p.html_content += block
-            p.save(update_fields=['html_content', 'updated_time'])
-            updated_count += 1
+        if not desired_links:
+            continue
+
+        existing_urls = _parse_existing_crosslink_urls(p.html_content)
+
+        if existing_urls:
+            # ---- 已有互链块：只追加新域名 ----
+            new_links = [ln for ln in desired_links if ln['url'] not in existing_urls]
+            if not new_links:
+                continue  # 无需更新
+            new_items = _crosslink_items_html(new_links)
+            p.html_content = _append_crosslink_items(p.html_content, new_items)
+            new_link_count += len(new_links)
+        else:
+            # ---- 没有互链块：创建完整块 ----
+            p.html_content += _crosslink_html_block(desired_links)
+            new_link_count += len(desired_links)
+
+        p.save(update_fields=['html_content', 'updated_time'])
+        updated_count += 1
+
+    if updated_count == 0:
+        return JsonResponse({
+            'message': '所有页面已是最新，无需追加',
+            'updated_count': 0,
+            'new_link_count': 0,
+            'total_pages': len(pages),
+        })
 
     return JsonResponse({
-        'message': f'智能互链完成，已更新 {updated_count} 个页面',
+        'message': f'智能互链完成，已更新 {updated_count} 个页面，新增 {new_link_count} 条链接',
         'updated_count': updated_count,
+        'new_link_count': new_link_count,
         'total_pages': len(pages),
     })
 

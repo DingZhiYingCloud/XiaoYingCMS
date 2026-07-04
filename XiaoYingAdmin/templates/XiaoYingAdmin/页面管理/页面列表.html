@@ -430,12 +430,13 @@
     // 新增页面
     document.getElementById('btnCreatePage').addEventListener('click', openCreatePage);
 
-    // 智能互链
+    // 智能互链（增量追加模式）
     document.getElementById('btnCrosslink').addEventListener('click', function() {
         layer.confirm(
-            '将遍历所有<strong>未排除</strong>的页面，提取根域名并为每个页面底部追加合作域名链接。<br>' +
+            '遍历所有<strong>未排除</strong>的页面，为每个页面<strong>追加</strong>尚未收录的合作域名链接。<br>' +
+            '已有链接会完整保留，已有新页面加入时再次点击即可补充。<br>' +
             '<span style="color:#FF9800;font-size:12px;">此操作不可撤销，请确认已备份重要数据。</span>',
-            { icon: 3, title: '智能互链', btn: ['开始生成', '取消'] },
+            { icon: 3, title: '智能互链（增量追加）', btn: ['开始追加', '取消'] },
             function(index) {
                 layer.close(index);
                 var idx = layer.load(1, { shade: [0.3, '#000'] });
@@ -445,7 +446,7 @@
                 }).then(function(r) { return r.json(); }).then(function(resp) {
                     layer.close(idx);
                     if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
-                    layer.msg(resp.message, {icon:1, time:2000});
+                    layer.msg(resp.message, {icon:1, time:2500});
                 }).catch(function() { layer.close(idx); layer.msg('网络错误', {icon:2}); });
             }
         );
