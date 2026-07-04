@@ -21,6 +21,7 @@
 .toggle-switch .slider::after { content: ''; position: absolute; width: 18px; height: 18px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: transform .25s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
 .toggle-switch input:checked + .slider { background: #5FB878; }
 .toggle-switch input:checked + .slider::after { transform: translateX(16px); }
+.prompt-mgr .list-scroll { max-height: 480px; overflow-y: auto; overflow-x: hidden; }
 </style>
 
 <div class="prompt-mgr">
@@ -31,7 +32,7 @@
             <button class="layui-btn layui-btn-sm" id="btn-new-prompt"><i class="fas fa-plus"></i> 新建版本</button>
         </div>
     </div>
-    <div id="prompt-list-container">
+    <div id="prompt-list-container" class="list-scroll">
         <p style="padding: 20px; text-align: center; color: #999;">加载中...</p>
     </div>
 </div>

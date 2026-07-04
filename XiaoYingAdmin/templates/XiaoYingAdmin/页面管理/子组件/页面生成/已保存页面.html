@@ -14,6 +14,7 @@
 .saved-page-item .delete-btn { flex-shrink: 0; margin-left: 8px; display: none; }
 .saved-page-item:hover .delete-btn { display: inline-block; }
 .saved-empty { padding: 30px; text-align: center; color: #999; }
+.saved-pages .list-scroll { max-height: 480px; overflow-y: auto; overflow-x: hidden; }
 </style>
 
 <div class="saved-pages" id="saved-pages-widget">
@@ -21,7 +22,7 @@
         <h3><i class="fas fa-archive"></i> 已保存页面</h3>
         <button class="layui-btn layui-btn-sm layui-btn-primary" id="btn-refresh-saved"><i class="fas fa-sync-alt"></i> 刷新</button>
     </div>
-    <div id="saved-pages-list"></div>
+    <div id="saved-pages-list" class="list-scroll"></div>
 </div>
 
 <script>
