@@ -74,7 +74,10 @@ REDIRECT_CODE_CHOICES = [(code, f"{code} — {label}") for code, label, _ in RED
 
 class SeoCloakRule(models.Model):
     """
-    斗篷伪装全局规则配置（单例模式，始终只有一条记录）。
+    斗篷伪装规则配置。
+
+    新增 domain 字段后，支持为不同域名配置不同的斗篷规则。
+    domain='' 表示全局默认规则（兜底）。
 
     核心逻辑（与 规则.js 一致）：
       1. is_spider()      — User-Agent 匹配爬虫关键字
@@ -91,6 +94,14 @@ class SeoCloakRule(models.Model):
       4. 当 action=redirect 时，结合 redirect_status_code 和各场景
          的 redirect_url 执行对应 HTTP 状态码跳转。
     """
+
+    # ===== 绑定域名（空字符串 = 全局默认规则） =====
+    domain = models.CharField(
+        max_length=255, blank=True, default='', unique=True,
+        verbose_name='绑定域名',
+        help_text='空字符串表示全局默认规则。填写具体域名（如 example.com）则仅对该域名生效。'
+                  '中间件匹配顺序：精确域名 → 全局默认规则。',
+    )
 
     # ===== 开关 =====
     is_enabled = models.BooleanField(default=False, verbose_name='启用斗篷伪装')
@@ -174,9 +185,12 @@ class SeoCloakRule(models.Model):
     class Meta:
         verbose_name = '斗篷伪装规则'
         verbose_name_plural = verbose_name
+        ordering = ['domain']
 
     def __str__(self):
-        return f'斗篷伪装规则 {"✅ 已启用" if self.is_enabled else "❌ 未启用"}'
+        label = self.domain or '(全局默认规则)'
+        status = '✅ 已启用' if self.is_enabled else '❌ 未启用'
+        return f'{label} — {status}'
 
     # ------------------------------------------------------------------
     # 工具方法
@@ -249,24 +263,49 @@ class SeoCloakRule(models.Model):
 
     @classmethod
     def get_singleton(cls):
-        """获取全局唯一的配置记录。如果不存在则自动创建（使用默认值）。"""
-        obj, _ = cls.objects.get_or_create(pk=1, defaults={
+        """获取全局默认规则（domain=''）。如果不存在则自动创建。"""
+        obj, _ = cls.objects.get_or_create(domain='', defaults={
             'search_engines': json.dumps(DEFAULT_SEARCH_ENGINES, ensure_ascii=False),
             'spider_keywords': json.dumps(DEFAULT_SPIDER_KEYWORDS, ensure_ascii=False),
         })
         return obj
 
+    @classmethod
+    def get_for_domain(cls, domain: str):
+        """
+        获取指定域名对应的斗篷规则。
+
+        匹配顺序：
+          1. 精确匹配 domain 字段（保留端口）
+          2. 去除端口再次匹配
+          3. 降级到全局默认规则（domain=''）
+        """
+        if domain:
+            # 先尝试精确匹配（含端口）
+            rule = cls.objects.filter(domain=domain).first()
+            if rule:
+                return rule
+            # 无匹配时去端口再试
+            clean = domain.split(':')[0]
+            if clean != domain:
+                rule = cls.objects.filter(domain=clean).first()
+                if rule:
+                    return rule
+        return cls.get_singleton()
+
     def save(self, *args, **kwargs):
-        self.pk = 1  # 强制使用主键 1 实现单例
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        pass  # 禁止删除，只允许禁用
+        if not self.domain:
+            return  # 禁止删除默认规则
+        super().delete(*args, **kwargs)
 
     def to_dict(self):
         """序列化为字典（供 API 返回）。"""
         return {
             'id': self.pk,
+            'domain': self.domain,
             'is_enabled': self.is_enabled,
             'search_engines': self.get_search_engines(),
             'spider_keywords': self.get_spider_keywords(),

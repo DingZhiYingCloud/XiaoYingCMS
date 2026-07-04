@@ -55,8 +55,9 @@ class SeoCloakMiddleware:
         if request.path.startswith('/xiaoying_admin/'):
             return self.get_response(request)
 
-        # === 2. 读取配置 ===
-        rule = SeoCloakRule.get_singleton()
+        # === 2. 获取当前请求域名对应的规则 ===
+        host = request.get_host()  # 保留端口，让 get_for_domain 精确匹配
+        rule = SeoCloakRule.get_for_domain(host)
         if not rule.is_enabled:
             return self.get_response(request)
 

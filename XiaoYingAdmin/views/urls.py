@@ -11,7 +11,10 @@ from XiaoYingAdmin.views.auth import (
     login_log_view, login_log_list_api,
     operation_log_view, operation_log_list_api,
 )
-from XiaoYingAdmin.views.seo.blackhat.cloak import seo_cloak_view, seo_cloak_config_save
+from XiaoYingAdmin.views.seo.blackhat.cloak import (
+    seo_cloak_view, seo_cloak_config_save,
+    seo_cloak_api_list, seo_cloak_api_get, seo_cloak_api_delete,
+)
 from XiaoYingAdmin.views.spider.logs import (
     spider_logs_view,
     spider_logs_api_list,
@@ -83,6 +86,9 @@ urlpatterns = [
     # SEO：斗篷伪装（黑帽）
     path('seo/cloak/', seo_cloak_view, name='seo_cloak'),
     path('seo/cloak/api/config/save/', seo_cloak_config_save, name='seo_cloak_config_save'),
+    path('seo/cloak/api/rules/', seo_cloak_api_list, name='seo_cloak_api_list'),
+    path('seo/cloak/api/rules/<int:pk>/', seo_cloak_api_get, name='seo_cloak_api_get'),
+    path('seo/cloak/api/rules/<int:pk>/delete/', seo_cloak_api_delete, name='seo_cloak_api_delete'),
 
     # AJAX API: 已保存页面
     path('api/pages/saved/', admin_request.api_saved_pages, name='api_saved_pages'),

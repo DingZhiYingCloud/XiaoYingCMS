@@ -6,7 +6,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from XiaoYingAdmin.common.http import err, parse_json_body
-from XiaoYingAdmin.models.seo_cloak import SeoCloakRule, ACTION_CHOICES, REDIRECT_CODE_CHOICES
+from XiaoYingAdmin.models.seo_cloak import SeoCloakRule, ACTION_CHOICES, REDIRECT_CHOICES, REDIRECT_CODE_CHOICES
+
+# 默认每页条数
+DEFAULT_PAGE_SIZE = 15
 
 
 # =============================================================================
@@ -21,15 +24,87 @@ def seo_cloak_view(request):
     对爬虫展示精心优化的 SEO 内容，对真实用户展示正常页面，
     从而在搜索引擎中获得更高排名。
     """
-    config = SeoCloakRule.get_singleton()
+    all_rules = SeoCloakRule.objects.all()
+    action_choices_list = [{'value': v, 'label': l} for v, l in ACTION_CHOICES]
+    redirect_choices_list = [
+        {'code': code, 'label': label, 'desc': desc}
+        for code, label, desc in REDIRECT_CHOICES
+    ]
     return render(request, 'XiaoYingAdmin/黑帽SEO/斗篷伪装/index.html', {
-        'config': config.to_dict(),
+        'rules': [r.to_dict() for r in all_rules],
+        'config': SeoCloakRule.get_singleton().to_dict(),
+        'action_choices': action_choices_list,
+        'redirect_choices': redirect_choices_list,
+        'action_choices_json': json.dumps(action_choices_list, ensure_ascii=False),
+        'redirect_choices_json': json.dumps(redirect_choices_list, ensure_ascii=False),
+        'default_page_size': DEFAULT_PAGE_SIZE,
     })
 
 
+
 # =============================================================================
-# AJAX API: 配置管理
+# AJAX API: 规则 CRUD
 # =============================================================================
+
+def seo_cloak_api_list(request):
+    """
+    返回规则列表（支持分页、搜索、筛选）。
+
+    GET 参数：
+      page      — 页码（从 1 开始，默认 1）
+      page_size — 每页条数（默认 15）
+      search    — 域名搜索关键字
+      enabled   — 状态筛选：'all'（全部）, 'enabled'（启用）, 'disabled'（禁用）
+    """
+    qs = SeoCloakRule.objects.all()
+
+    # 搜索
+    search = request.GET.get('search', '').strip()
+    if search:
+        qs = qs.filter(domain__icontains=search)
+
+    # 筛选
+    enabled_filter = request.GET.get('enabled', 'all')
+    if enabled_filter == 'enabled':
+        qs = qs.filter(is_enabled=True)
+    elif enabled_filter == 'disabled':
+        qs = qs.filter(is_enabled=False)
+
+    # 分页
+    try:
+        page = max(1, int(request.GET.get('page', 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        page_size = max(1, min(100, int(request.GET.get('page_size', DEFAULT_PAGE_SIZE))))
+    except (ValueError, TypeError):
+        page_size = DEFAULT_PAGE_SIZE
+
+    total = qs.count()
+    total_pages = max(1, -(-total // page_size))  # 向上取整
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    rules_page = qs[start:end]
+
+    return JsonResponse({
+        'ok': True,
+        'rules': [r.to_dict() for r in rules_page],
+        'page': page,
+        'page_size': page_size,
+        'total': total,
+        'total_pages': total_pages,
+    })
+
+
+def seo_cloak_api_get(request, pk):
+    """获取单条规则详情。"""
+    try:
+        rule = SeoCloakRule.objects.get(pk=pk)
+    except SeoCloakRule.DoesNotExist:
+        return err('规则不存在')
+    return JsonResponse({'ok': True, 'config': rule.to_dict()})
+
 
 @csrf_exempt
 @require_POST
@@ -39,26 +114,31 @@ def seo_cloak_config_save(request):
 
     请求: application/json
       {
+        "id": null | int,          // 不传或 null 则新增，传则更新
+        "domain": "example.com",  // 空字符串 = 全局默认规则
         "is_enabled": true,
         "search_engines": "[\"google.\", \"bing.\"]",
         "spider_keywords": "[\"googlebot\", \"bingbot\"]",
-        "spider_action": "redirect",
-        "search_action": "show_cloak",
-        "direct_action": "pass_through",
-        "redirect_status_code": 301,
-        "spider_redirect_url": "https://example.com/seo-page",
-        "search_redirect_url": "https://example.com/cloak-page",
-        "direct_redirect_url": "",
-        "whitelist_paths": "/api/\n/static/",
-        "seo_content": "<html>SEO content</html>",
-        "cloak_content": "<html>Cloak content</html>"
+        ...
       }
     """
     body, error = parse_json_body(request)
     if error is not None:
         return error
 
-    rule = SeoCloakRule.get_singleton()
+    rule_id = body.get('id')
+    domain = (body.get('domain') or '').strip().lower()
+
+    if rule_id:
+        try:
+            rule = SeoCloakRule.objects.get(pk=rule_id)
+        except SeoCloakRule.DoesNotExist:
+            return err('规则不存在')
+    else:
+        # 新增：检查 domain 是否已存在
+        if SeoCloakRule.objects.filter(domain=domain).exists():
+            return err(f'域名 "{domain}" 的规则已存在')
+        rule = SeoCloakRule(domain=domain)
 
     # 开关
     if 'is_enabled' in body:
@@ -117,3 +197,19 @@ def seo_cloak_config_save(request):
         'message': '配置已保存',
         'config': rule.to_dict(),
     })
+
+
+@csrf_exempt
+@require_POST
+def seo_cloak_api_delete(request, pk):
+    """删除指定规则（不允许删除默认规则）。"""
+    try:
+        rule = SeoCloakRule.objects.get(pk=pk)
+    except SeoCloakRule.DoesNotExist:
+        return err('规则不存在')
+
+    if not rule.domain:
+        return err('不能删除全局默认规则')
+
+    rule.delete()
+    return JsonResponse({'message': '规则已删除'})
