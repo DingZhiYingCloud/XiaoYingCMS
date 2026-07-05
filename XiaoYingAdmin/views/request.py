@@ -143,28 +143,39 @@ def site_settings_view(request):
     user_config = UserConfig.get_singleton()
 
     if request.method == 'POST':
-        settings.statistics_code = request.POST.get('statistics_code', '') or ''
-        settings.is_active = request.POST.get('is_active') == 'on'
-        # 备份阈值
-        try:
-            spider_th = int(request.POST.get('auto_backup_spider_threshold', 0))
-        except (TypeError, ValueError):
-            spider_th = 0
-        try:
-            oper_th = int(request.POST.get('auto_backup_operation_threshold', 0))
-        except (TypeError, ValueError):
-            oper_th = 0
-        settings.auto_backup_spider_threshold = max(0, spider_th)
-        settings.auto_backup_operation_threshold = max(0, oper_th)
-        settings.save(update_fields=[
-            'statistics_code', 'is_active',
-            'auto_backup_spider_threshold', 'auto_backup_operation_threshold',
-            'updated_time',
-        ])
+        update_fields = []
 
-        # 用户系统配置
-        user_config.registration_enabled = request.POST.get('registration_enabled') == 'on'
-        user_config.save(update_fields=['registration_enabled', 'updated_time'])
+        # 判断提交的是哪个表单：统计代码表单始终包含 statistics_code 字段
+        if 'statistics_code' in request.POST:
+            settings.statistics_code = request.POST.get('statistics_code', '') or ''
+            # layui switch 关闭时不提交值，需显式处理：不存在即 False
+            settings.is_active = request.POST.get('is_active') == 'on'
+            update_fields.extend(['statistics_code', 'is_active'])
+
+        # 判断提交的是备份配置表单：始终包含 auto_backup_spider_threshold 字段
+        if 'auto_backup_spider_threshold' in request.POST:
+            try:
+                spider_th = int(request.POST.get('auto_backup_spider_threshold', 0))
+            except (TypeError, ValueError):
+                spider_th = 0
+            settings.auto_backup_spider_threshold = max(0, spider_th)
+            update_fields.append('auto_backup_spider_threshold')
+
+            try:
+                oper_th = int(request.POST.get('auto_backup_operation_threshold', 0))
+            except (TypeError, ValueError):
+                oper_th = 0
+            settings.auto_backup_operation_threshold = max(0, oper_th)
+            update_fields.append('auto_backup_operation_threshold')
+
+        if update_fields:
+            update_fields.append('updated_time')
+            settings.save(update_fields=update_fields)
+
+        # 判断提交的是用户系统配置表单
+        if 'registration_enabled' in request.POST:
+            user_config.registration_enabled = request.POST.get('registration_enabled') == 'on'
+            user_config.save(update_fields=['registration_enabled', 'updated_time'])
 
         return redirect(reverse('site_settings') + '?saved=1')
 
