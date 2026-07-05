@@ -13,7 +13,7 @@ from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from XiaoYingAdmin.common.http import get_client_ip
 from XiaoYingAdmin.models.user import User
@@ -21,6 +21,10 @@ from XiaoYingAdmin.models.user_config import UserConfig
 from XiaoYingAdmin.models.login_log import LoginLog
 from XiaoYingAdmin.models.operation_log import OperationLog
 from XiaoYingAdmin.middleware.operation_log import log_operation
+from XiaoYingAdmin.utils.backup import backup_model, list_backup_files, restore_model_from_file, get_backup_dir
+
+import json
+import os
 
 
 # =============================================================================
@@ -632,6 +636,93 @@ def login_log_list_api(request):
         'total': total,
         'data': data,
     })
+
+
+@login_required
+@csrf_exempt
+@require_POST
+def operation_log_backup_api(request):
+    """操作日志备份 API"""
+    if not request.user.is_superuser:
+        return JsonResponse({'ok': False, 'error': '权限不足'})
+
+    import json
+    try:
+        body = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        body = {}
+    action = body.get('action', 'backup')
+
+    total = OperationLog.objects.count()
+    if total == 0:
+        return JsonResponse({'ok': False, 'error': '没有日志可备份', 'count': 0})
+
+    try:
+        result = backup_model(OperationLog, 'op_logs')
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': f'备份失败: {e}'})
+
+    if action == 'backup_and_delete':
+        OperationLog.objects.all().delete()
+
+    return JsonResponse({
+        'ok': True,
+        'message': f'备份成功，共 {result["count"]} 条',
+        'result': {
+            'filename': result['filename'],
+            'count': result['count'],
+            'size_str': result['size_str'],
+        },
+        'deleted': action == 'backup_and_delete',
+    })
+
+
+@login_required
+@csrf_exempt
+@require_POST
+def operation_log_restore_api(request):
+    """操作日志恢复 API"""
+    if not request.user.is_superuser:
+        return JsonResponse({'ok': False, 'error': '权限不足'})
+
+    import json
+    try:
+        body = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        return JsonResponse({'ok': False, 'error': '无效的 JSON'})
+
+    filename = (body.get('filename') or '').strip()
+    if not filename:
+        return JsonResponse({'ok': False, 'error': '请指定备份文件名'})
+
+    backup_dir = get_backup_dir()
+    filepath = os.path.join(backup_dir, filename)
+    if not os.path.isfile(filepath):
+        return JsonResponse({'ok': False, 'error': f'备份文件不存在: {filename}'})
+
+    overwrite = body.get('overwrite', False)
+    if overwrite:
+        OperationLog.objects.all().delete()
+
+    result = restore_model_from_file(filepath, OperationLog)
+    if not result['success']:
+        return JsonResponse({'ok': False, 'error': result.get('error', '恢复失败')})
+
+    return JsonResponse({
+        'ok': True,
+        'message': f'恢复完成：成功导入 {result["imported"]} 条',
+        'result': result,
+    })
+
+
+@login_required
+@require_GET
+def operation_log_backup_list_api(request):
+    """获取操作日志备份文件列表"""
+    if not request.user.is_superuser:
+        return JsonResponse({'ok': False, 'error': '权限不足'})
+    files = list_backup_files('op_logs')
+    return JsonResponse({'ok': True, 'files': files})
 
 
 # =============================================================================

@@ -10,6 +10,8 @@ from XiaoYingAdmin.models.user_config import UserConfig
 from XiaoYingAdmin.models.login_log import LoginLog
 from XiaoYingAdmin.models.operation_log import OperationLog
 from XiaoYingAdmin.models.firewall import FirewallRule
+from XiaoYingAdmin.models.static_file_route import StaticFileRoute
+from XiaoYingAdmin.models.page_category import PageCategory
 
 __all__ = [
     'BaseModel',
@@ -25,4 +27,6 @@ __all__ = [
     'LoginLog',
     'OperationLog',
     'FirewallRule',
+    'StaticFileRoute',
+    'PageCategory',
 ]

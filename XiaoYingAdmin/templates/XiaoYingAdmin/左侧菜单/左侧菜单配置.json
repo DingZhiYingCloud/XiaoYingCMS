@@ -56,22 +56,30 @@
     ]
   },
   {
-    "name": "单页面管理",
+    "name": "页面管理",
     "icon": "",
     "url": "",
     "children": [
       {
-        "name": "页面生成",
+        "name": "单页面管理",
         "icon": "",
-        "url": "/xiaoying_admin/pages/generate/",
-        "children": []
-      },
-      {
-        "name": "页面列表",
-        "icon": "",
-        "url": "/xiaoying_admin/pages/list/",
-        "children": []
+        "url": "",
+        "children": [
+          {
+            "name": "页面生成",
+            "icon": "",
+            "url": "/xiaoying_admin/pages/generate/",
+            "children": []
+          },
+          {
+            "name": "页面列表",
+            "icon": "",
+            "url": "/xiaoying_admin/pages/list/",
+            "children": []
+          }
+        ]
       }
+
     ]
   },
   {
@@ -121,6 +129,12 @@
         "name": "防火墙",
         "icon": "",
         "url": "/xiaoying_admin/firewall/",
+        "children": []
+      },
+      {
+        "name": "静态文件路由",
+        "icon": "",
+        "url": "/xiaoying_admin/static-file/",
         "children": []
       }
     ]

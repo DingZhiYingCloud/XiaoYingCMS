@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.conf import settings as django_settings
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
 
@@ -144,7 +145,22 @@ def site_settings_view(request):
     if request.method == 'POST':
         settings.statistics_code = request.POST.get('statistics_code', '') or ''
         settings.is_active = request.POST.get('is_active') == 'on'
-        settings.save(update_fields=['statistics_code', 'is_active', 'updated_time'])
+        # 备份阈值
+        try:
+            spider_th = int(request.POST.get('auto_backup_spider_threshold', 0))
+        except (TypeError, ValueError):
+            spider_th = 0
+        try:
+            oper_th = int(request.POST.get('auto_backup_operation_threshold', 0))
+        except (TypeError, ValueError):
+            oper_th = 0
+        settings.auto_backup_spider_threshold = max(0, spider_th)
+        settings.auto_backup_operation_threshold = max(0, oper_th)
+        settings.save(update_fields=[
+            'statistics_code', 'is_active',
+            'auto_backup_spider_threshold', 'auto_backup_operation_threshold',
+            'updated_time',
+        ])
 
         # 用户系统配置
         user_config.registration_enabled = request.POST.get('registration_enabled') == 'on'
@@ -156,6 +172,8 @@ def site_settings_view(request):
         'site_settings': settings,
         'user_config': user_config,
         'saved': request.GET.get('saved') == '1',
+        'spider_total': SpiderAccessLog.objects.count(),
+        'backup_dir': getattr(django_settings, 'BACKUP_DIR', 'backups'),
     })
 
 

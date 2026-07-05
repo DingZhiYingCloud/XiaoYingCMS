@@ -4,6 +4,7 @@
 URL: /xiaoying_admin/spider/logs/
 """
 import csv
+import os
 from datetime import timedelta
 
 from django.db.models import Count
@@ -20,6 +21,7 @@ from XiaoYingAdmin.common.http import err
 from XiaoYingAdmin.models.seo_cloak import SeoCloakRule
 from XiaoYingAdmin.models.spider_log import SpiderAccessLog, SpiderLogConfig
 from XiaoYingAdmin.models.firewall import FirewallRule
+from XiaoYingAdmin.utils.backup import backup_model, list_backup_files, restore_model_from_file, get_backup_dir
 
 
 PAGE_SIZE = 10  # 每页条数（默认 10，可在请求参数 ?page_size= 覆盖）
@@ -542,6 +544,94 @@ def spider_logs_api_clear(request):
         return err('请二次确认后清空（需传 confirm=yes）')
     deleted, _ = SpiderAccessLog.objects.all().delete()
     return JsonResponse({'message': f'已清空 {deleted} 条记录', 'deleted': deleted})
+
+
+@csrf_exempt
+@require_POST
+def spider_logs_api_backup(request):
+    """
+    POST /xiaoying_admin/spider/logs/api/backup/
+    Body: {"action": "backup"} 或 {"action": "backup_and_delete"}
+    """
+    import json
+    try:
+        body = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        body = {}
+
+    action = body.get('action', 'backup')
+
+    # 执行备份
+    total = SpiderAccessLog.objects.count()
+    if total == 0:
+        return JsonResponse({'error': '没有日志可备份', 'count': 0})
+
+    try:
+        result = backup_model(SpiderAccessLog, 'spider_logs')
+    except Exception as e:
+        return err(f'备份失败: {e}')
+
+    # 备份后删除
+    if action == 'backup_and_delete':
+        SpiderAccessLog.objects.all().delete()
+
+    return JsonResponse({
+        'message': f'备份成功，共 {result["count"]} 条',
+        'result': {
+            'filename': result['filename'],
+            'count': result['count'],
+            'size_str': result['size_str'],
+        },
+        'deleted': action == 'backup_and_delete',
+    })
+
+
+# ===== 蜘蛛日志备份列表 & 恢复 =====
+
+@require_GET
+def spider_logs_api_backup_list(request):
+    """获取可用的蜘蛛日志备份文件列表"""
+    files = list_backup_files('spider_logs')
+    return JsonResponse({'files': files})
+
+
+@csrf_exempt
+@require_POST
+def spider_logs_api_restore(request):
+    """从备份文件恢复蜘蛛日志
+
+    POST body: {"filename": "spider_logs_20260705_102541.jsonl"}
+    """
+    import json
+    try:
+        body = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        return JsonResponse({'error': '无效的 JSON'})
+
+    filename = (body.get('filename') or '').strip()
+    if not filename:
+        return JsonResponse({'error': '请指定备份文件名'})
+
+    backup_dir = get_backup_dir()
+    filepath = os.path.join(backup_dir, filename)
+    if not os.path.isfile(filepath):
+        return JsonResponse({'error': f'备份文件不存在: {filename}'})
+
+    # 确认是否删除现有数据后再恢复
+    overwrite = body.get('overwrite', False)
+
+    if overwrite:
+        SpiderAccessLog.objects.all().delete()
+
+    result = restore_model_from_file(filepath, SpiderAccessLog)
+
+    if not result['success']:
+        return JsonResponse({'error': result.get('error', '恢复失败')})
+
+    return JsonResponse({
+        'message': f'恢复完成：成功导入 {result["imported"]} 条',
+        'result': result,
+    })
 
 
 @require_GET

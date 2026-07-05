@@ -6,6 +6,48 @@
 
 {% include 'XiaoYingAdmin/核心设置/子组件/网站设置/全局代码统计.html' %}
 
+{# 备份配置 #}
+<div class="site-section" style="margin-top:20px;">
+    <div class="site-section-header">
+        <h3>自动备份配置</h3>
+        <span class="section-desc">设置日志自动备份阈值，达到数量后自动备份并清空数据库（0=关闭自动备份）</span>
+    </div>
+    <div class="site-section-body">
+        <form class="layui-form" method="post" action="">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <label class="layui-form-label" style="width:180px;">蜘蛛日志备份阈值</label>
+                <div class="layui-input-inline" style="width:120px;">
+                    <input type="number" name="auto_backup_spider_threshold"
+                           class="layui-input" min="0" step="1000"
+                           value="{{ site_settings.auto_backup_spider_threshold|default:0 }}">
+                </div>
+                <div class="layui-form-mid layui-word-aux">条</div>
+                <div style="font-size:12px; color:#999; margin-left:10px; line-height:38px;">
+                    <i class="fas fa-info-circle"></i> 当前日志：<strong>{{ spider_total }}</strong> 条
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label" style="width:180px;">操作日志备份阈值</label>
+                <div class="layui-input-inline" style="width:120px;">
+                    <input type="number" name="auto_backup_operation_threshold"
+                           class="layui-input" min="0" step="1000"
+                           value="{{ site_settings.auto_backup_operation_threshold|default:0 }}">
+                </div>
+                <div class="layui-form-mid layui-word-aux">条</div>
+                <div style="font-size:12px; color:#999; margin-left:10px; line-height:38px;">
+                    <i class="fas fa-info-circle"></i> 备份目录：<code style="background:#f6f6f6; padding:1px 6px; border-radius:3px;">{{ backup_dir }}</code>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block" style="margin-left:180px;">
+                    <button class="layui-btn" lay-submit>保存配置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 {# 用户系统配置 #}
 <div class="site-section" style="margin-top:20px;">
     <div class="site-section-header">

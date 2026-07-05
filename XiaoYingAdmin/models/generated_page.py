@@ -62,6 +62,12 @@ class GeneratedPage(BaseModel):
         default=False,
         help_text='勾选后，该页面不参与智能互链，其他页面也不会链接到它',
     )
+    categories = models.ManyToManyField(
+        'PageCategory',
+        blank=True,
+        verbose_name='所属分类',
+        help_text='页面可属于多个自定义分类',
+    )
 
     class Meta:
         verbose_name = '已保存页面'
@@ -90,6 +96,7 @@ class GeneratedPage(BaseModel):
             'created_by': self.created_by.username if self.created_by else None,
             'created_by_id': self.created_by_id,
             'crosslink_excluded': self.crosslink_excluded,
+            'category_ids': list(self.categories.values_list('id', flat=True)) if self.pk else [],
         }
         if with_html:
             data['html_content'] = self.html_content

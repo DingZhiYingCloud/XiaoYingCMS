@@ -37,6 +37,7 @@ MIDDLEWARE = [
     'XiaoYingAdmin.middleware.firewall.FirewallMiddleware', # 防火墙：放在最外层（洋葱模型最外层），IP/页面黑名单拦截优先于所有中间件
     'XiaoYingAdmin.middleware.spider_log.SpiderLogMiddleware', # 蜘蛛日志：放在最外层（洋葱模型 response 阶段最后处理），即便 SeoCloak/DomainBind 短路 return response 也能被记录
     'XiaoYingAdmin.middleware.statistics_code.StatisticsCodeMiddleware', # 统计代码注入：必须放在最前面！响应阶段是反向洋葱模型，SeoCloak/DomainBind 直接 return HttpResponse 会短路后续中间件。放最前面可保证它们的 response 也能被注入
+    'XiaoYingAdmin.middleware.static_file_serve.StaticFileServeMiddleware', # 静态文件路由：白名单路径→根目录文件映射，在斗篷/域名绑定之前处理
     'XiaoYingAdmin.middleware.seo_cloak.SeoCloakMiddleware', # 斗篷伪装：先按 UA/Referer 决定是否替换/重定向（必须在 DomainBind 之前，否则被截胡）
     'XiaoYingAdmin.middleware.domain_bind.DomainBindMiddleware', # 域名绑定：斗篷未处理时，按域名匹配渲染已绑定页面
     'django.contrib.sessions.middleware.SessionMiddleware', # 实现 Django 会话（Session）机制，维护用户服务端状态。
@@ -150,3 +151,8 @@ VERSION = os.getenv('VERSION', '1.0.0')
 
 # API地址: 本框架采用小影API服务
 XIAOYING_API_URL = os.getenv('API_URL', 'http://127.0.0.1:8000')
+
+# 备份目录（可自定义绝对路径，如 D:/backups）
+BACKUP_DIR = os.getenv('BACKUP_DIR', 'backups')
+if not os.path.isabs(BACKUP_DIR):
+    BACKUP_DIR = os.path.join(str(BASE_DIR), BACKUP_DIR)

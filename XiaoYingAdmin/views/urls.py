@@ -9,7 +9,7 @@ from XiaoYingAdmin.views.auth import (
     user_toggle_active_api, user_delete_api,
     user_info_api,
     login_log_view, login_log_list_api,
-    operation_log_view, operation_log_list_api,
+    operation_log_view, operation_log_list_api, operation_log_backup_api, operation_log_restore_api, operation_log_backup_list_api,
 )
 from XiaoYingAdmin.views.seo.blackhat.cloak import (
     seo_cloak_view, seo_cloak_config_save,
@@ -20,6 +20,9 @@ from XiaoYingAdmin.views.spider.logs import (
     spider_logs_api_list,
     spider_logs_api_clear,
     spider_logs_api_export,
+    spider_logs_api_backup,
+    spider_logs_api_backup_list,
+    spider_logs_api_restore,
 )
 from XiaoYingAdmin.views.spider.ignore_paths import (
     ignore_paths_view,
@@ -27,13 +30,16 @@ from XiaoYingAdmin.views.spider.ignore_paths import (
     ignore_paths_api_save,
 )
 from XiaoYingAdmin.views.spider.analytics import spider_analytics_view
+from XiaoYingAdmin.views import page_tree as page_tree_views
 from XiaoYingAdmin.views.firewall import (
     firewall_view,
-    firewall_api_list,
-    firewall_api_save,
-    firewall_api_toggle,
-    firewall_api_delete,
-    firewall_api_test,
+    firewall_api_list, firewall_api_save,
+    firewall_api_toggle, firewall_api_delete, firewall_api_test,
+)
+from XiaoYingAdmin.views.static_file_route import (
+    static_file_route_view,
+    static_file_route_api_list, static_file_route_api_save,
+    static_file_route_api_delete, static_file_route_api_toggle,
 )
 
 # 域名前缀: /xiaoying_admin/
@@ -64,6 +70,9 @@ urlpatterns = [
     # 操作日志
     path('operation_logs/', operation_log_view, name='operation_logs'),
     path('api/operation_logs/list/', operation_log_list_api, name='operation_logs_api_list'),
+    path('api/operation_logs/backup/', operation_log_backup_api, name='operation_logs_backup_api'),
+    path('api/operation_logs/backup/list/', operation_log_backup_list_api, name='operation_logs_backup_list_api'),
+    path('api/operation_logs/restore/', operation_log_restore_api, name='operation_logs_restore_api'),
 
     # 页面
     path('template/', admin_request.template_view, name='template'),
@@ -95,8 +104,16 @@ urlpatterns = [
     path('api/pages/saved/create/', admin_request.api_saved_page_create, name='api_saved_page_create'),
     path('api/pages/saved/<int:page_id>/', admin_request.api_saved_page_detail, name='api_saved_page_detail'),
     path('api/pages/saved/set-domain/', admin_request.api_saved_page_set_domain, name='api_saved_page_set_domain'),
+    path('api/pages/saved/set-categories/', page_tree_views.page_set_categories, name='api_page_set_categories'),
     path('api/pages/saved/delete/', admin_request.api_saved_page_delete, name='api_saved_page_delete'),
     path('api/pages/saved/update/', admin_request.api_saved_page_update, name='api_saved_page_update'),
+
+    # 页面分类 & 树形结构
+    path('api/pages/categories/', page_tree_views.page_category_list, name='page_category_list'),
+    path('api/pages/categories/create/', page_tree_views.page_category_create, name='page_category_create'),
+    path('api/pages/categories/update/', page_tree_views.page_category_update, name='page_category_update'),
+    path('api/pages/categories/delete/', page_tree_views.page_category_delete, name='page_category_delete'),
+    path('api/pages/tree/', page_tree_views.page_tree_api, name='page_tree_api'),
 
     # 智能互链
     path('api/crosslinks/generate/', admin_request.api_generate_crosslinks, name='api_crosslinks_generate'),
@@ -107,6 +124,9 @@ urlpatterns = [
     path('spider/logs/api/list/', spider_logs_api_list, name='spider_logs_api_list'),
     path('spider/logs/api/clear/', spider_logs_api_clear, name='spider_logs_api_clear'),
     path('spider/logs/api/export/', spider_logs_api_export, name='spider_logs_api_export'),
+    path('spider/logs/api/backup/', spider_logs_api_backup, name='spider_logs_api_backup'),
+    path('spider/logs/api/backup/list/', spider_logs_api_backup_list, name='spider_logs_api_backup_list'),
+    path('spider/logs/api/restore/', spider_logs_api_restore, name='spider_logs_api_restore'),
 
     # 蜘蛛日志 → 路径过滤
     path('spider/logs/ignore-paths/', ignore_paths_view, name='ignore_paths'),
@@ -123,4 +143,11 @@ urlpatterns = [
     path('api/firewall/<int:pk>/toggle/', firewall_api_toggle, name='firewall_api_toggle'),
     path('api/firewall/<int:pk>/delete/', firewall_api_delete, name='firewall_api_delete'),
     path('api/firewall/test/', firewall_api_test, name='firewall_api_test'),
+
+    # 静态文件路由
+    path('static-file/', static_file_route_view, name='static_file_route'),
+    path('static-file/api/list/', static_file_route_api_list, name='static_file_route_api_list'),
+    path('static-file/api/save/', static_file_route_api_save, name='static_file_route_api_save'),
+    path('static-file/api/delete/', static_file_route_api_delete, name='static_file_route_api_delete'),
+    path('static-file/api/toggle/', static_file_route_api_toggle, name='static_file_route_api_toggle'),
 ]

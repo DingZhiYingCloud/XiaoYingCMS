@@ -4,10 +4,91 @@
 {% block body %}
 
 <style>
+/* ========== 布局 ========== */
 .page-list-wrap { background: #fff; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.05); padding: 15px; }
-.page-list-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+.page-list-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
 .page-list-toolbar .layui-input { width: 260px; }
 .page-list-toolbar .total-label { color: #999; font-size: 13px; margin-left: auto; }
+.page-view-tabs { display: inline-flex; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
+.page-view-tabs .tab-btn { padding: 5px 16px; font-size: 13px; cursor: pointer; border: none; background: #fff; color: #666; transition: all .2s; }
+.page-view-tabs .tab-btn.active { background: #5FB878; color: #fff; }
+.page-view-tabs .tab-btn:not(:last-child) { border-right: 1px solid #e0e0e0; }
+.page-view-tabs .tab-btn:hover:not(.active) { background: #f5f5f5; }
+
+/* ========== 左侧分类栏 ========== */
+.page-layout { display: flex; gap: 15px; }
+.page-sidebar { width: 210px; min-width: 210px; border-right: 1px solid #f0f0f0; padding-right: 12px; }
+.page-sidebar .sidebar-title { font-size: 14px; font-weight: 600; color: #333; padding: 0 0 10px 0; border-bottom: 2px solid #5FB878; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+.page-sidebar .sidebar-title .title-text { display: flex; align-items: center; gap: 6px; }
+.page-sidebar .sidebar-list { list-style: none; margin: 0; padding: 0; }
+.page-sidebar .sidebar-list li { padding: 8px 10px; font-size: 13px; color: #555; cursor: pointer; border-radius: 4px; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; transition: all .15s; }
+.page-sidebar .sidebar-list li:hover { background: #f0f7f0; color: #5FB878; }
+.page-sidebar .sidebar-list li.active { background: #e8f5e9; color: #2e7d32; font-weight: 600; }
+.page-sidebar .sidebar-list li .cat-count { margin-left: auto; font-size: 11px; color: #999; background: #f5f5f5; padding: 0 6px; border-radius: 8px; }
+.page-sidebar .sidebar-list li .cat-del { display: none; color: #e54d4d; font-size: 14px; cursor: pointer; padding: 0 2px; }
+.page-sidebar .sidebar-list li:hover .cat-del { display: inline; }
+.page-sidebar .sidebar-list li .cat-edit { display: none; color: #5FB878; font-size: 13px; cursor: pointer; padding: 0 2px; }
+.page-sidebar .sidebar-list li:hover .cat-edit { display: inline; }
+.page-sidebar .sidebar-actions { margin-top: 8px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
+.page-sidebar .sidebar-actions .add-cat-btn { width: 100%; }
+
+.page-content { flex: 1; min-width: 0; }
+
+/* ========== 树形视图 ========== */
+.tree-view { display: none; }
+.tree-view.active { display: block; }
+.tree-node { position: relative; }
+.tree-node-row { display: flex; align-items: center; padding: 6px 8px; border-radius: 4px; cursor: pointer; transition: background .1s; gap: 6px; font-size: 13px; }
+.tree-node-row:hover { background: #f8f8f8; }
+.tree-node-row .tree-arrow { width: 16px; text-align: center; color: #999; font-size: 12px; transition: transform .2s; flex-shrink: 0; }
+.tree-node-row .tree-arrow.expanded { transform: rotate(90deg); }
+.tree-node-row .tree-arrow.no-children { visibility: hidden; }
+.tree-node-row .tree-icon { width: 16px; text-align: center; flex-shrink: 0; }
+.tree-node-row .tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-node-row .tree-count { font-size: 11px; color: #999; background: #f0f0f0; padding: 0 8px; border-radius: 8px; flex-shrink: 0; }
+.tree-children { display: none; padding-left: 24px; }
+.tree-children.expanded { display: block; }
+
+/* 分类节点 */
+.tree-node-category > .tree-node-row { font-weight: 600; color: #333; font-size: 14px; padding: 8px 8px; border-bottom: 1px solid #f5f5f5; margin-bottom: 2px; }
+
+/* 根域名节点 */
+.tree-node-root > .tree-node-row { font-weight: 500; color: #1a237e; padding-left: 12px; }
+.tree-node-root > .tree-node-row .tree-icon { color: #5C6BC0; }
+
+/* 域名节点 */
+.tree-node-domain > .tree-node-row { padding-left: 18px; color: #555; }
+.tree-node-domain > .tree-node-row .tree-icon { color: #78909C; }
+
+/* 页面节点 */
+.tree-node-page > .tree-node-row { padding-left: 24px; cursor: default; }
+.tree-node-page > .tree-node-row:hover { background: #f0f7f0; }
+.tree-node-page > .tree-node-row .tree-icon { color: #5FB878; }
+.tree-node-page > .tree-node-row .tree-label { font-weight: 500; color: #333; }
+.tree-node-page .page-actions { display: none; gap: 4px; margin-left: auto; flex-shrink: 0; }
+.tree-node-page:hover .page-actions { display: flex; }
+.tree-node-page .page-actions .pa-btn { font-size: 12px; padding: 2px 8px; color: #666; background: #fff; border: 1px solid #e0e0e0; border-radius: 3px; cursor: pointer; transition: all .1s; }
+.tree-node-page .page-actions .pa-btn:hover { border-color: #5FB878; color: #5FB878; }
+.tree-node-page .page-actions .pa-btn.danger:hover { border-color: #e54d4d; color: #e54d4d; }
+
+/* 未绑定域名节点特殊样式 */
+.tree-node-unbound > .tree-node-row { color: #999; font-style: italic; }
+
+/* 空状态 */
+.tree-empty { padding: 30px; text-align: center; color: #bbb; font-size: 14px; }
+
+/* ========== 弹窗响应式 ========== */
+.modal-scroll-wrap { max-height: 65vh; overflow-y: auto; }
+.modal-scroll-wrap .code-textarea { font-family: Consolas, Monaco, monospace; font-size: 12px; line-height: 1.5; min-height: 100px; max-height: 35vh; resize: vertical; }
+@media (max-width: 900px) {
+  .modal-scroll-wrap .code-textarea { min-height: 80px; max-height: 28vh; }
+}
+/* 确保弹窗不占满屏幕宽度 */
+.page-list-wrap .layui-layer-page .layui-layer-content { max-width: 92vw; }
+
+/* ========== 表格视图（原有） ========== */
+.table-view { display: none; }
+.table-view.active { display: block; }
 .page-table { width: 100%; border-collapse: collapse; }
 .page-table th, .page-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f2f2f2; font-size: 13px; }
 .page-table th { background: #fafafa; color: #666; font-weight: 600; }
@@ -24,6 +105,8 @@
 .pagination .page-btn.disabled { cursor: not-allowed; opacity: .5; }
 .pagination .page-info { font-size: 13px; color: #999; margin: 0 8px; }
 .loading-mask { padding: 40px; text-align: center; color: #999; }
+
+/* ========== 下拉菜单（表格视图操作） ========== */
 .action-dropdown { position: relative; display: inline-block; }
 .action-dropdown .dropdown-menu {
   display: none; position: absolute; right: 0; top: 100%; z-index: 999;
@@ -45,7 +128,12 @@
 </style>
 
 <div class="page-list-wrap">
+    {# 工具栏 #}
     <div class="page-list-toolbar">
+        <div class="page-view-tabs">
+            <button class="tab-btn active" data-view="tree"><i class="fas fa-tree"></i> 树形视图</button>
+            <button class="tab-btn" data-view="table"><i class="fas fa-table"></i> 表格视图</button>
+        </div>
         <input type="text" id="searchKeyword" class="layui-input" placeholder="搜索页面名称或需求描述..." style="width:260px;">
         <button class="layui-btn layui-btn-sm" id="btnSearch"><i class="fas fa-search"></i> 搜索</button>
         <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnReset"><i class="fas fa-undo"></i> 重置</button>
@@ -54,442 +142,1157 @@
         <span class="total-label" id="totalLabel">共 0 条</span>
     </div>
 
-    <table class="page-table">
-        <thead>
-            <tr>
-                <th style="width:50px;">ID</th>
-                <th style="width:130px;">页面名称</th>
-                <th>需求描述</th>
-                <th style="width:90px;">创建者</th>
-                <th style="width:140px;">使用域名</th>
-                <th style="width:130px;">创建时间</th>
-                <th style="width:60px;text-align:center;">互链</th>
-                <th style="width:60px;text-align:center;">操作</th>
-            </tr>
-        </thead>
-        <tbody id="pageTableBody">
-            <tr><td colspan="8" class="loading-mask">加载中...</td></tr>
-        </tbody>
-    </table>
+    {# 主布局 #}
+    <div class="page-layout">
+        {# 左侧分类栏 #}
+        <div class="page-sidebar" id="sidebarWrap">
+            <div class="sidebar-title">
+                <span class="title-text"><i class="fas fa-folder-open" style="color:#5FB878;"></i> 分类</span>
+            </div>
+            <ul class="sidebar-list" id="categoryList">
+                <li class="active" data-filter="all"><i class="fas fa-th-list"></i> 所有分类 <span class="cat-count" id="countAll">0</span></li>
+            </ul>
+            <div class="sidebar-actions">
+                <button class="layui-btn layui-btn-sm layui-btn-primary add-cat-btn" id="btnManageCat"><i class="fas fa-cog"></i> 管理分类</button>
+            </div>
+        </div>
 
-    <div class="pagination" id="paginationWrap"></div>
+        {# 右侧内容区 #}
+        <div class="page-content">
+            {# ===== 树形视图 ===== #}
+            <div class="tree-view active" id="treeView">
+                <div id="treeContainer"><div class="loading-mask">加载中...</div></div>
+            </div>
+
+            {# ===== 表格视图 ===== #}
+            <div class="table-view" id="tableView">
+                <table class="page-table">
+                    <thead>
+                        <tr>
+                            <th style="width:50px;">ID</th>
+                            <th style="width:130px;">页面名称</th>
+                            <th>需求描述</th>
+                            <th style="width:90px;">创建者</th>
+                            <th style="width:140px;">使用域名</th>
+                            <th style="width:130px;">创建时间</th>
+                            <th style="width:60px;text-align:center;">互链</th>
+                            <th style="width:60px;text-align:center;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pageTableBody">
+                        <tr><td colspan="8" class="loading-mask">加载中...</td></tr>
+                    </tbody>
+                </table>
+                <div class="pagination" id="paginationWrap"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
-(function() {
-    var tbody = document.getElementById('pageTableBody');
-    var pagWrap = document.getElementById('paginationWrap');
-    var totalLabel = document.getElementById('totalLabel');
-    var searchInput = document.getElementById('searchKeyword');
+// ============================================================
+// 工具函数
+// ============================================================
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-    var currentPage = 1, pageSize = 15, totalCount = 0;
+// ============================================================
+// 共享状态 & 缓存
+// ============================================================
+var categories = [];           // 所有分类列表
+var treeData = null;            // 缓存的树形数据
+var currentFilter = 'all';      // 当前侧边栏选中筛选条件: 'all' | 'cat_1' | 'uncategorized' | 'unbound'
+var currentPageTV = 1;          // 表格视图当前页码
+var pageSize = 15;
+var totalCount = 0;
+var tbody = document.getElementById('pageTableBody');
+var pagWrap = document.getElementById('paginationWrap');
+var totalLabel = document.getElementById('totalLabel');
+var searchInput = document.getElementById('searchKeyword');
 
-    function loadList(page) {
-        page = page || 1;
-        currentPage = page;
-        var keyword = searchInput.value.trim();
-        var url = '/xiaoying_admin/api/pages/saved/?page=' + page + '&limit=' + pageSize;
-        if (keyword) url += '&keyword=' + encodeURIComponent(keyword);
+// ============================================================
+// 分类管理
+// ============================================================
 
-        tbody.innerHTML = '<tr><td colspan="8" class="loading-mask">加载中...</td></tr>';
-
-        fetch(url)
-            .then(function(r) { return r.json(); })
-            .then(function(resp) {
-                totalCount = resp.total || 0;
-                totalLabel.textContent = '共 ' + totalCount + ' 条';
-                var items = resp.items || [];
-                if (items.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" class="loading-mask">暂无数据</td></tr>';
-                    pagWrap.innerHTML = '';
-                    return;
-                }
-                var html = '';
-                for (var i = 0; i < items.length; i++) {
-                    var p = items[i];
-                    html += '<tr data-id="' + p.id + '">';
-                    html += '<td>' + p.id + '</td>';
-                    html += '<td class="page-name">' + escHtml(p.name) + '</td>';
-                    html += '<td class="page-input" title="' + escAttr(p.input_content || '') + '">' + escHtml(p.input_content || '') + '</td>';
-                    html += '<td style="color:#999;font-size:12px;">' + (p.created_by || '<span style="color:#ccc;">-</span>') + '</td>';
-                    html += '<td>';
-                    var domains = p.domains && p.domains.length ? p.domains : (p.domain ? [p.domain] : []);
-                    if (domains.length) {
-                        html += domains.map(function(d) {
-                            var cls = d.indexOf('*.') === 0 ? 'domain-wildcard' : 'domain-badge';
-                            return '<span class="' + cls + '">' + escHtml(d) + '</span>';
-                        }).join(' ');
-                    } else {
-                        html += '<span class="domain-empty">未设置</span>';
-                    }
-                    html += '</td>';
-                    html += '<td>' + (p.create_time || '') + '</td>';
-                    html += '<td style="text-align:center;"><input type="checkbox" class="crosslink-exclude" data-id="' + p.id + '" lay-skin="primary"' + (p.crosslink_excluded ? ' checked' : '') + '></td>';
-                    html += '<td style="text-align:center;">';
-                    html += '<div class="action-dropdown">';
-                    html += '<button class="layui-btn layui-btn-sm layui-btn-primary dropdown-trigger" title="操作" style="font-size:16px;padding:0 10px;line-height:30px;height:30px;"><i class="fas fa-caret-down"></i></button>';
-                    html += '<div class="dropdown-menu">';
-                    html += '<a href="javascript:;" class="dropdown-item btn-edit-page" data-id="' + p.id + '"><i class="fas fa-edit"></i> 编辑</a>';
-                    html += '<a href="javascript:;" class="dropdown-item btn-domain" data-id="' + p.id + '" data-domains=\'' + escAttr(JSON.stringify(domains)) + '\'><i class="fas fa-globe"></i> 域名设置</a>';
-                    html += '<a href="javascript:;" class="dropdown-item btn-view" data-id="' + p.id + '" data-domains=\'' + escAttr(JSON.stringify(domains)) + '\'><i class="fas fa-external-link-alt"></i> 打开</a>';
-                    html += '<div class="dropdown-divider"></div>';
-                    html += '<a href="javascript:;" class="dropdown-item btn-del-page dropdown-danger" data-id="' + p.id + '"><i class="fas fa-trash"></i> 删除</a>';
-                    html += '</div></div>';
-                    html += '</td>';
-                    html += '</tr>';
-                }
-                tbody.innerHTML = html;
-                renderPagination();
-            })
-            .catch(function() {
-                tbody.innerHTML = '<tr><td colspan="8" class="loading-mask" style="color:#FF5722;">加载失败</td></tr>';
-            });
-    }
-
-    function renderPagination() {
-        var totalPages = Math.ceil(totalCount / pageSize) || 1;
-        if (totalCount === 0) { pagWrap.innerHTML = ''; return; }
-        var html = '', i, active;
-
-        var prevClass = currentPage <= 1 ? 'disabled' : '';
-        html += '<span class="page-btn ' + prevClass + '" data-page="' + (currentPage - 1) + '">‹</span>';
-
-        var start = Math.max(1, currentPage - 2);
-        var end = Math.min(totalPages, currentPage + 2);
-        if (start > 1) html += '<span class="page-btn" data-page="1">1</span>';
-        if (start > 2) html += '<span class="page-btn disabled">...</span>';
-        for (i = start; i <= end; i++) {
-            active = i === currentPage ? 'active' : '';
-            html += '<span class="page-btn ' + active + '" data-page="' + i + '">' + i + '</span>';
-        }
-        if (end < totalPages - 1) html += '<span class="page-btn disabled">...</span>';
-        if (end < totalPages) html += '<span class="page-btn" data-page="' + totalPages + '">' + totalPages + '</span>';
-
-        var nextClass = currentPage >= totalPages ? 'disabled' : '';
-        html += '<span class="page-btn ' + nextClass + '" data-page="' + (currentPage + 1) + '">›</span>';
-        html += '<span class="page-info">第 ' + currentPage + '/' + totalPages + ' 页</span>';
-
-        pagWrap.innerHTML = html;
-    }
-
-    function openCreatePage() {
-        var html = '<form class="layui-form" style="padding:20px 15px 10px;">';
-        html += '<div class="layui-form-item"><label class="layui-form-label">页面名称 <span style="color:#e54d4d;">*</span></label><div class="layui-input-block"><input type="text" id="createName" class="layui-input" placeholder="输入页面名称"></div></div>';
-        html += '<div class="layui-form-item"><label class="layui-form-label">需求描述</label><div class="layui-input-block"><textarea id="createInput" class="layui-textarea" rows="3" placeholder="可选，备注该页面的用途"></textarea></div></div>';
-        html += '<div class="layui-form-item"><label class="layui-form-label">HTML 代码 <span style="color:#e54d4d;">*</span></label><div class="layui-input-block"><textarea id="createHtml" class="layui-textarea" style="font-family:Consolas,Monaco,monospace;font-size:12px;min-height:280px;line-height:1.5;" placeholder="粘贴完整的 HTML 代码"></textarea></div></div>';
-        html += '<div class="layui-form-item"><label class="layui-form-label">绑定域名</label><div class="layui-input-block"><input type="text" id="createDomains" class="layui-input" placeholder="可选，多个域名用逗号分隔，如 example.com,*.example.com"></div></div>';
-        html += '<div class="layui-form-item" style="margin-top:20px;text-align:center;"><button type="button" class="layui-btn" id="createSaveBtn"><i class="fas fa-save"></i> 创建页面</button></div>';
-        html += '</form>';
-
-        layer.open({
-            type: 1,
-            title: '<i class="fas fa-plus-circle" style="color:#5FB878;"></i> 新增页面',
-            area: ['800px', '580px'],
-            shadeClose: false,
-            content: html,
-            success: function(layero) {
-                layero.find('#createSaveBtn').on('click', function() {
-                    var name = layero.find('#createName').val().trim();
-                    var htmlContent = layero.find('#createHtml').val().trim();
-                    var inputContent = layero.find('#createInput').val().trim();
-                    var domainsStr = layero.find('#createDomains').val().trim();
-
-                    if (!name) { layer.msg('请输入页面名称', {icon:5}); return; }
-                    if (!htmlContent) { layer.msg('请输入 HTML 内容', {icon:5}); return; }
-
-                    var domains = [];
-                    if (domainsStr) {
-                        domains = domainsStr.split(',').map(function(s) { return s.trim().toLowerCase(); }).filter(function(s) { return s.length > 0; });
-                    }
-
-                    var idx = layer.load(1);
-                    fetch('/xiaoying_admin/api/pages/saved/create/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: name,
-                            html_content: htmlContent,
-                            input_content: inputContent,
-                            domains: domains,
-                        }),
-                    }).then(function(r) { return r.json(); }).then(function(resp) {
-                        layer.close(idx);
-                        if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
-                        layer.closeAll();
-                        layer.msg(resp.message, {icon:1});
-                        loadList(currentPage);
-                    }).catch(function() { layer.close(idx); layer.msg('创建失败', {icon:2}); });
-                });
-            },
+function loadCategories() {
+    return fetch('/xiaoying_admin/api/pages/categories/')
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+            categories = resp.categories || [];
+            renderSidebar();
+            return categories;
         });
+}
+
+function renderSidebar() {
+    var ul = document.getElementById('categoryList');
+    var html = '';
+    // "所有分类"始终存在
+    html += '<li data-filter="all" class="' + (currentFilter === 'all' ? 'active' : '') + '"><i class="fas fa-th-list"></i> 所有分类 <span class="cat-count" id="countAll">0</span></li>';
+    // 动态分类
+    categories.forEach(function(c) {
+        var active = currentFilter === 'cat_' + c.id ? 'active' : '';
+        html += '<li data-filter="cat_' + c.id + '" class="' + active + '">';
+        html += '<i class="fas fa-folder" style="color:#5FB878;"></i> ';
+        html += escHtml(c.name);
+        html += ' <span class="cat-count" id="countCat' + c.id + '">0</span>';
+        html += ' <span class="cat-edit" data-id="' + c.id + '" title="编辑分类"><i class="fas fa-pen"></i></span>';
+        html += ' <span class="cat-del" data-id="' + c.id + '" title="删除分类"><i class="fas fa-times"></i></span>';
+        html += '</li>';
+    });
+    // 未分类 & 未绑定域名
+    var ucActive = currentFilter === 'uncategorized' ? 'active' : '';
+    html += '<li data-filter="uncategorized" class="' + ucActive + '"><i class="fas fa-inbox" style="color:#999;"></i> 未分类 <span class="cat-count" id="countUncat">0</span></li>';
+    var ubActive = currentFilter === 'unbound' ? 'active' : '';
+    html += '<li data-filter="unbound" class="' + ubActive + '"><i class="fas fa-chain-broken" style="color:#bbb;"></i> 未绑定域名 <span class="cat-count" id="countUnbound">0</span></li>';
+    ul.innerHTML = html;
+
+    // 更新数量
+    if (treeData) {
+        updateSidebarCounts();
     }
 
-    function openDomainEditor(id, currentDomains) {
-        // 兼容旧版：接收单个 domain 字符串
-        if (typeof currentDomains === 'string') {
-            currentDomains = currentDomains ? [currentDomains] : [];
-        }
-        var tags = currentDomains || [];
-
-        var html = '<div style="padding:20px 15px;">';
-        html += '<div class="layui-form-item">';
-        html += '<label class="layui-form-label" style="width:80px;">域名</label>';
-        html += '<div class="layui-input-block" style="margin-left:110px;">';
-        html += '<div style="border:1px solid #e0e0e0;border-radius:4px;padding:6px 8px;min-height:36px;" id="domainTagsWrap">';
-        html += '</div>';
-        html += '<div style="display:flex;gap:6px;margin-top:6px;">';
-        html += '<input type="text" id="domainInput" class="layui-input" placeholder="输入域名，如 example.com 或 *.example.com" style="flex:1;height:32px;font-size:13px;">';
-        html += '<button type="button" id="domainAddBtn" class="layui-btn layui-btn-sm" style="white-space:nowrap;"><i class="fas fa-plus"></i> 添加</button>';
-        html += '</div>';
-        html += '<div style="font-size:11px;color:#999;margin-top:4px;">支持 *. 通配符（如 *.example.com），按回车快速添加</div>';
-        html += '</div></div>';
-        html += '<div class="layui-form-item" style="margin-top:12px;text-align:center;">';
-        html += '<button type="button" class="layui-btn" id="domainSaveBtn"><i class="fas fa-save"></i> 保存</button>';
-        html += '</div></div>';
-
-        layer.open({
-            type: 1,
-            title: '域名设置',
-            area: ['520px', '320px'],
-            shadeClose: true,
-            content: html,
-            success: function(layero) {
-                var wrap = layero.find('#domainTagsWrap')[0];
-                var input = layero.find('#domainInput');
-                var addBtn = layero.find('#domainAddBtn');
-
-                function renderTags() {
-                    if (!wrap) return;
-                    wrap.innerHTML = tags.map(function(d, i) {
-                        var cls = d.indexOf('*.') === 0 ? 'domain-badge domain-wildcard-tag' : 'domain-badge';
-                        return '<span class="' + cls + '" style="display:inline-flex;align-items:center;gap:4px;margin:2px 4px 2px 0;padding:2px 8px;background:' + (d.indexOf('*.') === 0 ? '#fff3e0' : '#e8f5e9') + ';color:' + (d.indexOf('*.') === 0 ? '#e65100' : '#2e7d32') + ';border-radius:3px;font-size:12px;">' +
-                            escHtml(d) +
-                            ' <a href="javascript:;" class="domain-del-tag" data-i="' + i + '" style="color:#999;text-decoration:none;font-size:14px;line-height:1;">×</a>' +
-                            '</span>';
-                    }).join('');
-                    // 绑定删除事件
-                    if (wrap) {
-                        [].slice.call(wrap.querySelectorAll('.domain-del-tag')).forEach(function(el) {
-                            el.onclick = function() {
-                                var idx = parseInt(this.getAttribute('data-i'));
-                                if (!isNaN(idx)) { tags.splice(idx, 1); renderTags(); }
-                            };
-                        });
-                    }
-                }
-
-                function addTag() {
-                    var val = input.val().trim().toLowerCase();
-                    if (!val) return;
-                    // 基本校验
-                    if (val.indexOf('*.') === 0) {
-                        if (val.length <= 2 || val.indexOf('.', 2) === -1) {
-                            layer.msg('通配符格式无效，示例: *.example.com', {icon:2}); return;
-                        }
-                    } else if (val.indexOf('.') === -1) {
-                        layer.msg('域名格式无效，需包含 .', {icon:2}); return;
-                    }
-                    if (tags.indexOf(val) !== -1) {
-                        layer.msg('域名已存在', {icon:0}); return;
-                    }
-                    tags.push(val);
-                    input.val('');
-                    renderTags();
-                }
-
-                renderTags();
-
-                addBtn.on('click', addTag);
-                input.on('keydown', function(e) {
-                    if (e.key === 'Enter') { e.preventDefault(); addTag(); }
-                });
-
-                layero.find('#domainSaveBtn').on('click', function() {
-                    fetch('/xiaoying_admin/api/pages/saved/set-domain/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: id, domains: tags }),
-                    }).then(function(r) { return r.json(); }).then(function(resp) {
-                        if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
-                        layer.closeAll();
-                        layer.msg(resp.message, {icon:1});
-                        loadList(currentPage);
-                    }).catch(function() { layer.msg('操作失败', {icon:2}); });
-                });
-            },
+    // 侧边栏点击事件
+    ul.querySelectorAll('li[data-filter]').forEach(function(li) {
+        li.addEventListener('click', function(e) {
+            if (e.target.closest('.cat-del') || e.target.closest('.cat-edit')) return;
+            currentFilter = li.getAttribute('data-filter');
+            ul.querySelectorAll('li').forEach(function(l) { l.classList.remove('active'); });
+            li.classList.add('active');
+            renderTree();
         });
-    }
-
-    function openEditor(id) {
-        // 先获取详情（含 html_content）
-        fetch('/xiaoying_admin/api/pages/saved/' + id + '/')
-            .then(function(r) { return r.json(); })
-            .then(function(page) {
-                var html = '<form class="layui-form" style="padding:20px 15px 10px;">';
-                html += '<div class="layui-form-item"><label class="layui-form-label">页面名称</label><div class="layui-input-block"><input type="text" id="editName" class="layui-input" value="' + escAttr(page.name) + '"></div></div>';
-                html += '<div class="layui-form-item"><label class="layui-form-label">需求描述</label><div class="layui-input-block"><textarea id="editInput" class="layui-textarea" rows="3">' + escHtml(page.input_content || '') + '</textarea></div></div>';
-                html += '<div class="layui-form-item"><label class="layui-form-label">HTML 代码</label><div class="layui-input-block"><textarea id="editHtml" class="layui-textarea" style="font-family:Consolas,Monaco,monospace;font-size:12px;min-height:280px;line-height:1.5;">' + escHtml(page.html_content) + '</textarea></div></div>';
-                html += '<div class="layui-form-item" style="margin-top:20px;text-align:center;"><button type="button" class="layui-btn" id="editSaveBtn"><i class="fas fa-save"></i> 保存修改</button></div>';
-                html += '</form>';
-
-                layer.open({
-                    type: 1,
-                    title: '编辑页面: ' + page.name,
-                    area: ['800px', '580px'],
-                    shadeClose: false,
-                    content: html,
-                    success: function(layero) {
-                        // layui.form.render();
-                        layero.find('#editSaveBtn').on('click', function() {
-                            var name = layero.find('#editName').val().trim();
-                            var inputContent = layero.find('#editInput').val().trim();
-                            var htmlContent = layero.find('#editHtml').val().trim();
-                            if (!name) { layer.msg('请输入页面名称', {icon:5}); return; }
-                            if (!htmlContent) { layer.msg('请输入 HTML 内容', {icon:5}); return; }
-
-                            fetch('/xiaoying_admin/api/pages/saved/update/', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: id, name: name, input_content: inputContent, html_content: htmlContent }),
-                            }).then(function(r) { return r.json(); }).then(function(resp) {
-                                if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
-                                layer.closeAll();
-                                layer.msg(resp.message, {icon:1});
-                                loadList(currentPage);
-                            }).catch(function() { layer.msg('保存失败', {icon:2}); });
-                        });
-                    },
-                });
-            });
-    }
-
-    // 事件委托：翻页、查看、删除、域名
-    pagWrap.addEventListener('click', function(e) {
-        var btn = e.target.closest('.page-btn');
-        if (!btn || btn.classList.contains('disabled')) return;
-        var p = parseInt(btn.getAttribute('data-page'));
-        if (p < 1 || p > Math.ceil(totalCount / pageSize) || p === currentPage) return;
-        loadList(p);
     });
 
-    tbody.addEventListener('click', function(e) {
-        var btn = e.target.closest('.btn-view');
-        if (btn) {
-            var domainsStr = btn.getAttribute('data-domains') || '[]';
-            var domains;
-            try { domains = JSON.parse(domainsStr); } catch(e) { domains = []; }
-            if (domains.length === 0) { layer.msg('该页面未绑定域名，无法打开', {icon:0}); return; }
-            var raw = domains[0];
-            // 提取根域名：去掉 *. 和 www. 前缀，只保留二级域名.顶级域名
-            var root = raw.replace(/^\*\.|^www\./i, '');
-            // 去端口（127.0.0.1:8000 保留端口）
-            if (root.indexOf('127.0.0.1') === 0) {
-                // 本地地址保持原样
-            } else if (root.indexOf(':') > 0) {
-                root = root.split(':')[0];
-            }
-            var url = (root.indexOf('://') > 0) ? root : 'https://' + root + '/';
-            window.open(url, '_blank');
-            return;
-        }
-        btn = e.target.closest('.btn-domain');
-        if (btn) {
-            var id = parseInt(btn.getAttribute('data-id'));
-            var domainsStr = btn.getAttribute('data-domains') || '[]';
-            try { openDomainEditor(id, JSON.parse(domainsStr)); }
-            catch(e) { openDomainEditor(id, []); }
-            return;
-        }
-        btn = e.target.closest('.btn-edit-page');
-        if (btn) {
-            openEditor(parseInt(btn.getAttribute('data-id')));
-            return;
-        }
-        btn = e.target.closest('.btn-del-page');
-        if (btn) {
-            var id = parseInt(btn.getAttribute('data-id'));
-            layer.confirm('确定删除此页面吗？', { icon: 3, btn: ['确定', '取消'], title: '确认删除' }, function(index) {
-                fetch('/xiaoying_admin/api/pages/saved/delete/', {
+    // 编辑分类
+    ul.querySelectorAll('.cat-edit').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var id = parseInt(el.getAttribute('data-id'));
+            openEditCategory(id);
+        });
+    });
+
+    // 删除分类
+    ul.querySelectorAll('.cat-del').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var id = parseInt(el.getAttribute('data-id'));
+            var name = '';
+            categories.forEach(function(c) { if (c.id === id) name = c.name; });
+            layer.confirm('确定删除分类「' + name + '」？<br><span style="color:#999;font-size:12px;">不会删除页面，仅解除分类关联</span>', {
+                icon: 3, btn: ['确定删除', '取消'], title: '确认删除'
+            }, function(index) {
+                layer.close(index);
+                var idx = layer.load(1);
+                fetch('/xiaoying_admin/api/pages/categories/delete/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: id }),
                 }).then(function(r) { return r.json(); }).then(function(resp) {
+                    layer.close(idx);
                     if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
-                    layer.close(index);
-                    layer.msg('已删除', {icon:1});
-                    loadList(currentPage);
-                }).catch(function() { layer.msg('删除失败', {icon:2}); });
+                    layer.msg(resp.message, {icon:1});
+                    loadCategories().then(function() { loadTree(); });
+                }).catch(function() { layer.close(idx); layer.msg('删除失败', {icon:2}); });
             });
+        });
+    });
+}
+
+function updateSidebarCounts() {
+    if (!treeData) return;
+    // 所有分类
+    var total = 0;
+    treeData.categories.forEach(function(c) { total += c.page_count || 0; });
+    total += treeData.uncategorized.page_count || 0;
+    total += treeData.unbound.page_count || 0;
+    var el = document.getElementById('countAll');
+    if (el) el.textContent = total;
+
+    categories.forEach(function(c) {
+        var el = document.getElementById('countCat' + c.id);
+        if (el) {
+            var found = treeData.categories.find(function(x) { return x.id === c.id; });
+            el.textContent = found ? (found.page_count || 0) : 0;
         }
     });
+    var elUc = document.getElementById('countUncat');
+    if (elUc) elUc.textContent = treeData.uncategorized.page_count || 0;
+    var elUb = document.getElementById('countUnbound');
+    if (elUb) elUb.textContent = treeData.unbound.page_count || 0;
+}
 
-    document.getElementById('btnSearch').addEventListener('click', function() { loadList(1); });
-    document.getElementById('btnReset').addEventListener('click', function() { searchInput.value = ''; loadList(1); });
-    searchInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') loadList(1); });
+// 管理分类弹窗
+document.getElementById('btnManageCat').addEventListener('click', function() {
+    openCategoryManager();
+});
 
-    // 新增页面
-    document.getElementById('btnCreatePage').addEventListener('click', openCreatePage);
+function openCategoryManager() {
+    var html = '<div style="padding:15px 20px;">';
+    html += '<div style="margin-bottom:12px;display:flex;gap:8px;">';
+    html += '<input type="text" id="newCatName" class="layui-input" placeholder="输入新分类名称" style="flex:1;">';
+    html += '<button type="button" class="layui-btn layui-btn-sm" id="newCatSaveBtn"><i class="fas fa-plus"></i> 添加</button>';
+    html += '</div>';
+    html += '<div style="max-height:300px;overflow-y:auto;" id="catListWrap">';
+    html += '</div>';
+    html += '</div>';
 
-    // 智能互链（增量追加模式）
-    document.getElementById('btnCrosslink').addEventListener('click', function() {
-        layer.confirm(
-            '遍历所有<strong>未排除</strong>的页面，为每个页面<strong>追加</strong>尚未收录的合作域名链接。<br>' +
-            '已有链接会完整保留，已有新页面加入时再次点击即可补充。<br>' +
-            '<span style="color:#FF9800;font-size:12px;">此操作不可撤销，请确认已备份重要数据。</span>',
-            { icon: 3, title: '智能互链（增量追加）', btn: ['开始追加', '取消'] },
-            function(index) {
-                layer.close(index);
-                var idx = layer.load(1, { shade: [0.3, '#000'] });
-                fetch('/xiaoying_admin/api/crosslinks/generate/', {
+    layer.open({
+        type: 1,
+        title: '<i class="fas fa-cog" style="color:#5FB878;"></i> 管理分类',
+        area: ['450px', '420px'],
+        shadeClose: true,
+        content: html,
+        success: function(layero) {
+            renderCatManagerList(layero);
+            layero.find('#newCatSaveBtn').on('click', function() {
+                var name = layero.find('#newCatName').val().trim();
+                if (!name) { layer.msg('请输入分类名称', {icon:5}); return; }
+                var idx = layer.load(1);
+                fetch('/xiaoying_admin/api/pages/categories/create/', {
                     method: 'POST',
-                    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name }),
                 }).then(function(r) { return r.json(); }).then(function(resp) {
                     layer.close(idx);
                     if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
-                    layer.msg(resp.message, {icon:1, time:2500});
-                }).catch(function() { layer.close(idx); layer.msg('网络错误', {icon:2}); });
-            }
-        );
-    });
-
-    // 排除互链复选框
-    tbody.addEventListener('change', function(e) {
-        var cb = e.target.closest('.crosslink-exclude');
-        if (!cb) return;
-        var id = parseInt(cb.getAttribute('data-id'));
-        var excluded = cb.checked;
-        fetch('/xiaoying_admin/api/crosslinks/exclude-toggle/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: id, excluded: excluded }),
-        }).then(function(r) { return r.json(); }).then(function(resp) {
-            if (resp.error) { layer.msg(resp.error, {icon:2}); cb.checked = !excluded; return; }
-            layer.msg(resp.message, {icon:1, time:1000, shadeClose: false});
-        }).catch(function() { layer.msg('操作失败', {icon:2}); cb.checked = !excluded; });
-    });
-
-    // 下拉菜单 toggle（事件委托）
-    tbody.addEventListener('click', function(e) {
-        var trigger = e.target.closest('.dropdown-trigger');
-        if (trigger) {
-            e.stopPropagation();
-            var dropdown = trigger.closest('.action-dropdown');
-            // 关闭其他所有下拉
-            document.querySelectorAll('.action-dropdown.open').forEach(function(d) {
-                if (d !== dropdown) d.classList.remove('open');
+                    layero.find('#newCatName').val('');
+                    layer.msg('创建成功', {icon:1});
+                    loadCategories().then(function() { renderCatManagerList(layero); loadTree(); });
+                }).catch(function() { layer.close(idx); layer.msg('创建失败', {icon:2}); });
             });
-            dropdown.classList.toggle('open');
-            return;
-        }
+            layero.find('#newCatName').on('keydown', function(e) {
+                if (e.key === 'Enter') { layero.find('#newCatSaveBtn').click(); }
+            });
+        },
     });
-    document.addEventListener('click', function() {
-        document.querySelectorAll('.action-dropdown.open').forEach(function(d) {
-            d.classList.remove('open');
+}
+
+function renderCatManagerList(layero) {
+    var wrap = layero.find('#catListWrap')[0];
+    if (!wrap) return;
+    if (!categories.length) {
+        wrap.innerHTML = '<div style="text-align:center;padding:20px;color:#bbb;">暂无分类，请在上方添加</div>';
+        return;
+    }
+    var html = '';
+    categories.forEach(function(c) {
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid #f5f5f5;">';
+        html += '<i class="fas fa-folder" style="color:#5FB878;"></i>';
+        html += '<span style="flex:1;">' + escHtml(c.name) + '</span>';
+        html += '<a href="javascript:;" class="cat-mgr-rename" data-id="' + c.id + '" style="color:#5FB878;font-size:12px;">重命名</a>';
+        html += '<a href="javascript:;" class="cat-mgr-del" data-id="' + c.id + '" style="color:#e54d4d;font-size:12px;">删除</a>';
+        html += '</div>';
+    });
+    wrap.innerHTML = html;
+
+    // 重命名
+    wrap.querySelectorAll('.cat-mgr-rename').forEach(function(el) {
+        el.addEventListener('click', function() {
+            var id = parseInt(el.getAttribute('data-id'));
+            var name = '';
+            categories.forEach(function(c) { if (c.id === id) name = c.name; });
+            layer.prompt({ title: '重命名分类', value: name, formType: 0, area: ['350px'] }, function(val, idx) {
+                val = val.trim();
+                if (!val) { layer.msg('名称不能为空', {icon:5}); return; }
+                layer.close(idx);
+                var ld = layer.load(1);
+                fetch('/xiaoying_admin/api/pages/categories/update/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id, name: val }),
+                }).then(function(r) { return r.json(); }).then(function(resp) {
+                    layer.close(ld);
+                    if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                    layer.msg('已更新', {icon:1});
+                    loadCategories().then(function() { renderCatManagerList(layero); loadTree(); });
+                }).catch(function() { layer.close(ld); layer.msg('更新失败', {icon:2}); });
+            });
         });
     });
 
-    loadList(1);
-})();
+    // 删除
+    wrap.querySelectorAll('.cat-mgr-del').forEach(function(el) {
+        el.addEventListener('click', function() {
+            var id = parseInt(el.getAttribute('data-id'));
+            var name = '';
+            categories.forEach(function(c) { if (c.id === id) name = c.name; });
+            layer.confirm('确定删除「' + name + '」？', { icon: 3, btn: ['确定', '取消'] }, function(ci) {
+                layer.close(ci);
+                var ld = layer.load(1);
+                fetch('/xiaoying_admin/api/pages/categories/delete/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id }),
+                }).then(function(r) { return r.json(); }).then(function(resp) {
+                    layer.close(ld);
+                    if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                    layer.msg('已删除', {icon:1});
+                    loadCategories().then(function() { renderCatManagerList(layero); loadTree(); });
+                }).catch(function() { layer.close(ld); layer.msg('删除失败', {icon:2}); });
+            });
+        });
+    });
+}
+
+// 编辑分类（侧边栏点击）
+function openEditCategory(id) {
+    var name = '';
+    categories.forEach(function(c) { if (c.id === id) name = c.name; });
+    layer.prompt({ title: '重命名分类', value: name, formType: 0, area: ['350px'] }, function(val, idx) {
+        val = val.trim();
+        if (!val) { layer.msg('名称不能为空', {icon:5}); return; }
+        layer.close(idx);
+        var ld = layer.load(1);
+        fetch('/xiaoying_admin/api/pages/categories/update/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, name: val }),
+        }).then(function(r) { return r.json(); }).then(function(resp) {
+            layer.close(ld);
+            if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+            layer.msg('已更新', {icon:1});
+            loadCategories().then(function() { loadTree(); });
+        }).catch(function() { layer.close(ld); layer.msg('更新失败', {icon:2}); });
+    });
+}
+
+// ============================================================
+// 树形数据加载 & 渲染
+// ============================================================
+
+function loadTree() {
+    var container = document.getElementById('treeContainer');
+    container.innerHTML = '<div class="loading-mask">加载中...</div>';
+    return fetch('/xiaoying_admin/api/pages/tree/')
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+            treeData = resp;
+            updateSidebarCounts();
+            renderTree();
+        })
+        .catch(function() {
+            container.innerHTML = '<div class="loading-mask" style="color:#FF5722;">加载失败</div>';
+        });
+}
+
+function renderTree() {
+    var container = document.getElementById('treeContainer');
+    if (!treeData) {
+        container.innerHTML = '<div class="loading-mask">加载中...</div>';
+        return;
+    }
+    var html = '';
+
+    if (currentFilter === 'all') {
+        // 显示所有分类
+        var hasAny = false;
+        treeData.categories.forEach(function(cat) {
+            var catHtml = renderCategoryTree(cat);
+            if (catHtml) { hasAny = true; html += catHtml; }
+        });
+        // 未分类
+        if (treeData.uncategorized && treeData.uncategorized.page_count > 0) {
+            hasAny = true;
+            html += renderSpecialNode('未分类', 'inbox', '#999', treeData.uncategorized);
+        }
+        // 未绑定域名
+        if (treeData.unbound && treeData.unbound.page_count > 0) {
+            hasAny = true;
+            html += renderUnboundNode(treeData.unbound);
+        }
+        if (!hasAny) {
+            html = '<div class="tree-empty"><i class="fas fa-folder-open" style="font-size:36px;display:block;margin-bottom:10px;color:#ddd;"></i>暂无页面数据</div>';
+        }
+    } else if (currentFilter.indexOf('cat_') === 0) {
+        var catId = parseInt(currentFilter.replace('cat_', ''));
+        var cat = null;
+        treeData.categories.forEach(function(c) { if (c.id === catId) cat = c; });
+        if (cat) {
+            html = renderCategoryTree(cat, true);
+        } else {
+            html = '<div class="tree-empty">分类已不存在</div>';
+        }
+    } else if (currentFilter === 'uncategorized') {
+        if (treeData.uncategorized && treeData.uncategorized.page_count > 0) {
+            html = renderSpecialNode('未分类', 'inbox', '#999', treeData.uncategorized, true);
+        } else {
+            html = '<div class="tree-empty">所有页面都已有分类</div>';
+        }
+    } else if (currentFilter === 'unbound') {
+        if (treeData.unbound && treeData.unbound.page_count > 0) {
+            html = renderUnboundNode(treeData.unbound, true);
+        } else {
+            html = '<div class="tree-empty">所有页面都已绑定域名</div>';
+        }
+    }
+
+    container.innerHTML = html;
+    bindTreeEvents();
+}
+
+function renderCategoryTree(cat, expanded) {
+    if (!cat.root_domains || cat.root_domains.length === 0) return '';
+    var open = expanded ? 'expanded' : '';
+    var arrowOpen = expanded ? 'expanded' : '';
+    var html = '';
+    html += '<div class="tree-node tree-node-category">';
+    html += '<div class="tree-node-row" data-target="cat_' + cat.id + '">';
+    html += '<span class="tree-arrow ' + arrowOpen + '"><i class="fas fa-caret-right"></i></span>';
+    html += '<span class="tree-icon"><i class="fas fa-folder-open" style="color:#5FB878;"></i></span>';
+    html += '<span class="tree-label">' + escHtml(cat.name) + '</span>';
+    html += '<span class="tree-count">' + (cat.page_count || 0) + ' 个页面</span>';
+    html += '</div>';
+    html += '<div class="tree-children ' + open + '">';
+    cat.root_domains.forEach(function(root) {
+        html += renderRootDomainNode(root);
+    });
+    html += '</div></div>';
+    return html;
+}
+
+function renderSpecialNode(label, icon, color, data, expanded) {
+    if (!data.root_domains || data.root_domains.length === 0) {
+        // 即使有未绑定页面但在 root_domains 维度可能为空
+        return '';
+    }
+    var open = expanded ? 'expanded' : '';
+    var arrowOpen = expanded ? 'expanded' : '';
+    var html = '';
+    html += '<div class="tree-node tree-node-category">';
+    html += '<div class="tree-node-row" data-target="' + (label === '未分类' ? 'uncategorized' : 'unbound') + '">';
+    html += '<span class="tree-arrow ' + arrowOpen + '"><i class="fas fa-caret-right"></i></span>';
+    html += '<span class="tree-icon"><i class="fas fa-' + icon + '" style="color:' + color + ';"></i></span>';
+    html += '<span class="tree-label" style="color:' + color + ';">' + label + '</span>';
+    html += '<span class="tree-count">' + (data.page_count || 0) + ' 个页面</span>';
+    html += '</div>';
+    html += '<div class="tree-children ' + open + '">';
+    data.root_domains.forEach(function(root) {
+        html += renderRootDomainNode(root);
+    });
+    html += '</div></div>';
+    return html;
+}
+
+function renderUnboundNode(data, expanded) {
+    if (!data.pages || data.pages.length === 0) return '';
+    var open = expanded ? 'expanded' : '';
+    var arrowOpen = expanded ? 'expanded' : '';
+    var html = '';
+    html += '<div class="tree-node tree-node-category">';
+    html += '<div class="tree-node-row" data-target="unbound">';
+    html += '<span class="tree-arrow ' + arrowOpen + '"><i class="fas fa-caret-right"></i></span>';
+    html += '<span class="tree-icon"><i class="fas fa-chain-broken" style="color:#bbb;"></i></span>';
+    html += '<span class="tree-label" style="color:#999;">未绑定域名</span>';
+    html += '<span class="tree-count">' + (data.page_count || 0) + ' 个页面</span>';
+    html += '</div>';
+    html += '<div class="tree-children ' + open + '">';
+    data.pages.forEach(function(page) {
+        html += renderPageNode(page);
+    });
+    html += '</div></div>';
+    return html;
+}
+
+function renderRootDomainNode(root) {
+    var html = '';
+    html += '<div class="tree-node tree-node-root">';
+    html += '<div class="tree-node-row" data-target="root">';
+    html += '<span class="tree-arrow"><i class="fas fa-caret-right"></i></span>';
+    html += '<span class="tree-icon"><i class="fas fa-globe"></i></span>';
+    html += '<span class="tree-label">' + escHtml(root.root) + '</span>';
+    html += '<span class="tree-count">' + (root.page_count || 0) + ' 个页面</span>';
+    html += '</div>';
+    html += '<div class="tree-children">';
+    root.domains.forEach(function(dom) {
+        html += renderDomainNode(dom);
+    });
+    html += '</div></div>';
+    return html;
+}
+
+function renderDomainNode(dom) {
+    var html = '';
+    html += '<div class="tree-node tree-node-domain">';
+    html += '<div class="tree-node-row" data-target="domain">';
+    html += '<span class="tree-arrow"><i class="fas fa-caret-right"></i></span>';
+    html += '<span class="tree-icon"><i class="fas fa-link"></i></span>';
+    html += '<span class="tree-label">' + escHtml(dom.domain) + '</span>';
+    html += '<span class="tree-count">' + (dom.page_count || 0) + ' 个页面</span>';
+    html += '</div>';
+    html += '<div class="tree-children">';
+    dom.pages.forEach(function(page) {
+        html += renderPageNode(page);
+    });
+    html += '</div></div>';
+    return html;
+}
+
+function renderPageNode(page) {
+    var html = '';
+    html += '<div class="tree-node tree-node-page" data-page-id="' + page.id + '">';
+    html += '<div class="tree-node-row">';
+    html += '<span class="tree-arrow no-children"><i class="fas fa-caret-right"></i></span>';
+    html += '<span class="tree-icon"><i class="fas fa-file-alt"></i></span>';
+    html += '<span class="tree-label">' + escHtml(page.name) + '</span>';
+    html += '<span class="page-actions">';
+    html += '<button class="pa-btn btn-edit-page" data-id="' + page.id + '" title="编辑"><i class="fas fa-edit"></i></button>';
+    html += '<button class="pa-btn btn-cat-page" data-id="' + page.id + '" title="分类"><i class="fas fa-tags"></i></button>';
+    html += '<button class="pa-btn" data-action="domain" data-id="' + page.id + '" data-domains=\'' + escAttr(JSON.stringify(page.domains || [])) + '\' title="域名"><i class="fas fa-globe"></i></button>';
+    html += '<button class="pa-btn" data-action="open" data-domains=\'' + escAttr(JSON.stringify(page.domains || [])) + '\' title="打开"><i class="fas fa-external-link-alt"></i></button>';
+    html += '<button class="pa-btn danger" data-action="delete" data-id="' + page.id + '" title="删除"><i class="fas fa-trash"></i></button>';
+    html += '</span>';
+    html += '</div></div>';
+    return html;
+}
+
+// ============================================================
+// 树形交互事件
+// ============================================================
+
+function bindTreeEvents() {
+    var container = document.getElementById('treeContainer');
+
+    // 展开/折叠
+    container.querySelectorAll('.tree-node-row[data-target]').forEach(function(row) {
+        row.addEventListener('click', function(e) {
+            // 如果点击的是操作按钮则忽略
+            if (e.target.closest('.page-actions') || e.target.closest('.pa-btn')) return;
+            var children = row.nextElementSibling;
+            if (children && children.classList.contains('tree-children')) {
+                var isOpen = children.classList.contains('expanded');
+                children.classList.toggle('expanded');
+                var arrow = row.querySelector('.tree-arrow');
+                if (arrow) arrow.classList.toggle('expanded');
+            }
+        });
+    });
+
+    // 页面操作按钮
+    container.querySelectorAll('.pa-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var action = btn.getAttribute('data-action') || '';
+            var id = parseInt(btn.getAttribute('data-id'));
+
+            if (action === 'domain') {
+                var domainsStr = btn.getAttribute('data-domains') || '[]';
+                var domains;
+                try { domains = JSON.parse(domainsStr); } catch(e) { domains = []; }
+                openDomainEditor(id, domains);
+            } else if (action === 'open') {
+                openPage(btn);
+            } else if (action === 'delete') {
+                deletePage(id);
+            }
+
+            // btn-edit-page (分类按钮在下方单独处理)
+            if (btn.classList.contains('btn-edit-page')) {
+                openEditor(id);
+            }
+            if (btn.classList.contains('btn-cat-page')) {
+                openPageCategoryEditor(id);
+            }
+        });
+    });
+}
+
+// 打开页面
+function openPage(btn) {
+    var domainsStr = btn.getAttribute('data-domains') || '[]';
+    var domains;
+    try { domains = JSON.parse(domainsStr); } catch(e) { domains = []; }
+    if (domains.length === 0) { layer.msg('该页面未绑定域名，无法打开', {icon:0}); return; }
+    var raw = domains[0];
+    var root = raw.replace(/^\*\.|^www\./i, '');
+    if (root.indexOf('127.0.0.1') === 0) {
+        // 本地地址保持原样
+    } else if (root.indexOf(':') > 0) {
+        root = root.split(':')[0];
+    }
+    var url = (root.indexOf('://') > 0) ? root : 'https://' + root + '/';
+    window.open(url, '_blank');
+}
+
+// 删除页面
+function deletePage(id) {
+    layer.confirm('确定删除此页面吗？', { icon: 3, btn: ['确定', '取消'], title: '确认删除' }, function(index) {
+        fetch('/xiaoying_admin/api/pages/saved/delete/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id }),
+        }).then(function(r) { return r.json(); }).then(function(resp) {
+            if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+            layer.close(index);
+            layer.msg('已删除', {icon:1});
+            loadTree();
+        }).catch(function() { layer.msg('删除失败', {icon:2}); });
+    });
+}
+
+// ============================================================
+// 页面分类设置弹窗
+// ============================================================
+
+function openPageCategoryEditor(pageId) {
+    var catCheckboxes = '';
+    categories.forEach(function(c) {
+        catCheckboxes += '<label style="display:block;padding:5px 0;cursor:pointer;">';
+        catCheckboxes += '<input type="checkbox" class="page-cat-cb" value="' + c.id + '"> ';
+        catCheckboxes += '<span>' + escHtml(c.name) + '</span></label>';
+    });
+    if (!categories.length) {
+        catCheckboxes = '<div style="color:#bbb;padding:10px 0;">暂无分类，请先在左侧创建</div>';
+    }
+
+    var html = '<div style="padding:15px 20px;">';
+    html += '<div style="font-size:13px;color:#666;margin-bottom:10px;">选择该页面的所属分类（可多选）：</div>';
+    html += '<div id="pageCatCheckWrap">' + catCheckboxes + '</div>';
+    html += '<div style="margin-top:15px;text-align:center;"><button type="button" class="layui-btn layui-btn-sm" id="pageCatSaveBtn"><i class="fas fa-save"></i> 保存</button></div>';
+    html += '</div>';
+
+    // 先获取页面当前分类
+    fetch('/xiaoying_admin/api/pages/saved/' + pageId + '/')
+        .then(function(r) { return r.json(); })
+        .then(function(page) {
+            var currentCatIds = page.category_ids || [];
+            layer.open({
+                type: 1,
+                title: '<i class="fas fa-tags" style="color:#5FB878;"></i> 设置页面分类',
+                area: ['380px', '350px'],
+                shadeClose: true,
+                content: html,
+                success: function(layero) {
+                    // 勾选当前分类
+                    layero.find('.page-cat-cb').each(function() {
+                        if (currentCatIds.indexOf(parseInt(this.value)) !== -1) {
+                            this.checked = true;
+                        }
+                    });
+
+                    layero.find('#pageCatSaveBtn').on('click', function() {
+                        var ids = [];
+                        layero.find('.page-cat-cb:checked').each(function() {
+                            ids.push(parseInt(this.value));
+                        });
+                        var idx = layer.load(1);
+                        fetch('/xiaoying_admin/api/pages/saved/set-categories/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: pageId, category_ids: ids }),
+                        }).then(function(r) { return r.json(); }).then(function(resp) {
+                            layer.close(idx);
+                            if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                            layer.closeAll();
+                            layer.msg('分类已更新', {icon:1});
+                            loadTree();
+                        }).catch(function() { layer.close(idx); layer.msg('操作失败', {icon:2}); });
+                    });
+                },
+            });
+        });
+}
+
+// ============================================================
+// 视图切换
+// ============================================================
+
+document.querySelectorAll('.page-view-tabs .tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.page-view-tabs .tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var view = btn.getAttribute('data-view');
+        if (view === 'tree') {
+            document.getElementById('treeView').classList.add('active');
+            document.getElementById('tableView').classList.remove('active');
+            document.getElementById('sidebarWrap').style.display = '';
+        } else {
+            document.getElementById('treeView').classList.remove('active');
+            document.getElementById('tableView').classList.add('active');
+            document.getElementById('sidebarWrap').style.display = 'none';
+            loadTableView(1);
+        }
+    });
+});
+
+// ============================================================
+// 表格视图（原有逻辑）
+// ============================================================
+
+function loadTableView(page) {
+    page = page || 1;
+    currentPageTV = page;
+    var keyword = searchInput.value.trim();
+    var url = '/xiaoying_admin/api/pages/saved/?page=' + page + '&limit=' + pageSize;
+    if (keyword) url += '&keyword=' + encodeURIComponent(keyword);
+
+    tbody.innerHTML = '<tr><td colspan="8" class="loading-mask">加载中...</td></tr>';
+
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+            totalCount = resp.total || 0;
+            totalLabel.textContent = '共 ' + totalCount + ' 条';
+            var items = resp.items || [];
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="loading-mask">暂无数据</td></tr>';
+                pagWrap.innerHTML = '';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < items.length; i++) {
+                var p = items[i];
+                html += '<tr data-id="' + p.id + '">';
+                html += '<td>' + p.id + '</td>';
+                html += '<td class="page-name">' + escHtml(p.name) + '</td>';
+                html += '<td class="page-input" title="' + escAttr(p.input_content || '') + '">' + escHtml(p.input_content || '') + '</td>';
+                html += '<td style="color:#999;font-size:12px;">' + (p.created_by || '<span style="color:#ccc;">-</span>') + '</td>';
+                html += '<td>';
+                var domains = p.domains && p.domains.length ? p.domains : (p.domain ? [p.domain] : []);
+                if (domains.length) {
+                    html += domains.map(function(d) {
+                        var cls = d.indexOf('*.') === 0 ? 'domain-wildcard' : 'domain-badge';
+                        return '<span class="' + cls + '">' + escHtml(d) + '</span>';
+                    }).join(' ');
+                } else {
+                    html += '<span class="domain-empty">未设置</span>';
+                }
+                html += '</td>';
+                html += '<td>' + (p.create_time || '') + '</td>';
+                html += '<td style="text-align:center;"><input type="checkbox" class="crosslink-exclude layui-input" data-id="' + p.id + '"' + (p.crosslink_excluded ? ' checked' : '') + '></td>';
+                html += '<td style="text-align:center;">';
+                html += '<div class="action-dropdown">';
+                html += '<button class="layui-btn layui-btn-sm layui-btn-primary dropdown-trigger" style="font-size:16px;padding:0 10px;line-height:30px;height:30px;"><i class="fas fa-caret-down"></i></button>';
+                html += '<div class="dropdown-menu">';
+                html += '<a href="javascript:;" class="dropdown-item btn-edit-page-tbl" data-id="' + p.id + '"><i class="fas fa-edit"></i> 编辑</a>';
+                html += '<a href="javascript:;" class="dropdown-item btn-cat-page-tbl" data-id="' + p.id + '"><i class="fas fa-tags"></i> 分类设置</a>';
+                html += '<a href="javascript:;" class="dropdown-item btn-domain-tbl" data-id="' + p.id + '" data-domains=\'' + escAttr(JSON.stringify(domains)) + '\'><i class="fas fa-globe"></i> 域名设置</a>';
+                html += '<a href="javascript:;" class="dropdown-item btn-view-tbl" data-id="' + p.id + '" data-domains=\'' + escAttr(JSON.stringify(domains)) + '\'><i class="fas fa-external-link-alt"></i> 打开</a>';
+                html += '<div class="dropdown-divider"></div>';
+                html += '<a href="javascript:;" class="dropdown-item btn-del-page-tbl dropdown-danger" data-id="' + p.id + '"><i class="fas fa-trash"></i> 删除</a>';
+                html += '</div></div>';
+                html += '</td>';
+                html += '</tr>';
+            }
+            tbody.innerHTML = html;
+            renderPaginationTV();
+        })
+        .catch(function() {
+            tbody.innerHTML = '<tr><td colspan="8" class="loading-mask" style="color:#FF5722;">加载失败</td></tr>';
+        });
+}
+
+function renderPaginationTV() {
+    var totalPages = Math.ceil(totalCount / pageSize) || 1;
+    if (totalCount === 0) { pagWrap.innerHTML = ''; return; }
+    var html = '', i, active;
+
+    var prevClass = currentPageTV <= 1 ? 'disabled' : '';
+    html += '<span class="page-btn ' + prevClass + '" data-page="' + (currentPageTV - 1) + '">‹</span>';
+
+    var start = Math.max(1, currentPageTV - 2);
+    var end = Math.min(totalPages, currentPageTV + 2);
+    if (start > 1) html += '<span class="page-btn" data-page="1">1</span>';
+    if (start > 2) html += '<span class="page-btn disabled">...</span>';
+    for (i = start; i <= end; i++) {
+        active = i === currentPageTV ? 'active' : '';
+        html += '<span class="page-btn ' + active + '" data-page="' + i + '">' + i + '</span>';
+    }
+    if (end < totalPages - 1) html += '<span class="page-btn disabled">...</span>';
+    if (end < totalPages) html += '<span class="page-btn" data-page="' + totalPages + '">' + totalPages + '</span>';
+
+    var nextClass = currentPageTV >= totalPages ? 'disabled' : '';
+    html += '<span class="page-btn ' + nextClass + '" data-page="' + (currentPageTV + 1) + '">›</span>';
+    html += '<span class="page-info">第 ' + currentPageTV + '/' + totalPages + ' 页</span>';
+
+    pagWrap.innerHTML = html;
+}
+
+// 表格翻页
+pagWrap.addEventListener('click', function(e) {
+    var btn = e.target.closest('.page-btn');
+    if (!btn || btn.classList.contains('disabled')) return;
+    var p = parseInt(btn.getAttribute('data-page'));
+    if (p < 1 || p > Math.ceil(totalCount / pageSize) || p === currentPageTV) return;
+    loadTableView(p);
+});
+
+// ============================================================
+// 表格视图操作
+// ============================================================
+
+tbody.addEventListener('click', function(e) {
+    var btn;
+
+    btn = e.target.closest('.btn-view-tbl');
+    if (btn) {
+        openPage(btn);
+        return;
+    }
+
+    btn = e.target.closest('.btn-domain-tbl');
+    if (btn) {
+        var id = parseInt(btn.getAttribute('data-id'));
+        var domainsStr = btn.getAttribute('data-domains') || '[]';
+        try { openDomainEditor(id, JSON.parse(domainsStr)); }
+        catch(e) { openDomainEditor(id, []); }
+        return;
+    }
+
+    btn = e.target.closest('.btn-edit-page-tbl');
+    if (btn) {
+        openEditor(parseInt(btn.getAttribute('data-id')));
+        return;
+    }
+
+    btn = e.target.closest('.btn-cat-page-tbl');
+    if (btn) {
+        openPageCategoryEditor(parseInt(btn.getAttribute('data-id')));
+        return;
+    }
+
+    btn = e.target.closest('.btn-del-page-tbl');
+    if (btn) {
+        deletePage(parseInt(btn.getAttribute('data-id')));
+        return;
+    }
+});
+
+// 表格视图：下拉菜单
+tbody.addEventListener('click', function(e) {
+    var trigger = e.target.closest('.dropdown-trigger');
+    if (trigger) {
+        e.stopPropagation();
+        var dropdown = trigger.closest('.action-dropdown');
+        document.querySelectorAll('.action-dropdown.open').forEach(function(d) {
+            if (d !== dropdown) d.classList.remove('open');
+        });
+        dropdown.classList.toggle('open');
+    }
+});
+document.addEventListener('click', function() {
+    document.querySelectorAll('.action-dropdown.open').forEach(function(d) {
+        d.classList.remove('open');
+    });
+});
+
+// 排除互链复选框
+tbody.addEventListener('change', function(e) {
+    var cb = e.target.closest('.crosslink-exclude');
+    if (!cb) return;
+    var id = parseInt(cb.getAttribute('data-id'));
+    var excluded = cb.checked;
+    fetch('/xiaoying_admin/api/crosslinks/exclude-toggle/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id, excluded: excluded }),
+    }).then(function(r) { return r.json(); }).then(function(resp) {
+        if (resp.error) { layer.msg(resp.error, {icon:2}); cb.checked = !excluded; return; }
+        layer.msg(resp.message, {icon:1, time:1000});
+    }).catch(function() { layer.msg('操作失败', {icon:2}); cb.checked = !excluded; });
+});
+
+// ============================================================
+// 工具栏 & 搜索
+// ============================================================
+
+document.getElementById('btnSearch').addEventListener('click', function() {
+    var isTree = document.getElementById('treeView').classList.contains('active');
+    if (!isTree) loadTableView(1);
+});
+document.getElementById('btnReset').addEventListener('click', function() {
+    searchInput.value = '';
+    var isTree = document.getElementById('treeView').classList.contains('active');
+    if (!isTree) loadTableView(1);
+});
+searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        var isTree = document.getElementById('treeView').classList.contains('active');
+        if (!isTree) loadTableView(1);
+    }
+});
+
+// ============================================================
+// 新增页面（不变）
+// ============================================================
+
+document.getElementById('btnCreatePage').addEventListener('click', function() {
+    openCreatePage();
+});
+
+function openCreatePage() {
+    var catOptions = '';
+    categories.forEach(function(c) {
+        catOptions += '<label style="display:inline-block;margin-right:12px;cursor:pointer;"><input type="checkbox" class="create-cat-cb" value="' + c.id + '"> ' + escHtml(c.name) + '</label>';
+    });
+    if (!categories.length) catOptions = '<span style="color:#bbb;">暂无分类</span>';
+
+    var html = '<div class="modal-scroll-wrap"><form class="layui-form" style="padding:15px;">';
+    html += '<div class="layui-form-item"><label class="layui-form-label">页面名称 <span style="color:#e54d4d;">*</span></label><div class="layui-input-block"><input type="text" id="createName" class="layui-input" placeholder="输入页面名称"></div></div>';
+    html += '<div class="layui-form-item"><label class="layui-form-label">需求描述</label><div class="layui-input-block"><textarea id="createInput" class="layui-textarea" rows="2" placeholder="可选"></textarea></div></div>';
+    html += '<div class="layui-form-item"><label class="layui-form-label">所属分类</label><div class="layui-input-block" id="createCatWrap">' + catOptions + '</div></div>';
+    html += '<div class="layui-form-item"><label class="layui-form-label">HTML 代码 <span style="color:#e54d4d;">*</span></label><div class="layui-input-block"><textarea id="createHtml" class="layui-textarea code-textarea" placeholder="粘贴完整的 HTML 代码"></textarea></div></div>';
+    html += '<div class="layui-form-item"><label class="layui-form-label">绑定域名</label><div class="layui-input-block"><input type="text" id="createDomains" class="layui-input" placeholder="可选，多个域名用逗号分隔"></div></div>';
+    html += '<div class="layui-form-item" style="margin-top:15px;text-align:center;"><button type="button" class="layui-btn" id="createSaveBtn"><i class="fas fa-save"></i> 创建页面</button></div>';
+    html += '</form></div>';
+
+    layer.open({
+        type: 1,
+        title: '<i class="fas fa-plus-circle" style="color:#5FB878;"></i> 新增页面',
+        area: ['700px', 'auto'],
+        shadeClose: true,
+        content: html,
+        success: function(layero) {
+            layero.find('#createSaveBtn').on('click', function() {
+                var name = layero.find('#createName').val().trim();
+                var htmlContent = layero.find('#createHtml').val().trim();
+                var inputContent = layero.find('#createInput').val().trim();
+                var domainsStr = layero.find('#createDomains').val().trim();
+
+                if (!name) { layer.msg('请输入页面名称', {icon:5}); return; }
+                if (!htmlContent) { layer.msg('请输入 HTML 内容', {icon:5}); return; }
+
+                var domains = [];
+                if (domainsStr) {
+                    domains = domainsStr.split(',').map(function(s) { return s.trim().toLowerCase(); }).filter(function(s) { return s.length > 0; });
+                }
+
+                var catIds = [];
+                layero.find('.create-cat-cb:checked').each(function() {
+                    catIds.push(parseInt(this.value));
+                });
+
+                var idx = layer.load(1);
+                fetch('/xiaoying_admin/api/pages/saved/create/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        html_content: htmlContent,
+                        input_content: inputContent,
+                        domains: domains,
+                    }),
+                }).then(function(r) { return r.json(); }).then(function(resp) {
+                    if (resp.error) { layer.close(idx); layer.msg(resp.error, {icon:2}); return; }
+                    var pageId = resp.page ? resp.page.id : null;
+                    if (pageId && catIds.length) {
+                        return fetch('/xiaoying_admin/api/pages/saved/set-categories/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: pageId, category_ids: catIds }),
+                        }).then(function() { return resp; });
+                    }
+                    return resp;
+                }).then(function(resp) {
+                    layer.close(idx);
+                    layer.closeAll();
+                    layer.msg('创建成功', {icon:1});
+                    loadTree();
+                    if (currentPageTV) loadTableView(currentPageTV);
+                }).catch(function() { layer.close(idx); layer.msg('创建失败', {icon:2}); });
+            });
+        },
+    });
+}
+
+// ============================================================
+// 域名设置弹窗（不变）
+// ============================================================
+
+function openDomainEditor(id, currentDomains) {
+    if (typeof currentDomains === 'string') {
+        currentDomains = currentDomains ? [currentDomains] : [];
+    }
+    var tags = currentDomains || [];
+
+    var html = '<div style="padding:20px 15px;">';
+    html += '<div class="layui-form-item">';
+    html += '<label class="layui-form-label" style="width:80px;">域名</label>';
+    html += '<div class="layui-input-block" style="margin-left:110px;">';
+    html += '<div style="border:1px solid #e0e0e0;border-radius:4px;padding:6px 8px;min-height:36px;" id="domainTagsWrap">';
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;margin-top:6px;">';
+    html += '<input type="text" id="domainInput" class="layui-input" placeholder="输入域名，如 example.com 或 *.example.com" style="flex:1;height:32px;font-size:13px;">';
+    html += '<button type="button" id="domainAddBtn" class="layui-btn layui-btn-sm" style="white-space:nowrap;"><i class="fas fa-plus"></i> 添加</button>';
+    html += '</div>';
+    html += '<div style="font-size:11px;color:#999;margin-top:4px;">支持 *. 通配符（如 *.example.com），按回车快速添加</div>';
+    html += '</div></div>';
+    html += '<div class="layui-form-item" style="margin-top:12px;text-align:center;">';
+    html += '<button type="button" class="layui-btn" id="domainSaveBtn"><i class="fas fa-save"></i> 保存</button>';
+    html += '</div></div>';
+
+    layer.open({
+        type: 1,
+        title: '域名设置',
+        area: ['520px', '320px'],
+        shadeClose: true,
+        content: html,
+        success: function(layero) {
+            var wrap = layero.find('#domainTagsWrap')[0];
+            var input = layero.find('#domainInput');
+            var addBtn = layero.find('#domainAddBtn');
+
+            function renderTags() {
+                if (!wrap) return;
+                wrap.innerHTML = tags.map(function(d, i) {
+                    var cls = d.indexOf('*.') === 0 ? 'domain-badge domain-wildcard-tag' : 'domain-badge';
+                    return '<span class="' + cls + '" style="display:inline-flex;align-items:center;gap:4px;margin:2px 4px 2px 0;padding:2px 8px;background:' + (d.indexOf('*.') === 0 ? '#fff3e0' : '#e8f5e9') + ';color:' + (d.indexOf('*.') === 0 ? '#e65100' : '#2e7d32') + ';border-radius:3px;font-size:12px;">' +
+                        escHtml(d) +
+                        ' <a href="javascript:;" class="domain-del-tag" data-i="' + i + '" style="color:#999;text-decoration:none;font-size:14px;line-height:1;">×</a>' +
+                        '</span>';
+                }).join('');
+                if (wrap) {
+                    [].slice.call(wrap.querySelectorAll('.domain-del-tag')).forEach(function(el) {
+                        el.onclick = function() {
+                            var idx = parseInt(this.getAttribute('data-i'));
+                            if (!isNaN(idx)) { tags.splice(idx, 1); renderTags(); }
+                        };
+                    });
+                }
+            }
+
+            function addTag() {
+                var val = input.val().trim().toLowerCase();
+                if (!val) return;
+                if (val.indexOf('*.') === 0) {
+                    if (val.length <= 2 || val.indexOf('.', 2) === -1) {
+                        layer.msg('通配符格式无效，示例: *.example.com', {icon:2}); return;
+                    }
+                } else if (val.indexOf('.') === -1) {
+                    layer.msg('域名格式无效，需包含 .', {icon:2}); return;
+                }
+                if (tags.indexOf(val) !== -1) {
+                    layer.msg('域名已存在', {icon:0}); return;
+                }
+                tags.push(val);
+                input.val('');
+                renderTags();
+            }
+
+            renderTags();
+            addBtn.on('click', addTag);
+            input.on('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); addTag(); }
+            });
+
+            layero.find('#domainSaveBtn').on('click', function() {
+                fetch('/xiaoying_admin/api/pages/saved/set-domain/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id, domains: tags }),
+                }).then(function(r) { return r.json(); }).then(function(resp) {
+                    if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                    layer.closeAll();
+                    layer.msg(resp.message, {icon:1});
+                    loadTree();
+                }).catch(function() { layer.msg('操作失败', {icon:2}); });
+            });
+        },
+    });
+}
+
+// ============================================================
+// 编辑页面弹窗（含分类选择）
+// ============================================================
+
+function openEditor(id) {
+    fetch('/xiaoying_admin/api/pages/saved/' + id + '/')
+        .then(function(r) { return r.json(); })
+        .then(function(page) {
+            var catOptions = '';
+            categories.forEach(function(c) {
+                var checked = (page.category_ids || []).indexOf(c.id) !== -1 ? 'checked' : '';
+                catOptions += '<label style="display:inline-block;margin-right:12px;cursor:pointer;"><input type="checkbox" class="edit-cat-cb" value="' + c.id + '" ' + checked + '> ' + escHtml(c.name) + '</label>';
+            });
+            if (!categories.length) catOptions = '<span style="color:#bbb;">暂无分类</span>';
+
+            var html = '<div class="modal-scroll-wrap"><form class="layui-form" style="padding:15px;">';
+            html += '<div class="layui-form-item"><label class="layui-form-label">页面名称</label><div class="layui-input-block"><input type="text" id="editName" class="layui-input" value="' + escAttr(page.name) + '"></div></div>';
+            html += '<div class="layui-form-item"><label class="layui-form-label">需求描述</label><div class="layui-input-block"><textarea id="editInput" class="layui-textarea" rows="2">' + escHtml(page.input_content || '') + '</textarea></div></div>';
+            html += '<div class="layui-form-item"><label class="layui-form-label">所属分类</label><div class="layui-input-block" id="editCatWrap">' + catOptions + '</div></div>';
+            html += '<div class="layui-form-item"><label class="layui-form-label">HTML 代码</label><div class="layui-input-block"><textarea id="editHtml" class="layui-textarea code-textarea">' + escHtml(page.html_content) + '</textarea></div></div>';
+            html += '<div class="layui-form-item" style="margin-top:15px;text-align:center;"><button type="button" class="layui-btn" id="editSaveBtn"><i class="fas fa-save"></i> 保存修改</button></div>';
+            html += '</form></div>';
+
+            layer.open({
+                type: 1,
+                title: '编辑页面: ' + page.name,
+                area: ['700px', 'auto'],
+                shadeClose: true,
+                content: html,
+                success: function(layero) {
+                    layero.find('#editSaveBtn').on('click', function() {
+                        var name = layero.find('#editName').val().trim();
+                        var inputContent = layero.find('#editInput').val().trim();
+                        var htmlContent = layero.find('#editHtml').val().trim();
+                        if (!name) { layer.msg('请输入页面名称', {icon:5}); return; }
+                        if (!htmlContent) { layer.msg('请输入 HTML 内容', {icon:5}); return; }
+
+                        var catIds = [];
+                        layero.find('.edit-cat-cb:checked').each(function() {
+                            catIds.push(parseInt(this.value));
+                        });
+
+                        var idx = layer.load(1);
+                        fetch('/xiaoying_admin/api/pages/saved/update/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: id, name: name, input_content: inputContent, html_content: htmlContent }),
+                        }).then(function(r) { return r.json(); }).then(function(resp) {
+                            if (resp.error) { layer.close(idx); layer.msg(resp.error, {icon:2}); return; }
+                            // 更新分类
+                            return fetch('/xiaoying_admin/api/pages/saved/set-categories/', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: id, category_ids: catIds }),
+                            }).then(function() { return resp; });
+                        }).then(function(resp) {
+                            layer.close(idx);
+                            layer.closeAll();
+                            layer.msg('已更新', {icon:1});
+                            loadTree();
+                            if (currentPageTV) loadTableView(currentPageTV);
+                        }).catch(function() { layer.close(idx); layer.msg('保存失败', {icon:2}); });
+                    });
+                },
+            });
+        });
+    }
+
+// ============================================================
+// 智能互链
+// ============================================================
+
+document.getElementById('btnCrosslink').addEventListener('click', function() {
+    layer.confirm(
+        '遍历所有<strong>未排除</strong>的页面，为每个页面<strong>追加</strong>尚未收录的合作域名链接。<br>' +
+        '已有链接会完整保留，已有新页面加入时再次点击即可补充。<br>' +
+        '<span style="color:#FF9800;font-size:12px;">此操作不可撤销，请确认已备份重要数据。</span>',
+        { icon: 3, title: '智能互链（增量追加）', btn: ['开始追加', '取消'] },
+        function(index) {
+            layer.close(index);
+            var idx = layer.load(1, { shade: [0.3, '#000'] });
+            fetch('/xiaoying_admin/api/crosslinks/generate/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            }).then(function(r) { return r.json(); }).then(function(resp) {
+                layer.close(idx);
+                if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                layer.msg(resp.message, {icon:1, time:2500});
+            }).catch(function() { layer.close(idx); layer.msg('网络错误', {icon:2}); });
+        }
+    );
+});
+
+// ============================================================
+// 初始化：加载分类 & 树形数据
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadCategories().then(function() {
+        loadTree();
+    });
+});
 </script>
 
 {% endblock %}

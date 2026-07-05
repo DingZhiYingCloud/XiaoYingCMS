@@ -6,18 +6,6 @@ from XiaoYingAdmin.common.base import BaseModel
 class SiteSettings(BaseModel):
     """
     全局网站设置模型（单例模式，仅有一条记录）。
-
-    字段说明：
-      - statistics_code: 全局代码统计，文本域，可存放统计代码、第三方分析脚本等
-      - is_active: 是否启用该配置
-
-    使用方式：
-      from XiaoYingAdmin.models.site_settings import SiteSettings
-
-      # 获取唯一配置（不存在则自动创建）
-      settings = SiteSettings.objects.first()
-      if settings:
-          code = settings.statistics_code
     """
 
     statistics_code = models.TextField(
@@ -31,6 +19,16 @@ class SiteSettings(BaseModel):
         verbose_name='是否启用',
         default=True,
         help_text='关闭后全局统计代码将不会在页面中输出',
+    )
+    auto_backup_spider_threshold = models.IntegerField(
+        verbose_name='蜘蛛日志自动备份阈值',
+        default=0,
+        help_text='蜘蛛日志记录数达到此值时自动备份并清空。0=关闭自动备份',
+    )
+    auto_backup_operation_threshold = models.IntegerField(
+        verbose_name='操作日志自动备份阈值',
+        default=0,
+        help_text='操作日志记录数达到此值时自动备份并清空。0=关闭自动备份',
     )
 
     class Meta:
