@@ -859,7 +859,9 @@ function loadTableView(page) {
                 }
                 html += '</td>';
                 html += '<td>' + (p.create_time || '') + '</td>';
-                html += '<td style="text-align:center;"><input type="checkbox" class="crosslink-exclude layui-input" data-id="' + p.id + '"' + (p.crosslink_excluded ? ' checked' : '') + '></td>';
+                var onIcon = p.crosslink_excluded ? 'fa-toggle-on' : 'fa-toggle-off';
+                var onColor = p.crosslink_excluded ? '#5FB878' : '#ccc';
+                html += '<td style="text-align:center;"><i class="fas ' + onIcon + ' crosslink-toggle" data-id="' + p.id + '" data-excluded="' + (p.crosslink_excluded ? '1' : '0') + '" style="color:' + onColor + ';cursor:pointer;font-size:20px;transition:color .2s;"></i></td>';
                 html += '<td style="text-align:center;">';
                 html += '<div class="action-dropdown">';
                 html += '<button class="layui-btn layui-btn-sm layui-btn-primary dropdown-trigger" style="font-size:16px;padding:0 10px;line-height:30px;height:30px;"><i class="fas fa-caret-down"></i></button>';
@@ -976,20 +978,58 @@ document.addEventListener('click', function() {
     });
 });
 
-// 排除互链复选框
-tbody.addEventListener('change', function(e) {
-    var cb = e.target.closest('.crosslink-exclude');
-    if (!cb) return;
-    var id = parseInt(cb.getAttribute('data-id'));
-    var excluded = cb.checked;
+// 排除互链开关图标
+tbody.addEventListener('click', function(e) {
+    var icon = e.target.closest('.crosslink-toggle');
+    if (!icon) return;
+    var id = parseInt(icon.getAttribute('data-id'));
+    var currentlyExcluded = icon.getAttribute('data-excluded') === '1';
+    var newExcluded = !currentlyExcluded;
+
+    // 立即切换 UI（乐观更新）
+    if (newExcluded) {
+        icon.className = 'fas fa-toggle-on crosslink-toggle';
+        icon.style.color = '#5FB878';
+        icon.setAttribute('data-excluded', '1');
+    } else {
+        icon.className = 'fas fa-toggle-off crosslink-toggle';
+        icon.style.color = '#ccc';
+        icon.setAttribute('data-excluded', '0');
+    }
+
     fetch('/xiaoying_admin/api/crosslinks/exclude-toggle/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: id, excluded: excluded }),
+        body: JSON.stringify({ id: id, excluded: newExcluded }),
     }).then(function(r) { return r.json(); }).then(function(resp) {
-        if (resp.error) { layer.msg(resp.error, {icon:2}); cb.checked = !excluded; return; }
-        layer.msg(resp.message, {icon:1, time:1000});
-    }).catch(function() { layer.msg('操作失败', {icon:2}); cb.checked = !excluded; });
+        if (resp.error) {
+            layer.msg(resp.error, {icon:2});
+            // 回滚
+            if (currentlyExcluded) {
+                icon.className = 'fas fa-toggle-on crosslink-toggle';
+                icon.style.color = '#5FB878';
+                icon.setAttribute('data-excluded', '1');
+            } else {
+                icon.className = 'fas fa-toggle-off crosslink-toggle';
+                icon.style.color = '#ccc';
+                icon.setAttribute('data-excluded', '0');
+            }
+            return;
+        }
+        layer.msg(resp.message || (newExcluded ? '已排除互链' : '已纳入互链'), {icon:1, time:1000});
+    }).catch(function() {
+        layer.msg('操作失败', {icon:2});
+        // 回滚
+        if (currentlyExcluded) {
+            icon.className = 'fas fa-toggle-on crosslink-toggle';
+            icon.style.color = '#5FB878';
+            icon.setAttribute('data-excluded', '1');
+        } else {
+            icon.className = 'fas fa-toggle-off crosslink-toggle';
+            icon.style.color = '#ccc';
+            icon.setAttribute('data-excluded', '0');
+        }
+    });
 });
 
 // ============================================================
