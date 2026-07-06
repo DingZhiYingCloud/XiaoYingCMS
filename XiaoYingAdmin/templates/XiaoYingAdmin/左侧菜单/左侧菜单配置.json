@@ -117,6 +117,12 @@
         "icon": "",
         "url": "/xiaoying_admin/seo/cloak/",
         "children": []
+      },
+      {
+        "name": "域名SEO记录",
+        "icon": "",
+        "url": "/xiaoying_admin/seo/domain-records/",
+        "children": []
       }
     ]
   },

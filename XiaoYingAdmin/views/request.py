@@ -25,6 +25,8 @@ from XiaoYingAdmin.models.operation_log import OperationLog
 from XiaoYingAdmin.models.login_log import LoginLog
 from XiaoYingAdmin.models.task import PageGenerationTask
 from XiaoYingAdmin.models.firewall import FirewallRule
+from XiaoYingAdmin.models.multi_page_project import MultiPageProject
+from XiaoYingAdmin.models.seo_domain import SeoDomain
 
 
 # =============================================================================
@@ -99,6 +101,14 @@ def index_view(request):
     firewall_active = FirewallRule.objects.filter(is_active=True).count()
     firewall_total = FirewallRule.objects.count()
 
+    # 多页面统计
+    multi_projects_total = MultiPageProject.objects.count()
+    multi_projects_completed = MultiPageProject.objects.filter(status='completed').count()
+    multi_projects_enabled = MultiPageProject.objects.filter(is_enabled=True).count()
+
+    # SEO 域名统计
+    seo_domains_total = SeoDomain.objects.count()
+
     context = {
         # 用户统计
         'total_users': User.objects.count(),
@@ -108,6 +118,12 @@ def index_view(request):
         'total_pages': GeneratedPage.objects.count(),
         'total_prompts': Prompt.objects.count(),
         'active_prompts': Prompt.objects.filter(is_active=True).count(),
+        # 多页面统计
+        'multi_projects_total': multi_projects_total,
+        'multi_projects_completed': multi_projects_completed,
+        'multi_projects_enabled': multi_projects_enabled,
+        # SEO 统计
+        'seo_domains_total': seo_domains_total,
         # 蜘蛛统计
         'spider_total': SpiderAccessLog.objects.count(),
         'spider_today': SpiderAccessLog.objects.filter(create_time__gte=today).count(),

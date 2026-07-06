@@ -1,0 +1,285 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% load static %}
+
+{% block title %}域名SEO记录 — {{ site_name }}{% endblock %}
+
+{% block head %}
+<style>
+    .dsr-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 15px;
+        gap: 10px;
+    }
+    .dsr-search {
+        width: 260px;
+        height: 30px;
+        border: 1px solid #d2d2d2;
+        border-radius: 4px;
+        padding: 0 10px;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .dsr-search:focus { border-color: #5FB878; }
+    .dsr-domain-card {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid #f0f0f0;
+        cursor: pointer;
+        transition: background 0.12s;
+        text-decoration: none;
+        color: inherit;
+    }
+    .dsr-domain-card:hover { background: #f8faf8; }
+    .dsr-domain-card:last-child { border-bottom: none; }
+    .dsr-domain-name { flex: 1; font-size: 14px; font-weight: 600; color: #333; }
+    .dsr-domain-count { font-size: 12px; color: #999; margin: 0 12px; }
+    .dsr-domain-actions { white-space: nowrap; }
+    .dsr-empty {
+        text-align: center; padding: 60px 0; color: #ccc;
+    }
+    .dsr-empty i { font-size: 48px; display: block; margin-bottom: 12px; }
+    .dsr-empty p { font-size: 14px; margin: 0; }
+    .dsr-type-badge {
+        display: inline-block; padding: 1px 8px; border-radius: 3px;
+        font-size: 11px; line-height: 1.6; font-weight: 500; margin-right: 10px;
+    }
+    .dsr-type-root { background: #e8f4ff; color: #1890ff; }
+    .dsr-type-multi { background: #fff7e6; color: #fa8c16; }
+    .dsr-form label { font-weight: 500; color: #333; display: block; margin-bottom: 4px; }
+    .dsr-form .required::after { content: ' *'; color: #ff4d4f; }
+    .dsr-form .layui-input { height: 34px; font-size: 13px; }
+    .dsr-form textarea.layui-input { height: 70px; resize: vertical; padding: 6px 10px; }
+    /* 分页 */
+    .dsr-pagination {
+        display: flex; align-items: center; justify-content: center;
+        padding: 12px 0; gap: 4px; border-top: 1px solid #f0f0f0;
+    }
+    .dsr-pagination button {
+        min-width: 30px; height: 28px; border: 1px solid #e0e0e0;
+        background: #fff; border-radius: 3px; cursor: pointer;
+        font-size: 12px; color: #666; transition: all 0.12s;
+    }
+    .dsr-pagination button:hover { border-color: #5FB878; color: #5FB878; }
+    .dsr-pagination button.active { background: #5FB878; border-color: #5FB878; color: #fff; }
+    .dsr-pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .dsr-pagination .page-info { font-size: 12px; color: #999; margin: 0 8px; }
+</style>
+{% endblock %}
+
+{% block body %}
+
+<div class="dsr-toolbar">
+    <div>
+        <i class="fas fa-globe" style="color:#5FB878;"></i>
+        <span style="font-size:16px;font-weight:600;margin-left:6px;">域名SEO记录</span>
+        <span style="font-size:13px;color:#999;margin-left:8px;">点击域名查看快排手段时间线</span>
+    </div>
+    <div>
+        <button class="layui-btn layui-btn-sm" onclick="syncDomains()" id="syncBtn">
+            <i class="fas fa-sync"></i> 从项目同步
+        </button>
+        <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="openDomainModal(null)">
+            <i class="fas fa-plus"></i> 新增域名
+        </button>
+    </div>
+</div>
+
+<div class="dsr-toolbar">
+    <div>
+        <i class="fas fa-search" style="color:#999;"></i>
+        <input type="text" class="dsr-search" id="searchInput" placeholder="搜索域名..." onkeyup="if(event.key==='Enter'){ page=1; loadDomains(); }">
+    </div>
+    <div style="font-size:12px;color:#999;">
+        共 <span id="domainCount">0</span> 个域名
+    </div>
+</div>
+
+<div class="layui-card">
+    <div class="layui-card-header"><i class="fas fa-list"></i> 域名列表</div>
+    <div class="layui-card-body" style="padding:0;" id="domainList">
+        <div class="dsr-empty">
+            <i class="fas fa-inbox"></i>
+            <p>暂无域名，点击「从项目同步」或「新增域名」开始</p>
+        </div>
+    </div>
+    <div id="paginationBar" class="dsr-pagination" style="display:none;"></div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+var domains = [];
+var page = 1;
+var totalPages = 1;
+var totalCount = 0;
+
+function getTypeBadge(type) {
+    if (type === 'root') return '<span class="dsr-type-badge dsr-type-root">根域名</span>';
+    if (type === 'multi') return '<span class="dsr-type-badge dsr-type-multi">多域名</span>';
+    return '';
+}
+
+function renderDomains(data) {
+    var container = document.getElementById('domainList');
+    document.getElementById('domainCount').textContent = totalCount;
+    if (!data || data.length === 0) {
+        container.innerHTML = '<div class="dsr-empty"><i class="fas fa-inbox"></i><p>暂无域名</p></div>';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < data.length; i++) {
+        var d = data[i];
+        var recordLabel = d.record_count > 0 ? d.record_count + ' 条记录' : '暂无记录';
+        html += '<a class="dsr-domain-card" href="/xiaoying_admin/seo/domain-records/' + d.id + '/">' +
+            getTypeBadge(d.domain_type) +
+            '<span class="dsr-domain-name">' + escHtml(d.domain) + '</span>' +
+            '<span class="dsr-domain-count">' + recordLabel + '</span>' +
+            '<span class="dsr-domain-actions">' +
+                '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();event.preventDefault();openDomainModal(' + d.id + ')"><i class="fas fa-edit"></i></button> ' +
+                '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();event.preventDefault();deleteDomain(' + d.id + ')"><i class="fas fa-trash"></i></button>' +
+            '</span>' +
+            '</a>';
+    }
+    container.innerHTML = html;
+    renderPagination();
+}
+
+function renderPagination() {
+    var bar = document.getElementById('paginationBar');
+    if (totalPages <= 1) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+
+    var html = '<button onclick="goPage(1)"' + (page<=1?' disabled':'') + '><i class="fas fa-angle-double-left"></i></button>';
+    html += '<button onclick="goPage(' + (page-1) + ')"' + (page<=1?' disabled':'') + '><i class="fas fa-angle-left"></i></button>';
+
+    // 显示有限页码
+    var start = Math.max(1, page - 2);
+    var end = Math.min(totalPages, page + 2);
+    if (start > 1) html += '<button disabled>...</button>';
+    for (var p = start; p <= end; p++) {
+        html += '<button class="' + (p===page?'active':'') + '" onclick="goPage(' + p + ')">' + p + '</button>';
+    }
+    if (end < totalPages) html += '<button disabled>...</button>';
+
+    html += '<button onclick="goPage(' + (page+1) + ')"' + (page>=totalPages?' disabled':'') + '><i class="fas fa-angle-right"></i></button>';
+    html += '<button onclick="goPage(' + totalPages + ')"' + (page>=totalPages?' disabled':'') + '><i class="fas fa-angle-double-right"></i></button>';
+    html += '<span class="page-info">' + page + '/' + totalPages + ' 页</span>';
+    bar.innerHTML = html;
+}
+
+function goPage(p) {
+    if (p < 1 || p > totalPages || p === page) return;
+    page = p;
+    loadDomains();
+}
+
+function loadDomains() {
+    var q = document.getElementById('searchInput').value.trim();
+    var url = '/xiaoying_admin/api/seo/domains/list/?page=' + page + '&page_size=20';
+    if (q) url += '&q=' + encodeURIComponent(q);
+    fetch(url).then(function(r){return r.json()}).then(function(data){
+        if (data.ok) {
+            domains = data.domains || [];
+            page = data.page;
+            totalPages = data.total_pages;
+            totalCount = data.total;
+            renderDomains(domains);
+        }
+    }).catch(function(){});
+}
+
+// ===== 新增/编辑域名 =====
+function openDomainModal(id) {
+    var r = null;
+    if (id) { for (var i=0;i<domains.length;i++) { if (domains[i].id===id) { r=domains[i]; break; } } }
+    var title = r ? '编辑域名' : '新增域名';
+    var domainVal = r ? escAttr(r.domain) : '';
+    var typeVal = r ? r.domain_type : 'root';
+    var remarkVal = r ? escAttr(r.remark || '') : '';
+    var html =
+        '<div class="dsr-form" style="padding:20px 25px 0 25px;">' +
+        '<div class="layui-form-item" style="margin-bottom:12px;">' +
+            '<label class="required">域名</label>' +
+            '<input id="fDomain" value="' + domainVal + '" class="layui-input" placeholder="如 example.com">' +
+        '</div>' +
+        '<div class="layui-form-item" style="margin-bottom:12px;">' +
+            '<label class="required">域名类型</label>' +
+            '<select id="fType" class="layui-input">' +
+                '<option value="root"' + (typeVal==='root'?' selected':'') + '>根域名</option>' +
+                '<option value="multi"' + (typeVal==='multi'?' selected':'') + '>多域名</option>' +
+            '</select>' +
+        '</div>' +
+        '<div class="layui-form-item" style="margin-bottom:12px;">' +
+            '<label>备注</label>' +
+            '<textarea id="fRemark" class="layui-input" placeholder="可选">' + remarkVal + '</textarea>' +
+        '</div></div>';
+
+    layer.open({
+        type: 1,
+        title: '<i class="fas fa-' + (r?'edit':'plus-circle') + '"></i> ' + title,
+        area: ['480px','360px'],
+        shadeClose: true,
+        content: html,
+        btn: ['保存','取消'],
+        yes: function(index) {
+            var domain = document.getElementById('fDomain').value.trim();
+            var type = document.getElementById('fType').value;
+            var remark = document.getElementById('fRemark').value.trim();
+            if (!domain) { layer.msg('域名不能为空', {icon:2}); return; }
+
+            var url = r ? '/xiaoying_admin/api/seo/domains/' + r.id + '/update/' : '/xiaoying_admin/api/seo/domains/create/';
+            fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({domain:domain, domain_type:type, remark:remark}),
+            }).then(function(r){return r.json()}).then(function(data){
+                if (data.ok) { layer.msg(data.message, {icon:1}); layer.close(index); loadDomains(); }
+                else { layer.msg(data.error||'操作失败', {icon:2}); }
+            }).catch(function(){ layer.msg('网络错误', {icon:2}); });
+        }
+    });
+}
+
+// ===== 删除域名 =====
+function deleteDomain(id) {
+    layer.confirm('确定删除该域名及其所有时间线记录？', {icon:3,title:'确认',btn:['确定','取消']}, function(idx){
+        fetch('/xiaoying_admin/api/seo/domains/' + id + '/delete/', {method:'POST'})
+        .then(function(r){return r.json()}).then(function(data){
+            if (data.ok) { layer.msg('已删除', {icon:1}); loadDomains(); }
+            else { layer.msg(data.error||'删除失败', {icon:2}); }
+        }).catch(function(){ layer.msg('网络错误', {icon:2}); })
+        .finally(function(){ layer.close(idx); });
+    });
+}
+
+// ===== 从项目同步 =====
+function syncDomains() {
+    var btn = document.getElementById('syncBtn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...';
+    fetch('/xiaoying_admin/api/seo/domains/sync/', {method:'POST'})
+    .then(function(r){return r.json()}).then(function(data){
+        if (data.ok) {
+            layer.msg(data.message, {icon:1});
+            loadDomains();
+        } else {
+            layer.msg(data.error||'同步失败', {icon:2});
+        }
+    }).catch(function(){ layer.msg('网络错误', {icon:2}); })
+    .finally(function(){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync"></i> 从项目同步'; });
+}
+
+// ===== 搜索重置 =====
+document.getElementById('searchInput').addEventListener('keyup', function(e) {
+    if (e.key === 'Enter') { page = 1; loadDomains(); }
+});
+
+layui.use(['layer'], function(){
+    layer = layui.layer;
+    loadDomains();
+});
+</script>
+{% endblock %}

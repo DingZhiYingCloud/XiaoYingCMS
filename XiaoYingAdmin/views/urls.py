@@ -15,6 +15,19 @@ from XiaoYingAdmin.views.seo.blackhat.cloak import (
     seo_cloak_view, seo_cloak_config_save,
     seo_cloak_api_list, seo_cloak_api_get, seo_cloak_api_delete,
 )
+from XiaoYingAdmin.views.seo.domain_records import (
+    domain_seo_domains_view,
+    domain_seo_timeline_view,
+    api_seo_domains_list,
+    api_seo_domains_create,
+    api_seo_domains_update,
+    api_seo_domains_delete,
+    api_seo_domains_sync,
+    api_seo_domain_records_list,
+    api_seo_domain_records_create,
+    api_seo_records_update,
+    api_seo_records_delete,
+)
 from XiaoYingAdmin.views.spider.logs import (
     spider_logs_view,
     spider_logs_api_list,
@@ -109,6 +122,19 @@ urlpatterns = [
     path('seo/cloak/api/rules/', seo_cloak_api_list, name='seo_cloak_api_list'),
     path('seo/cloak/api/rules/<int:pk>/', seo_cloak_api_get, name='seo_cloak_api_get'),
     path('seo/cloak/api/rules/<int:pk>/delete/', seo_cloak_api_delete, name='seo_cloak_api_delete'),
+
+    # SEO：域名快排手段时间线记录
+    path('seo/domain-records/', domain_seo_domains_view, name='domain_seo_domains'),
+    path('seo/domain-records/<int:pk>/', domain_seo_timeline_view, name='domain_seo_timeline'),
+    path('api/seo/domains/list/', api_seo_domains_list, name='api_seo_domains_list'),
+    path('api/seo/domains/create/', api_seo_domains_create, name='api_seo_domains_create'),
+    path('api/seo/domains/<int:pk>/update/', api_seo_domains_update, name='api_seo_domains_update'),
+    path('api/seo/domains/<int:pk>/delete/', api_seo_domains_delete, name='api_seo_domains_delete'),
+    path('api/seo/domains/sync/', api_seo_domains_sync, name='api_seo_domains_sync'),
+    path('api/seo/domains/<int:pk>/records/', api_seo_domain_records_list, name='api_seo_domain_records_list'),
+    path('api/seo/domains/<int:pk>/records/create/', api_seo_domain_records_create, name='api_seo_domain_records_create'),
+    path('api/seo/records/<int:pk>/update/', api_seo_records_update, name='api_seo_records_update'),
+    path('api/seo/records/<int:pk>/delete/', api_seo_records_delete, name='api_seo_records_delete'),
 
     # AJAX API: 已保存页面
     path('api/pages/saved/', admin_request.api_saved_pages, name='api_saved_pages'),

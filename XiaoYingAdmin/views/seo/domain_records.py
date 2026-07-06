@@ -1,0 +1,287 @@
+"""
+域名快排追踪 — 域名列表 + 域名时间线（LayUI 风格）双层结构。
+"""
+from datetime import datetime
+
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.http import JsonResponse
+from django.shortcuts import render, get_object_or_404
+from django.utils.timezone import make_aware
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods, require_POST, require_GET
+
+from XiaoYingAdmin.common.http import parse_json_body, err
+from XiaoYingAdmin.models.domain_seo_record import DomainSeoRecord
+from XiaoYingAdmin.models.generated_page import GeneratedPage
+from XiaoYingAdmin.models.multi_page_project import MultiPageProject
+from XiaoYingAdmin.models.seo_domain import SeoDomain
+
+DOMAINS_TEMPLATE = 'XiaoYingAdmin/SEO/域名SEO记录管理.html'
+TIMELINE_TEMPLATE = 'XiaoYingAdmin/SEO/域名时间线.html'
+
+# 默认每页条数
+DEFAULT_PAGE_SIZE = 20
+
+
+def _parse_dt(s: str):
+    """解析 '2026-07-06 14:30:00' 或 '2026-07-06T14:30:00' 为 timezone-aware datetime。"""
+    if not s:
+        return None
+    s = s.strip().replace('T', ' ')
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d'):
+        try:
+            dt = datetime.strptime(s, fmt)
+            return make_aware(dt)
+        except ValueError:
+            continue
+    return None
+
+
+# =============================================================================
+# 页面视图
+# =============================================================================
+
+@login_required
+@require_http_methods(['GET'])
+def domain_seo_domains_view(request):
+    """域名列表页 — 展示所有待追踪的域名实体"""
+    return render(request, DOMAINS_TEMPLATE)
+
+
+@login_required
+@require_http_methods(['GET'])
+def domain_seo_timeline_view(request, pk):
+    """域名时间线页 — 展示某个域名的 LayUI 时间线"""
+    domain = get_object_or_404(SeoDomain, id=pk)
+    return render(request, TIMELINE_TEMPLATE, {'domain': domain.to_dict()})
+
+
+# =============================================================================
+# 域名实体 CRUD API
+# =============================================================================
+
+@csrf_exempt
+@require_GET
+def api_seo_domains_list(request):
+    """获取所有域名实体（分页）"""
+    q = request.GET.get('q', '').strip()
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', DEFAULT_PAGE_SIZE))
+
+    domains = SeoDomain.objects.all()
+    if q:
+        domains = domains.filter(domain__icontains=q)
+
+    paginator = Paginator(domains, page_size)
+    total = paginator.count
+    total_pages = paginator.num_pages
+
+    try:
+        page_obj = paginator.page(page)
+    except Exception:
+        return JsonResponse({'ok': False, 'error': '页码无效'})
+
+    return JsonResponse({
+        'ok': True,
+        'domains': [d.to_dict() for d in page_obj.object_list],
+        'page': page,
+        'page_size': page_size,
+        'total': total,
+        'total_pages': total_pages,
+    })
+
+
+@csrf_exempt
+@require_POST
+def api_seo_domains_create(request):
+    """创建域名实体"""
+    data, error = parse_json_body(request)
+    if error:
+        return error
+
+    domain = (data.get('domain') or '').strip()
+    domain_type = (data.get('domain_type') or '').strip()
+    remark = (data.get('remark') or '').strip()
+
+    if not domain:
+        return err('域名不能为空')
+    if domain_type not in ('root', 'multi'):
+        return err('域名类型无效，必须为 root 或 multi')
+    if SeoDomain.objects.filter(domain=domain).exists():
+        return err(f'域名 "{domain}" 已存在')
+
+    obj = SeoDomain(domain=domain, domain_type=domain_type, remark=remark)
+    obj.save()
+    return JsonResponse({'ok': True, 'message': '域名已创建', 'domain': obj.to_dict()})
+
+
+@csrf_exempt
+@require_POST
+def api_seo_domains_update(request, pk):
+    """更新域名实体"""
+    try:
+        obj = SeoDomain.objects.get(id=pk)
+    except SeoDomain.DoesNotExist:
+        return err('域名不存在', status=404)
+
+    data, error = parse_json_body(request)
+    if error:
+        return error
+
+    domain = (data.get('domain') or '').strip()
+    domain_type = (data.get('domain_type') or '').strip()
+    remark = (data.get('remark') or '').strip()
+
+    if domain and domain != obj.domain:
+        if SeoDomain.objects.filter(domain=domain).exclude(id=pk).exists():
+            return err(f'域名 "{domain}" 已被其他记录使用')
+        obj.domain = domain
+    if domain_type in ('root', 'multi'):
+        obj.domain_type = domain_type
+    if data.get('remark') is not None:
+        obj.remark = remark
+
+    obj.save()
+    return JsonResponse({'ok': True, 'message': '域名已更新', 'domain': obj.to_dict()})
+
+
+@csrf_exempt
+@require_POST
+def api_seo_domains_delete(request, pk):
+    """删除域名实体（同时删除其下的所有时间线记录）"""
+    try:
+        obj = SeoDomain.objects.get(id=pk)
+    except SeoDomain.DoesNotExist:
+        return err('域名不存在', status=404)
+    obj.delete()
+    return JsonResponse({'ok': True, 'message': '域名已删除'})
+
+
+@csrf_exempt
+@require_POST
+def api_seo_domains_sync(request):
+    """从已有项目/页面同步域名到 SeoDomain（去重新增）"""
+    seen = set(SeoDomain.objects.values_list('domain', flat=True))
+    added = []
+
+    for proj in MultiPageProject.objects.exclude(root_domain=''):
+        d = proj.root_domain.strip()
+        if d and d not in seen:
+            seen.add(d)
+            obj = SeoDomain(domain=d, domain_type='root',
+                            remark=f'来自多页面项目: {proj.name}')
+            obj.save()
+            added.append(obj.to_dict())
+    for proj in MultiPageProject.objects.exclude(enabled_domain=''):
+        d = proj.enabled_domain.strip()
+        if d and d not in seen:
+            seen.add(d)
+            obj = SeoDomain(domain=d, domain_type='root',
+                            remark=f'来自多页面项目(启用域名): {proj.name}')
+            obj.save()
+            added.append(obj.to_dict())
+    for page in GeneratedPage.objects.exclude(domains=[]).exclude(domains__exact=[]):
+        for raw in (page.domains or []):
+            d = raw.strip() if isinstance(raw, str) else str(raw).strip()
+            if d and d not in seen:
+                seen.add(d)
+                dt = 'multi' if d.startswith('*.') else 'root'
+                obj = SeoDomain(domain=d, domain_type=dt,
+                                remark=f'来自单页面: {page.name}')
+                obj.save()
+                added.append(obj.to_dict())
+
+    return JsonResponse({'ok': True, 'message': f'同步完成，新增 {len(added)} 个域名', 'added': added})
+
+
+# =============================================================================
+# 时间线记录 CRUD API
+# =============================================================================
+
+@csrf_exempt
+@require_GET
+def api_seo_domain_records_list(request, pk):
+    """获取某个域名下的所有时间线记录"""
+    records = DomainSeoRecord.objects.filter(seo_domain_id=pk) \
+        .select_related('seo_domain') \
+        .order_by('-action_date', '-create_time')
+    return JsonResponse({
+        'ok': True,
+        'records': [r.to_dict() for r in records],
+    })
+
+
+@csrf_exempt
+@require_POST
+def api_seo_domain_records_create(request, pk):
+    """为某个域名新增一条时间线记录"""
+    try:
+        domain_obj = SeoDomain.objects.get(id=pk)
+    except SeoDomain.DoesNotExist:
+        return err('域名不存在', status=404)
+
+    data, error = parse_json_body(request)
+    if error:
+        return error
+
+    action_date_str = (data.get('action_date') or '').strip()
+    description = (data.get('description') or '').strip()
+
+    if not action_date_str:
+        return err('操作时间不能为空')
+    if not description:
+        return err('操作描述不能为空')
+
+    action_date = _parse_dt(action_date_str)
+    if action_date is None:
+        return err('操作时间格式无效，请使用 YYYY-MM-DD HH:MM:SS 格式')
+
+    record = DomainSeoRecord(
+        seo_domain=domain_obj,
+        action_date=action_date,
+        description=description,
+    )
+    record.save()
+    return JsonResponse({'ok': True, 'message': '记录已创建', 'record': record.to_dict()})
+
+
+@csrf_exempt
+@require_POST
+def api_seo_records_update(request, pk):
+    """更新一条时间线记录"""
+    try:
+        record = DomainSeoRecord.objects.select_related('seo_domain').get(id=pk)
+    except DomainSeoRecord.DoesNotExist:
+        return err('记录不存在', status=404)
+
+    data, error = parse_json_body(request)
+    if error:
+        return error
+
+    action_date_str = (data.get('action_date') or '').strip()
+    description = (data.get('description') or '').strip()
+
+    if action_date_str:
+        dt = _parse_dt(action_date_str)
+        if dt is None:
+            return err('操作时间格式无效，请使用 YYYY-MM-DD HH:MM:SS 格式')
+        record.action_date = dt
+    if description:
+        record.description = description
+
+    record.save()
+    return JsonResponse({'ok': True, 'message': '记录已更新', 'record': record.to_dict()})
+
+
+@csrf_exempt
+@require_POST
+def api_seo_records_delete(request, pk):
+    """删除一条时间线记录"""
+    try:
+        record = DomainSeoRecord.objects.get(id=pk)
+    except DomainSeoRecord.DoesNotExist:
+        return err('记录不存在', status=404)
+    domain_id = record.seo_domain_id
+    record.delete()
+    return JsonResponse({'ok': True, 'message': '记录已删除', 'seo_domain_id': domain_id})
