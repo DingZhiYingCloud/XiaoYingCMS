@@ -109,6 +109,7 @@ urlpatterns = [
     # AJAX API: 页面生成
     path('api/generate/start/', admin_request.api_start_generate, name='api_generate_start'),
     path('api/generate/progress/<uuid:task_id>/', admin_request.api_get_progress, name='api_generate_progress'),
+    path('api/generate/abort/<uuid:task_id>/', admin_request.api_abort_generate, name='api_generate_abort'),
 
     # AJAX API: 提示词管理
     path('api/prompts/', admin_request.api_prompt_list, name='api_prompt_list'),
@@ -146,6 +147,7 @@ urlpatterns = [
     path('api/pages/saved/set-categories/', page_tree_views.page_set_categories, name='api_page_set_categories'),
     path('api/pages/saved/delete/', admin_request.api_saved_page_delete, name='api_saved_page_delete'),
     path('api/pages/saved/update/', admin_request.api_saved_page_update, name='api_saved_page_update'),
+    path('api/pages/saved/seo-optimize/', admin_request.api_seo_optimize_page, name='api_seo_optimize_page'),
 
     # 页面分类 & 树形结构
     path('api/pages/categories/', page_tree_views.page_category_list, name='page_category_list'),

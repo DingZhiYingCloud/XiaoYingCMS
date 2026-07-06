@@ -13,6 +13,7 @@ from XiaoYingAdmin.middleware.operation_log import log_operation
 from XiaoYingAdmin.views.page_generator import (
     get_task_progress,
     start_generation,
+    start_seo_optimization,
 )
 
 from XiaoYingAdmin.models.prompt import Prompt
@@ -235,7 +236,7 @@ def api_start_generate(request):
     启动一次 AI 页面生成。
 
     请求: POST application/json
-      {"content": "页面描述..."}
+      {"content": "页面描述...", "domain": "example.com"}  domain 可选
 
     响应: application/json
       {"task_id": "...", "status": "pending", "progress": 0, "message": "..."}
@@ -248,6 +249,14 @@ def api_start_generate(request):
     if not content:
         return err('请输入页面描述内容')
 
+    # 域名（可选）：生成完成后自动绑定，并作为 SEO 参考传给 AI
+    domain = (body.get('domain') or '').strip().lower()
+    # 去掉用户可能误加的协议前缀（生成时由后端统一加 https://）
+    for proto in ('https://', 'http://'):
+        if domain.startswith(proto):
+            domain = domain[len(proto):]
+            break
+
     if not request.session.session_key:
         request.session.save()
 
@@ -255,6 +264,7 @@ def api_start_generate(request):
         input_content=content,
         session_key=request.session.session_key,
         created_by=request.user if request.user.is_authenticated else None,
+        domain=domain,
     )
 
     # 写入 session：刷新页面后可恢复进度
@@ -262,7 +272,8 @@ def api_start_generate(request):
 
     log_operation(request, 'create', 'PageGeneration', str(task.task_id),
                   f'页面生成「{content[:50]}」',
-                  detail={'changes': {'需求描述': {'new': content[:100]}}})
+                  detail={'changes': {'需求描述': {'new': content[:100]},
+                                       '绑定域名': {'new': domain or '(无)'}}})
 
     return JsonResponse({
         'task_id': str(task.task_id),
@@ -271,6 +282,40 @@ def api_start_generate(request):
         'progress': task.progress,
         'message': task.message,
     })
+
+
+@csrf_exempt
+@require_POST
+def api_abort_generate(request, task_id):
+    """
+    中断一次页面生成任务。
+
+    请求: POST /api/generate/abort/<task_id>/
+
+    响应: application/json
+      {"message": "已中断"}
+    """
+    try:
+        task = PageGenerationTask.objects.get(task_id=task_id)
+    except (PageGenerationTask.DoesNotExist, ValueError):
+        return err('任务不存在', status=404)
+
+    # 只能中断进行中的任务
+    if task.status in (PageGenerationTask.STATUS_COMPLETED, PageGenerationTask.STATUS_FAILED):
+        return err('任务已结束，无法中断')
+
+    # 标记为失败，后台线程在下一个检查点会退出
+    task.mark_failed('用户已中断生成')
+
+    # 清理 session 中的任务记录
+    if request.session.get('page_gen_task_id') == str(task.task_id):
+        request.session.pop('page_gen_task_id', None)
+
+    log_operation(request, 'update', 'PageGeneration', str(task.task_id),
+                  f'页面生成任务已中断「{task.input_content[:50]}」',
+                  detail={'changes': {'状态': {'old': task.status, 'new': '中断'}}})
+
+    return JsonResponse({'message': '已中断'})
 
 
 @require_GET
@@ -505,9 +550,9 @@ def api_saved_page_detail(request, page_id):
     page, error = get_or_404(GeneratedPage, id=page_id, not_found_msg='页面不存在')
     if error is not None:
         return error
-    err = _check_page_owner(request, page)
-    if err:
-        return err
+    perm_err = _check_page_owner(request, page)
+    if perm_err:
+        return perm_err
     return JsonResponse(page.to_dict(with_html=True))
 
 
@@ -527,9 +572,9 @@ def api_saved_page_delete(request):
     page, error = get_or_404(GeneratedPage, id=body.get('id'), not_found_msg='页面不存在')
     if error is not None:
         return error
-    err = _check_page_owner(request, page)
-    if err:
-        return err
+    perm_err = _check_page_owner(request, page)
+    if perm_err:
+        return perm_err
 
     page_name = page.name
     page.delete()
@@ -562,9 +607,9 @@ def api_saved_page_update(request):
     page, error = get_or_404(GeneratedPage, id=body.get('id'), not_found_msg='页面不存在')
     if error is not None:
         return error
-    err = _check_page_owner(request, page)
-    if err:
-        return err
+    perm_err = _check_page_owner(request, page)
+    if perm_err:
+        return perm_err
 
     old_name = page.name
     changed_fields = []
@@ -598,6 +643,51 @@ def api_saved_page_update(request):
     return JsonResponse({'message': '已更新', 'page': page.to_dict(with_html=True)})
 
 
+@csrf_exempt
+@require_POST
+def api_seo_optimize_page(request):
+    """
+    对已保存页面启动 SEO 优化（异步，立即返回 task_id，前端轮询进度）。
+
+    请求: application/json
+      {"page_id": 1}
+
+    响应: application/json
+      {"task_id": "...", "status": "pending", "progress": 0, "message": "..."}
+    """
+    body, error = parse_json_body(request)
+    if error is not None:
+        return error
+
+    page_id = body.get('page_id')
+    if not page_id:
+        return err('缺少 page_id')
+
+    page, error = get_or_404(GeneratedPage, id=page_id, not_found_msg='页面不存在')
+    if error is not None:
+        return error
+    perm_err = _check_page_owner(request, page)
+    if perm_err:
+        return perm_err
+
+    task = start_seo_optimization(
+        page_id=page.id,
+        created_by=request.user if request.user.is_authenticated else None,
+    )
+
+    log_operation(request, 'update', 'GeneratedPage', page.id,
+                  f'生成页面「{page.name}」→ 启动 SEO 优化',
+                  detail={'changes': {'SEO优化': {'new': '启动中'}}})
+
+    return JsonResponse({
+        'task_id': str(task.task_id),
+        'status': task.status,
+        'status_display': task.get_status_display(),
+        'progress': task.progress,
+        'message': task.message,
+    })
+
+
 # =============================================================================
 # AJAX API: 域名管理（绑定/解绑）
 # =============================================================================
@@ -623,9 +713,9 @@ def api_saved_page_set_domain(request):
     page, error = get_or_404(GeneratedPage, id=body.get('id'), not_found_msg='页面不存在')
     if error is not None:
         return error
-    err = _check_page_owner(request, page)
-    if err:
-        return err
+    perm_err = _check_page_owner(request, page)
+    if perm_err:
+        return perm_err
 
     # ------- 解析域名列表 -------
     if 'domains' in body:
@@ -658,23 +748,61 @@ def api_saved_page_set_domain(request):
     # ------- 冲突检查：任一域名已被其他页面占用 -------
     old_domains = set(page.domains or [])
     new_set = set(new_domains)
+    force = bool(body.get('force'))
 
     # 新增的域名（不在旧列表中）需要检查冲突
     added = new_set - old_domains
-    if added:
-        # 从所有其他页面收集已占用的域名
-        other_pages = GeneratedPage.objects.exclude(id=page.id).exclude(domains=[])
-        all_occupied = set()
+    if added and not force:
+        # 收集每个冲突域名对应的占用页面
+        conflict_map = {}  # {domain: {id, name}}
+        other_pages = list(GeneratedPage.objects.exclude(id=page.id).exclude(domains=[]))
         for p in other_pages:
             for d in (p.domains or []):
-                all_occupied.add(d)
-        # 兼容旧版：domain 字段也可能有值
+                if d in added:
+                    conflict_map[d] = {'id': p.id, 'name': p.name}
+        # 兼容旧版 domain 字段
         for p in GeneratedPage.objects.exclude(id=page.id).exclude(domain__isnull=True).exclude(domain=''):
-            all_occupied.add(p.domain.lower())
+            d = (p.domain or '').lower()
+            if d in added and d not in conflict_map:
+                conflict_map[d] = {'id': p.id, 'name': p.name}
 
-        conflict = added & all_occupied
-        if conflict:
-            return err(f'域名已被其他页面占用: {", ".join(sorted(conflict))}')
+        if conflict_map:
+            # 返回冲突详情，让前端询问用户是否强制解绑
+            details = [
+                f"{d}（占用页面：{info['name']}）"
+                for d, info in conflict_map.items()
+            ]
+            return JsonResponse({
+                'error': '域名已被占用',
+                'conflict': True,
+                'conflicts': conflict_map,
+                'detail': '；'.join(details),
+            }, status=409)
+
+    # force=true 时，先解绑被占用的域名（从占用页面移除这些域名）
+    if added and force:
+        added_lower = {d.lower() for d in added}
+        other_pages = list(GeneratedPage.objects.exclude(id=page.id).exclude(domains=[]))
+        for p in other_pages:
+            old_p_domains = list(p.domains or [])
+            new_p_domains = [d for d in old_p_domains if d.lower() not in added_lower]
+            if len(new_p_domains) != len(old_p_domains):
+                p.domains = new_p_domains
+                p.domain = new_p_domains[0] if new_p_domains else None
+                p.save(update_fields=['domains', 'domain', 'updated_time'])
+                log_operation(request, 'update', 'GeneratedPage', p.id,
+                              f'生成页面「{p.name}」域名被强制解绑（转移至「{page.name}」）',
+                              detail={'changes': {'绑定域名': {'old': old_p_domains, 'new': new_p_domains}}})
+        # 兼容旧版 domain 字段
+        for p in GeneratedPage.objects.exclude(id=page.id).exclude(domain__isnull=True).exclude(domain=''):
+            d = (p.domain or '').lower()
+            if d in added_lower:
+                old_single = p.domain
+                p.domain = None
+                p.save(update_fields=['domain', 'updated_time'])
+                log_operation(request, 'update', 'GeneratedPage', p.id,
+                              f'生成页面「{p.name}」旧版域名字段被强制解绑（转移至「{page.name}」）',
+                              detail={'changes': {'domain': {'old': old_single, 'new': None}}})
 
     # ------- 保存 -------
     old_domains_list = page.domains or []

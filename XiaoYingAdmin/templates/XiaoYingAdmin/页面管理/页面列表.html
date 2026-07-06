@@ -637,6 +637,7 @@ function renderPageNode(page) {
     html += '<span class="tree-label">' + escHtml(page.name) + '</span>';
     html += '<span class="page-actions">';
     html += '<button class="pa-btn btn-edit-page" data-id="' + page.id + '" title="编辑"><i class="fas fa-edit"></i></button>';
+    html += '<button class="pa-btn btn-seo-page" data-id="' + page.id + '" title="SEO优化"><i class="fas fa-search"></i></button>';
     html += '<button class="pa-btn btn-cat-page" data-id="' + page.id + '" title="分类"><i class="fas fa-tags"></i></button>';
     html += '<button class="pa-btn" data-action="domain" data-id="' + page.id + '" data-domains=\'' + escAttr(JSON.stringify(page.domains || [])) + '\' title="域名"><i class="fas fa-globe"></i></button>';
     html += '<button class="pa-btn" data-action="open" data-domains=\'' + escAttr(JSON.stringify(page.domains || [])) + '\' title="打开"><i class="fas fa-external-link-alt"></i></button>';
@@ -689,6 +690,9 @@ function bindTreeEvents() {
             // btn-edit-page (分类按钮在下方单独处理)
             if (btn.classList.contains('btn-edit-page')) {
                 openEditor(id);
+            }
+            if (btn.classList.contains('btn-seo-page')) {
+                seoOptimizePage(id);
             }
             if (btn.classList.contains('btn-cat-page')) {
                 openPageCategoryEditor(id);
@@ -867,6 +871,7 @@ function loadTableView(page) {
                 html += '<button class="layui-btn layui-btn-sm layui-btn-primary dropdown-trigger" style="font-size:16px;padding:0 10px;line-height:30px;height:30px;"><i class="fas fa-caret-down"></i></button>';
                 html += '<div class="dropdown-menu">';
                 html += '<a href="javascript:;" class="dropdown-item btn-edit-page-tbl" data-id="' + p.id + '"><i class="fas fa-edit"></i> 编辑</a>';
+                html += '<a href="javascript:;" class="dropdown-item btn-seo-page-tbl" data-id="' + p.id + '"><i class="fas fa-search"></i> SEO优化</a>';
                 html += '<a href="javascript:;" class="dropdown-item btn-cat-page-tbl" data-id="' + p.id + '"><i class="fas fa-tags"></i> 分类设置</a>';
                 html += '<a href="javascript:;" class="dropdown-item btn-domain-tbl" data-id="' + p.id + '" data-domains=\'' + escAttr(JSON.stringify(domains)) + '\'><i class="fas fa-globe"></i> 域名设置</a>';
                 html += '<a href="javascript:;" class="dropdown-item btn-view-tbl" data-id="' + p.id + '" data-domains=\'' + escAttr(JSON.stringify(domains)) + '\'><i class="fas fa-external-link-alt"></i> 打开</a>';
@@ -944,6 +949,12 @@ tbody.addEventListener('click', function(e) {
     btn = e.target.closest('.btn-edit-page-tbl');
     if (btn) {
         openEditor(parseInt(btn.getAttribute('data-id')));
+        return;
+    }
+
+    btn = e.target.closest('.btn-seo-page-tbl');
+    if (btn) {
+        seoOptimizePage(parseInt(btn.getAttribute('data-id')));
         return;
     }
 
@@ -1216,11 +1227,35 @@ function openDomainEditor(id, currentDomains) {
             });
 
             layero.find('#domainSaveBtn').on('click', function() {
-                fetch('/xiaoying_admin/api/pages/saved/set-domain/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: id, domains: tags }),
-                }).then(function(r) { return r.json(); }).then(function(resp) {
+                var sendReq = function(force) {
+                    var payload = { id: id, domains: tags };
+                    if (force) payload.force = true;
+                    return fetch('/xiaoying_admin/api/pages/saved/set-domain/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    }).then(function(r) { return r.json(); });
+                };
+                sendReq(false).then(function(resp) {
+                    if (resp.conflict) {
+                        // 域名被占用，询问用户是否强制解绑
+                        layer.confirm(
+                            '以下域名已被其他页面占用：<br><br>' +
+                            resp.detail +
+                            '<br><br><span style="color:#FF9800;">确认后将自动解绑原页面，并绑定到当前页面。是否继续？</span>',
+                            { icon: 3, title: '域名冲突', btn: ['确认转移', '取消'] },
+                            function(ci) {
+                                layer.close(ci);
+                                sendReq(true).then(function(r2) {
+                                    if (r2.error) { layer.msg(r2.error, {icon:2}); return; }
+                                    layer.closeAll();
+                                    layer.msg(r2.message, {icon:1});
+                                    loadTree();
+                                }).catch(function() { layer.msg('操作失败', {icon:2}); });
+                            }
+                        );
+                        return;
+                    }
                     if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
                     layer.closeAll();
                     layer.msg(resp.message, {icon:1});
@@ -1298,6 +1333,83 @@ function openEditor(id) {
             });
         });
     }
+
+// ============================================================
+// SEO 优化
+// ============================================================
+
+function seoOptimizePage(id) {
+    var nameEl = document.querySelector('.tree-node-page[data-page-id="' + id + '"] .tree-label');
+    var pageName = nameEl ? nameEl.textContent : '此页面';
+    layer.confirm(
+        '将调用 AI 对「' + pageName + '」进行全面 SEO 优化，<br>' +
+        '包括 Meta 标签、语义化结构、结构化数据等。<br>' +
+        '<span style="color:#FF9800;font-size:12px;">此操作将覆盖当前 HTML 内容，确定继续吗？</span>',
+        { icon: 3, title: 'SEO 优化', btn: ['开始优化', '取消'] },
+        function(index) {
+            layer.close(index);
+            // 显示进度弹窗
+            var progressHtml = '<div style="padding:20px 30px;text-align:center;">' +
+                '<div style="font-size:14px;color:#666;margin-bottom:15px;" id="seo-progress-msg">正在启动...</div>' +
+                '<div class="layui-progress layui-progress-big" style="max-width:400px;margin:0 auto;">' +
+                '<div class="layui-progress-bar layui-bg-green" id="seo-progress-bar" style="width:0%;"></div>' +
+                '</div>' +
+                '<div style="font-size:12px;color:#999;margin-top:10px;" id="seo-progress-pct">0%</div>' +
+                '</div>';
+            var idx = layer.open({
+                type: 1,
+                title: '<i class="fas fa-search" style="color:#5FB878;"></i> SEO 优化中',
+                area: ['500px', '200px'],
+                shadeClose: false,
+                content: progressHtml,
+            });
+
+            // 启动优化
+            fetch('/xiaoying_admin/api/pages/saved/seo-optimize/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ page_id: id }),
+            }).then(function(r) { return r.json(); }).then(function(resp) {
+                if (resp.error) {
+                    layer.close(idx);
+                    layer.msg(resp.error, {icon:2});
+                    return;
+                }
+                var taskId = resp.task_id;
+                // 轮询进度
+                var pollTimer = setInterval(function() {
+                    fetch('/xiaoying_admin/api/generate/progress/' + taskId + '/')
+                        .then(function(r) { return r.json(); })
+                        .then(function(prog) {
+                            var bar = document.getElementById('seo-progress-bar');
+                            var msg = document.getElementById('seo-progress-msg');
+                            var pct = document.getElementById('seo-progress-pct');
+                            if (bar) bar.style.width = prog.progress + '%';
+                            if (pct) pct.textContent = prog.progress + '%';
+                            if (msg) msg.textContent = prog.message || '处理中...';
+
+                            if (prog.status === 'completed') {
+                                clearInterval(pollTimer);
+                                layer.close(idx);
+                                layer.msg('SEO 优化完成！', {icon:1, time:2000});
+                                loadTree();
+                                if (currentPageTV) loadTableView(currentPageTV);
+                            } else if (prog.status === 'failed') {
+                                clearInterval(pollTimer);
+                                layer.close(idx);
+                                layer.msg('SEO 优化失败: ' + (prog.error_message || '未知错误'), {icon:2, time:5000});
+                            }
+                        }).catch(function() {
+                            // 忽略单个轮询错误，继续等待
+                        });
+                }, 1500);
+            }).catch(function() {
+                layer.close(idx);
+                layer.msg('启动优化失败', {icon:2});
+            });
+        }
+    );
+}
 
 // ============================================================
 // 智能互链

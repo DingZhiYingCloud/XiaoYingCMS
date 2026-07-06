@@ -18,12 +18,16 @@
                 </div>
             </div>
             <div class="layui-form-item">
+                <label class="layui-form-label">绑定域名</label>
+                <div class="layui-input-block">
+                    <input id="genInputDomain" type="text" class="layui-input" placeholder="例如：example.com（可选，但建议填写以获得更好 SEO 效果）" value="{{ active_task.domain|default:'' }}">
+                    <div class="gen-domain-hint">未填写域名时，AI 生成的页面 SEO 标签中将缺少规范链接，影响搜索引擎收录</div>
+                </div>
+            </div>
+            <div class="layui-form-item">
                 <div class="layui-input-block">
                     <button id="genSubmitBtn" type="button" class="layui-btn layui-btn-normal">
                         <i class="fas fa-rocket"></i> 开始生成
-                    </button>
-                    <button id="genCancelBtn" type="button" class="layui-btn layui-btn-primary" style="display:none;">
-                        <i class="fas fa-times"></i> 取消
                     </button>
                 </div>
             </div>
@@ -35,10 +39,15 @@
                 <span class="progress-label" id="genProgressLabel">生成中...</span>
                 <span class="progress-percent" id="genProgressPercent">0%</span>
             </div>
-            <div class="layui-progress layui-progress-big" lay-showPercent="true" lay-percent="0%">
+            <div class="layui-progress layui-progress-big">
                 <div class="layui-progress-bar" id="genProgressBar"></div>
             </div>
             <div class="progress-status" id="genProgressStatus">任务已创建...</div>
+            <div class="progress-actions">
+                <button id="genAbortBtn" type="button" class="layui-btn layui-btn-sm layui-btn-danger">
+                    <i class="fas fa-stop"></i> 中断生成
+                </button>
+            </div>
         </div>
 
         {# ===== 结果区 ===== #}
@@ -84,6 +93,8 @@
     .progress-label { font-size:14px; color:#393D49; font-weight:500; }
     .progress-percent { font-size:14px; color:#1E9FFF; font-weight:bold; }
     .progress-status { margin-top:8px; font-size:12px; color:#999; }
+    .progress-actions { margin-top:12px; }
+    .gen-domain-hint { font-size:12px; color:#FF9800; margin-top:5px; line-height:1.5; }
     .result-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
     .result-toolbar h4 { margin:0; font-size:15px; }
     .result-code { background:#f6f6f6; padding:15px; border-radius:4px; max-height:500px; overflow:auto; font-size:12px; line-height:1.6; font-family:Consolas,Monaco,monospace; }
@@ -105,7 +116,9 @@
     var progressMsg   = $id('genProgressStatus');
     var resultCodeEl  = $id('genResultCode');
     var inputEl       = $id('genInputContent');
+    var domainEl      = $id('genInputDomain');
     var submitBtn     = $id('genSubmitBtn');
+    var abortBtn      = $id('genAbortBtn');
 
     var currentTaskId = null, pollTimer = null;
 
@@ -141,8 +154,15 @@
                         if (window.layer) layer.msg('生成完成', {icon:1});
                     } else if (data.status === 'failed') {
                         stopPolling();
-                        document.getElementById('genErrorMessage').textContent = data.error_message || '未知错误';
-                        showArea(errorArea);
+                        var errMsg = data.error_message || '未知错误';
+                        // 用户主动中断时，回到输入区让用户重新生成
+                        if (errMsg.indexOf('中断') !== -1) {
+                            if (window.layer) layer.msg('已中断生成，数据未保留，可重新生成', {icon:0, time:2500});
+                            reset();
+                        } else {
+                            document.getElementById('genErrorMessage').textContent = errMsg;
+                            showArea(errorArea);
+                        }
                     }
                 }).catch(function() {});
         }, 1500);
@@ -156,6 +176,7 @@
         stopPolling();
         currentTaskId = null;
         inputEl.value = '';
+        domainEl.value = '';
         showArea(inputArea);
     }
 
@@ -163,13 +184,17 @@
     submitBtn.addEventListener('click', function() {
         var content = inputEl.value.trim();
         if (!content) { if (window.layer) layer.msg('请输入页面描述', {icon:5}); return; }
+        var domain = domainEl.value.trim();
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
+
+        var payload = { content: content };
+        if (domain) payload.domain = domain;
 
         fetch('/xiaoying_admin/api/generate/start/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: content }),
+            body: JSON.stringify(payload),
         }).then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
           .then(function(res) {
             submitBtn.disabled = false;
@@ -187,6 +212,25 @@
             submitBtn.innerHTML = '<i class="fas fa-rocket"></i> 开始生成';
             if (window.layer) layer.msg('网络错误', {icon:5});
           });
+    });
+
+    // 中断生成
+    abortBtn.addEventListener('click', function() {
+        if (!currentTaskId) return;
+        layer.confirm(
+            '确定要中断本次生成吗？<br><span style="color:#FF5722;font-size:12px;">中断后已生成的数据将不保留，需要重新生成。</span>',
+            { icon: 3, title: '中断生成', btn: ['确认中断', '继续生成'] },
+            function(index) {
+                layer.close(index);
+                fetch('/xiaoying_admin/api/generate/abort/' + currentTaskId + '/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                }).then(function(r) { return r.json(); }).then(function(resp) {
+                    if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                    // 轮询会在下次检测到 failed 状态并自动 reset
+                }).catch(function() { layer.msg('中断请求失败', {icon:2}); });
+            }
+        );
     });
 
     // 重试 / 生成新页面

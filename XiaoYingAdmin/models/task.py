@@ -104,6 +104,13 @@ class PageGenerationTask(BaseModel):
         default='',
         help_text='AI 总结出的简短页面名称，如"爱思助手"',
     )
+    domain = models.CharField(
+        '绑定域名',
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='生成时用户指定的绑定域名，生成完成后自动绑定到 GeneratedPage',
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
