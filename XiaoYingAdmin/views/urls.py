@@ -41,6 +41,17 @@ from XiaoYingAdmin.views.static_file_route import (
     static_file_route_api_list, static_file_route_api_save,
     static_file_route_api_delete, static_file_route_api_toggle,
 )
+from XiaoYingAdmin.views.multi_page import (
+    multi_page_list_view, multi_page_create_view,
+    multi_page_project_detail_view, multi_page_edit_view, multi_page_preview_view,
+    api_multi_page_start_generate, api_multi_page_gen_progress,
+    api_multi_page_delete_project, api_multi_page_regenerate,
+    api_multi_page_delete_page, api_multi_page_add_page,
+    api_multi_page_update_nav, api_multi_page_list_pages, api_multi_page_tree,
+    api_multi_page_crosslinks_generate, api_multi_page_crosslink_exclude_toggle,
+    api_multi_page_enable, api_multi_page_disable,
+    multi_page_config_view, api_multi_page_config_save,
+)
 
 # 域名前缀: /xiaoying_admin/
 urlpatterns = [
@@ -150,4 +161,32 @@ urlpatterns = [
     path('static-file/api/save/', static_file_route_api_save, name='static_file_route_api_save'),
     path('static-file/api/delete/', static_file_route_api_delete, name='static_file_route_api_delete'),
     path('static-file/api/toggle/', static_file_route_api_toggle, name='static_file_route_api_toggle'),
+
+    # 多页面管理
+    path('multi-page/', multi_page_list_view, name='multi_page_list'),
+    path('multi-page/create/', multi_page_create_view, name='multi_page_create'),
+    path('multi-page/<int:project_id>/', multi_page_project_detail_view, name='multi_page_project_detail'),
+    path('multi-page/page/<int:page_id>/edit/', multi_page_edit_view, name='multi_page_edit'),
+    path('multi-page/page/<int:page_id>/preview/', multi_page_preview_view, name='multi_page_preview'),
+
+    # API: 多页面生成
+    path('api/multi-page/<int:project_id>/generate/', api_multi_page_start_generate, name='api_multi_page_start_generate'),
+    path('api/multi-page/<int:project_id>/progress/', api_multi_page_gen_progress, name='api_multi_page_gen_progress'),
+    path('api/multi-page/<int:project_id>/regenerate/', api_multi_page_regenerate, name='api_multi_page_regenerate'),
+
+    # API: 多页面 CRUD
+    path('api/multi-page/<int:project_id>/delete/', api_multi_page_delete_project, name='api_multi_page_delete_project'),
+    path('api/multi-page/<int:project_id>/enable/', api_multi_page_enable, name='api_multi_page_enable'),
+    path('api/multi-page/<int:project_id>/disable/', api_multi_page_disable, name='api_multi_page_disable'),
+    path('api/multi-page/<int:project_id>/add-page/', api_multi_page_add_page, name='api_multi_page_add_page'),
+    path('api/multi-page/<int:project_id>/update-nav/', api_multi_page_update_nav, name='api_multi_page_update_nav'),
+    path('api/multi-page/<int:project_id>/pages/', api_multi_page_list_pages, name='api_multi_page_list_pages'),
+    path('api/multi-page/page/<int:page_id>/delete/', api_multi_page_delete_page, name='api_multi_page_delete_page'),
+    path('api/multi-page/tree/', api_multi_page_tree, name='api_multi_page_tree'),
+    path('api/multi-page/crosslinks/generate/', api_multi_page_crosslinks_generate, name='api_multi_page_crosslinks_generate'),
+    path('api/multi-page/<int:project_id>/crosslink-exclude-toggle/', api_multi_page_crosslink_exclude_toggle, name='api_multi_page_crosslink_exclude_toggle'),
+
+    # 多页面 AI 配置
+    path('multi-page/config/', multi_page_config_view, name='multi_page_config'),
+    path('api/multi-page/config/save/', api_multi_page_config_save, name='api_multi_page_config_save'),
 ]

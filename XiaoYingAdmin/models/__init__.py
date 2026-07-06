@@ -12,6 +12,9 @@ from XiaoYingAdmin.models.operation_log import OperationLog
 from XiaoYingAdmin.models.firewall import FirewallRule
 from XiaoYingAdmin.models.static_file_route import StaticFileRoute
 from XiaoYingAdmin.models.page_category import PageCategory
+from XiaoYingAdmin.models.multi_page_project import MultiPageProject
+from XiaoYingAdmin.models.multi_page import MultiPage
+from XiaoYingAdmin.models.multi_page_config import MultiPageConfig
 
 __all__ = [
     'BaseModel',
@@ -29,4 +32,7 @@ __all__ = [
     'FirewallRule',
     'StaticFileRoute',
     'PageCategory',
+    'MultiPageProject',
+    'MultiPage',
+    'MultiPageConfig',
 ]

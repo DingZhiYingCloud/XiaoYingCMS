@@ -78,6 +78,31 @@
             "children": []
           }
         ]
+      },
+      {
+        "name": "多页面管理",
+        "icon": "",
+        "url": "",
+        "children": [
+          {
+            "name": "项目列表",
+            "icon": "",
+            "url": "/xiaoying_admin/multi-page/",
+            "children": []
+          },
+          {
+            "name": "创建项目",
+            "icon": "",
+            "url": "/xiaoying_admin/multi-page/create/",
+            "children": []
+          },
+          {
+            "name": "生成配置",
+            "icon": "",
+            "url": "/xiaoying_admin/multi-page/config/",
+            "children": []
+          }
+        ]
       }
 
     ]
