@@ -74,14 +74,19 @@ cp .env.example .env
 python manage.py makemigrations
 python manage.py migrate
 
-# 创建管理员账号
-python manage.py createsuperuser
 
 # 启动开发服务器（默认端口 8003）
 python manage.py runserver 8003
 ```
 
 启动后访问 `http://127.0.0.1:8003/xiaoying_admin/login/` 进入后台登录页面。
+
+默认的账号密码是: \
+账号: `xiaoyingadmin`
+
+密码: `xiaoyingadmin`
+
+<br />
 
 > 如需使用 AI 生成能力，需在 `.env` 中配置有效的 `API_URL`，指向 DeepSeek 兼容的 API 服务。
 
