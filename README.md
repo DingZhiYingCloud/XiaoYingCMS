@@ -59,6 +59,8 @@
 git clone https://github.com/DingZhiYingCloud/XiaoYingCMS.git
 cd XiaoYingCMS
 
+在 XiaoYingAdmin 目录下创建: migrations目录和__init__.py文件
+
 # 创建并激活 Python 虚拟环境
 python -m venv venv
 # Windows 系统执行: venv\Scripts\activate
