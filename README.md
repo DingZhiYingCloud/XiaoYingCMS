@@ -49,14 +49,14 @@
 ### 环境要求
 
 - Python 3.10 以上版本
-- MySQL 5.7 以上（开发环境可使用 SQLite）
+- MySQL 8.0 （默认使用 SQLite）
 - pip 包管理工具
 
 ### 部署步骤
 
 ```bash
 # 克隆代码并进入项目目录
-git clone https://github.com/your-username/XiaoYingCMS.git
+git clone https://github.com/DingZhiYingCloud/XiaoYingCMS.git
 cd XiaoYingCMS
 
 # 创建并激活 Python 虚拟环境
