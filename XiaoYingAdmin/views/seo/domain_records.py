@@ -16,6 +16,7 @@ from XiaoYingAdmin.models.domain_seo_record import DomainSeoRecord
 from XiaoYingAdmin.models.generated_page import GeneratedPage
 from XiaoYingAdmin.models.multi_page_project import MultiPageProject
 from XiaoYingAdmin.models.seo_domain import SeoDomain
+from XiaoYingAdmin.utils.domain_utils import group_domains_by_root
 
 DOMAINS_TEMPLATE = 'XiaoYingAdmin/SEO/域名SEO记录管理.html'
 TIMELINE_TEMPLATE = 'XiaoYingAdmin/SEO/域名时间线.html'
@@ -88,6 +89,77 @@ def api_seo_domains_list(request):
         'page': page,
         'page_size': page_size,
         'total': total,
+        'total_pages': total_pages,
+    })
+
+
+@csrf_exempt
+@require_GET
+def api_seo_domains_tree(request):
+    """获取域名树形数据（按根域名分组 + 分页），同级分页。
+
+    GET /xiaoying_admin/api/seo/domains/tree/?page=1&page_size=20&q=xxx
+
+    返回结构：
+      tree: [{ domain, domain_type, remark, record_count, children: [{...}] }]
+    """
+    q = request.GET.get('q', '').strip()
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', DEFAULT_PAGE_SIZE))
+
+    domains_qs = SeoDomain.objects.all()
+    if q:
+        domains_qs = domains_qs.filter(domain__icontains=q)
+
+    # 全部取出，用于分组
+    all_domains = list(domains_qs)
+    if not all_domains:
+        return JsonResponse({'ok': True, 'tree': [], 'total': 0, 'page': 1, 'total_pages': 0})
+
+    # 收集所有域名字符串，按根分组
+    domain_names = [d.domain for d in all_domains]
+    root_groups = group_domains_by_root(domain_names)
+    domain_map = {d.domain: d for d in all_domains}
+
+    # 构建树：每个根节点含 children
+    tree = []
+    seen_ids = set()
+    for root_domain in root_groups:
+        root_obj = domain_map.get(root_domain)
+        if not root_obj:
+            continue
+        seen_ids.add(root_obj.id)
+
+        subs = root_groups[root_domain]
+        children = []
+        for sub in subs:
+            if sub == root_domain:
+                continue
+            obj = domain_map.get(sub)
+            if obj and obj.id not in seen_ids:
+                seen_ids.add(obj.id)
+                children.append(obj.to_dict())
+
+        node = root_obj.to_dict()
+        node['children'] = children
+        tree.append(node)
+
+    # 独立的域名（没有在同一个根组中的，已全部覆盖在 tree 中）
+    # 分页
+    paginator = Paginator(tree, page_size)
+    total = paginator.count
+    total_pages = paginator.num_pages
+    try:
+        page_obj = paginator.page(page)
+    except Exception:
+        return JsonResponse({'ok': False, 'error': '页码无效'})
+
+    return JsonResponse({
+        'ok': True,
+        'tree': page_obj.object_list,
+        'total': total,
+        'page': page,
+        'page_size': page_size,
         'total_pages': total_pages,
     })
 
