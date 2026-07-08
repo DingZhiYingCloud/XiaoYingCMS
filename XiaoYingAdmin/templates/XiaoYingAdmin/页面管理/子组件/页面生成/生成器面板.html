@@ -20,8 +20,17 @@
             <div class="layui-form-item">
                 <label class="layui-form-label">绑定域名</label>
                 <div class="layui-input-block">
-                    <input id="genInputDomain" type="text" class="layui-input" placeholder="例如：example.com（可选，但建议填写以获得更好 SEO 效果）" value="{{ active_task.domain|default:'' }}">
-                    <div class="gen-domain-hint">未填写域名时，AI 生成的页面 SEO 标签中将缺少规范链接，影响搜索引擎收录</div>
+                    <div id="genDomainList">
+                        {# 由 JS 动态渲染，初始空行 #}
+                    </div>
+                    <div style="margin-top:6px;">
+                        <button id="genDomainAddBtn" type="button" class="layui-btn layui-btn-xs layui-btn-normal">
+                            <i class="fas fa-plus"></i> 添加域名
+                        </button>
+                    </div>
+                    <div class="gen-domain-hint">
+                        支持多域名，每个域名可单独指定提示词；未选提示词则使用默认活跃提示词。
+                    </div>
                 </div>
             </div>
             <div class="layui-form-item">
@@ -95,6 +104,11 @@
     .progress-status { margin-top:8px; font-size:12px; color:#999; }
     .progress-actions { margin-top:12px; }
     .gen-domain-hint { font-size:12px; color:#FF9800; margin-top:5px; line-height:1.5; }
+    .domain-row { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+    .domain-row .domain-input { flex:1; min-width:0; }
+    .domain-row .prompt-select { width:240px; flex-shrink:0; height:auto; min-height:60px; }
+    .domain-row .prompt-hint { font-size:11px; color:#999; margin-top:2px; line-height:1.4; }
+    .domain-row .domain-rm-btn { flex-shrink:0; }
     .result-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
     .result-toolbar h4 { margin:0; font-size:15px; }
     .result-code { background:#f6f6f6; padding:15px; border-radius:4px; max-height:500px; overflow:auto; font-size:12px; line-height:1.6; font-family:Consolas,Monaco,monospace; }
@@ -116,11 +130,149 @@
     var progressMsg   = $id('genProgressStatus');
     var resultCodeEl  = $id('genResultCode');
     var inputEl       = $id('genInputContent');
-    var domainEl      = $id('genInputDomain');
     var submitBtn     = $id('genSubmitBtn');
     var abortBtn      = $id('genAbortBtn');
+    var domainListEl  = $id('genDomainList');
+    var domainAddBtn  = $id('genDomainAddBtn');
 
     var currentTaskId = null, pollTimer = null;
+    var promptsCache  = [];  // [{id, name, category}, ...]
+
+    // ---- 域名行管理 ----
+    var domainRows = [];
+
+    function renderDomainRows() {
+        var html = '';
+        for (var i = 0; i < domainRows.length; i++) {
+            var row = domainRows[i];
+            var rmBtn = domainRows.length > 1
+                ? '<button type="button" class="layui-btn layui-btn-xs layui-btn-danger domain-rm-btn" data-idx="' + i + '"><i class="fas fa-times"></i></button>'
+                : '';
+            html += '<div class="domain-row" data-idx="' + i + '">'
+                + '<input type="text" class="layui-input domain-input" placeholder="例如：example.com" value="' + escHtml(row.domain) + '">'
+                + buildPromptSelect(i, row.promptIds || [])
+                + rmBtn
+                + '</div>';
+        }
+        domainListEl.innerHTML = html;
+
+        // 绑定事件
+        domainListEl.querySelectorAll('.domain-input').forEach(function(inp, i) {
+            inp.addEventListener('input', function() {
+                domainRows[i].domain = this.value.trim();
+            });
+        });
+        domainListEl.querySelectorAll('.prompt-select').forEach(function(sel, i) {
+            sel.addEventListener('change', function() {
+                var selected = [];
+                for (var j = 0; j < this.options.length; j++) {
+                    if (this.options[j].selected && this.options[j].value) {
+                        selected.push(parseInt(this.options[j].value, 10));
+                    }
+                }
+                domainRows[i].promptIds = selected;
+            });
+        });
+        domainListEl.querySelectorAll('.domain-rm-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var idx = parseInt(this.getAttribute('data-idx'), 10);
+                domainRows.splice(idx, 1);
+                renderDomainRows();
+            });
+        });
+    }
+
+    function escHtml(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function buildPromptSelect(rowIndex, selectedIds) {
+        var selId = 'prompt-sel-' + rowIndex;
+        var html = '<select id="' + selId + '" class="layui-input prompt-select" multiple size="4">';
+        for (var i = 0; i < promptsCache.length; i++) {
+            var p = promptsCache[i];
+            var sel = selectedIds.indexOf(p.id) !== -1 ? ' selected' : '';
+            html += '<option value="' + p.id + '"' + sel + '>' + escHtml(p.name) + '</option>';
+        }
+        html += '</select>'
+            + '<div class="prompt-hint">不选=全部提示词，Ctrl+点击/拖选可多选</div>';
+        return html;
+    }
+
+    function getSelectedPromptIds(rowIndex) {
+        var sel = document.getElementById('prompt-sel-' + rowIndex);
+        if (!sel) return [];
+        var ids = [];
+        for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].selected && sel.options[i].value) {
+                ids.push(parseInt(sel.options[i].value, 10));
+            }
+        }
+        return ids;
+    }
+
+    function addDomainRow(domain, promptIds) {
+        domainRows.push({domain: domain || '', promptIds: promptIds || []});
+        renderDomainRows();
+    }
+
+    domainAddBtn.addEventListener('click', function() { addDomainRow('', []); });
+
+    // ---- 提示词加载 ----
+    function loadPrompts(callback) {
+        fetch('/xiaoying_admin/api/prompts/?category=page_generation')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                promptsCache = Array.isArray(data) ? data : [];
+                callback();
+            })
+            .catch(function() {
+                promptsCache = [];
+                callback();
+            });
+    }
+
+    // ---- 收集域名数据 ----
+    function collectDomains() {
+        var result = [];
+        for (var i = 0; i < domainRows.length; i++) {
+            var d = domainRows[i].domain.trim().toLowerCase();
+            if (!d) continue;
+            var entry = {domain: d};
+            var pids = getSelectedPromptIds(i);
+            if (pids.length > 0) {
+                entry.prompt_ids = pids;
+            } else {
+                entry.prompt_ids = [];
+            }
+            result.push(entry);
+        }
+        return result;
+    }
+
+    // ---- 恢复初始域名行 ----
+    function restoreDomainRows() {
+        var config = [];
+        {% if active_task and active_task_domain_config_json %}
+        config = {{ active_task_domain_config_json|safe }};
+        {% elif active_task and active_task.domain %}
+        config = [{'domain': '{{ active_task.domain|escapejs }}', 'prompt_ids': []}];
+        {% endif %}
+        if (config.length > 0) {
+            for (var i = 0; i < config.length; i++) {
+                var item = config[i];
+                // 兼容新旧格式：prompt_ids 或 prompt_id
+                var pids = item.prompt_ids;
+                if (!pids && item.prompt_id != null) {
+                    pids = [item.prompt_id];
+                }
+                addDomainRow(item.domain, pids || []);
+            }
+        } else {
+            addDomainRow('', []);
+        }
+    }
 
     function showArea(area) {
         [inputArea, progressArea, resultArea, errorArea].forEach(function(el) { el.style.display = area === el ? 'block' : 'none'; });
@@ -176,7 +328,8 @@
         stopPolling();
         currentTaskId = null;
         inputEl.value = '';
-        domainEl.value = '';
+        domainRows = [];
+        addDomainRow('', []);
         showArea(inputArea);
     }
 
@@ -184,12 +337,14 @@
     submitBtn.addEventListener('click', function() {
         var content = inputEl.value.trim();
         if (!content) { if (window.layer) layer.msg('请输入页面描述', {icon:5}); return; }
-        var domain = domainEl.value.trim();
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
 
         var payload = { content: content };
-        if (domain) payload.domain = domain;
+        var domains = collectDomains();
+        if (domains.length > 0) {
+            payload.domains = domains;
+        }
 
         fetch('/xiaoying_admin/api/generate/start/', {
             method: 'POST',
@@ -251,22 +406,29 @@
         URL.revokeObjectURL(url);
     });
 
-    // 恢复：刷新页面时若 session 中有活跃任务
-    {% if active_task %}
-    (function() {
-        currentTaskId = '{{ active_task.task_id|escapejs }}';
-        {% if active_task.status == 'completed' %}
-        resultCodeEl.textContent = '{{ active_task.result_html|escapejs }}';
-        showArea(resultArea);
-        {% elif active_task.status == 'failed' %}
-        document.getElementById('genErrorMessage').textContent = '{{ active_task.error_message|escapejs }}';
-        showArea(errorArea);
+    // 初始化：加载提示词 + 恢复域名行
+    loadPrompts(function() {
+        restoreDomainRows();
+        // 恢复：刷新页面时若 session 中有活跃任务
+        {% if active_task %}
+        (function() {
+            currentTaskId = '{{ active_task.task_id|escapejs }}';
+            {% if active_task.status == 'completed' %}
+            resultCodeEl.textContent = '{{ active_task.result_html|escapejs }}';
+            showArea(resultArea);
+            {% elif active_task.status == 'failed' %}
+            document.getElementById('genErrorMessage').textContent = '{{ active_task.error_message|escapejs }}';
+            showArea(errorArea);
+            {% else %}
+            showArea(progressArea);
+            updateProgress({{ active_task.progress|default:0 }}, '{{ active_task.message|escapejs }}');
+            startPolling(currentTaskId);
+            {% endif %}
+        })();
         {% else %}
-        showArea(progressArea);
-        updateProgress({{ active_task.progress|default:0 }}, '{{ active_task.message|escapejs }}');
-        startPolling(currentTaskId);
+        // 无活跃任务，确保至少一行
+         if (domainRows.length === 0) addDomainRow('', []);
         {% endif %}
-    })();
-    {% endif %}
+    });
 })();
 </script>

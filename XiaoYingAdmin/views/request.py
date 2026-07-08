@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.conf import settings as django_settings
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
+import json
 
 from XiaoYingAdmin.common.http import parse_json_body, err, get_or_404
 from XiaoYingAdmin.middleware.operation_log import log_operation
@@ -217,6 +218,10 @@ def page_generate_view(request):
             request.session.pop('page_gen_task_id', None)
     return render(request, 'XiaoYingAdmin/页面管理/页面生成.html', {
         'active_task': active_task,
+        'active_task_domain_config_json': (
+            json.dumps(active_task.get('domain_prompt_config', []))
+            if active_task else '[]'
+        ),
     })
 
 
@@ -236,7 +241,9 @@ def api_start_generate(request):
     启动一次 AI 页面生成。
 
     请求: POST application/json
-      {"content": "页面描述...", "domain": "example.com"}  domain 可选
+      {"content": "页面描述...", "domain": "example.com"}  旧版，单域名
+      {"content": "页面描述...", "domains": [{"domain": "app.example.com", "prompt_id": null}, ...]}
+        新版：多域名，每个域名可选提示词 ID（null=默认提示词）
 
     响应: application/json
       {"task_id": "...", "status": "pending", "progress": 0, "message": "..."}
@@ -249,31 +256,66 @@ def api_start_generate(request):
     if not content:
         return err('请输入页面描述内容')
 
-    # 域名（可选）：生成完成后自动绑定，并作为 SEO 参考传给 AI
-    domain = (body.get('domain') or '').strip().lower()
-    # 去掉用户可能误加的协议前缀（生成时由后端统一加 https://）
-    for proto in ('https://', 'http://'):
-        if domain.startswith(proto):
-            domain = domain[len(proto):]
-            break
-
     if not request.session.session_key:
         request.session.save()
+
+    # ---- 解析域名配置 ----
+    # 优先级：domains（数组） > domain（兼容旧版单域名）
+    domain = ''
+    domain_prompt_config = []
+
+    if 'domains' in body:
+        raw_domains = body['domains']
+        if isinstance(raw_domains, list):
+            seen = set()
+            for item in raw_domains:
+                if not isinstance(item, dict):
+                    continue
+                d = (item.get('domain') or '').strip().lower()
+                for proto in ('https://', 'http://'):
+                    if d.startswith(proto):
+                        d = d[len(proto):]
+                        break
+                if d and d not in seen:
+                    seen.add(d)
+                    pid = item.get('prompt_id')
+                    pids = item.get('prompt_ids')
+                    entry = {'domain': d}
+                    if pids:
+                        entry['prompt_ids'] = [int(x) for x in pids if x is not None]
+                    elif pid is not None:
+                        entry['prompt_id'] = int(pid)
+                    else:
+                        entry['prompt_ids'] = []
+                    domain_prompt_config.append(entry)
+            if domain_prompt_config:
+                domain = domain_prompt_config[0]['domain']
+    elif 'domain' in body:
+        # 兼容旧版：单域名
+        domain = (body.get('domain') or '').strip().lower()
+        for proto in ('https://', 'http://'):
+            if domain.startswith(proto):
+                domain = domain[len(proto):]
+                break
 
     task = start_generation(
         input_content=content,
         session_key=request.session.session_key,
         created_by=request.user if request.user.is_authenticated else None,
         domain=domain,
+        domain_prompt_config=domain_prompt_config if domain_prompt_config else None,
     )
 
     # 写入 session：刷新页面后可恢复进度
     request.session['page_gen_task_id'] = str(task.task_id)
 
+    domain_log = domain or '(无)'
+    if domain_prompt_config:
+        domain_log = f'{len(domain_prompt_config)} 个域名'
     log_operation(request, 'create', 'PageGeneration', str(task.task_id),
                   f'页面生成「{content[:50]}」',
                   detail={'changes': {'需求描述': {'new': content[:100]},
-                                       '绑定域名': {'new': domain or '(无)'}}})
+                                       '绑定域名': {'new': domain_log}}})
 
     return JsonResponse({
         'task_id': str(task.task_id),

@@ -111,6 +111,13 @@ class PageGenerationTask(BaseModel):
         default='',
         help_text='生成时用户指定的绑定域名，生成完成后自动绑定到 GeneratedPage',
     )
+    domain_prompt_config = models.JSONField(
+        '域名与提示词配置',
+        default=list,
+        blank=True,
+        help_text='多域名生成时每个域名及其对应的提示词配置，'
+                  '格式：[{"domain": "...", "prompt_id": 1 | null}, ...]',
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

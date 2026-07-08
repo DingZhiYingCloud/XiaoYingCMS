@@ -13,8 +13,6 @@ __pycache__
 .dbg/
 
 # 环境文件
-.env
-.env.*
 
 # 敏感文件（实际敏感的配置）
 **/env.json

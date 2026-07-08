@@ -126,9 +126,88 @@ def _call_deepseek(content: str, system_prompt_json: str) -> str:
     return ''.join(chunks)
 
 
+def _generate_page_name(task) -> str:
+    """调用 AI 从 input_content 中提取简短页面名称（2-6字），失败时用兜底名。"""
+    raw = task.input_content.strip()
+    for prefix in _NAME_PREFIXES:
+        if raw.startswith(prefix):
+            raw = raw[len(prefix):]
+            break
+    for suffix in _NAME_SUFFIXES:
+        if raw.endswith(suffix):
+            raw = raw[:-len(suffix)]
+            break
+    raw = raw.strip()[:30]
+    fallback = raw if raw else '未命名页面'
+    try:
+        name = _call_deepseek(
+            f'从以下需求中提取简短页面名称（2-6个字），只返回名称不要任何其他文字：{task.input_content}',
+            json.dumps([{'role': 'system', 'content': '只返回名称'}], ensure_ascii=False),
+        )
+        name = name.strip().strip('"\'').strip()[:50]
+        if not name or len(name) > 20 or '?' in name or not any(ord(c) > 127 for c in name):
+            name = fallback
+    except RuntimeError:
+        name = fallback
+    return name
+
+
+def _group_domains_by_prompt(task) -> list[dict]:
+    """将域名配置展开为"一个域名一个组"的生成组列表。
+
+    每个域名独立生成一个页面（无论提示词是否相同）。
+    这样 3 个域名就会产生 3 次独立 AI 调用 → 3 个不同的 HTML 页面。
+
+    每组格式：
+      {'prompt_ids': [...], 'domains': [domain_str],
+       'system_prompt_list': [...] | None}
+
+    - prompt_ids = []：使用全部活跃提示词（默认）
+    - prompt_ids = [1, 3, 5]：仅使用指定的提示词
+    - 向后兼容旧版 prompt_id（单值）自动转为 [prompt_id]
+    - system_prompt_list = None：由调用方在运行时填充默认值
+    - task.domain_prompt_config 为空时向后兼容旧版 task.domain
+    """
+    config = task.domain_prompt_config or []
+    if not config and task.domain:
+        config = [{'domain': task.domain, 'prompt_id': None}]
+    if not config:
+        return []
+
+    result = []
+    for item in config:
+        domain = (item.get('domain') or '').strip().lower()
+        if not domain:
+            continue
+        # 解析 prompt_ids：支持新旧两种格式
+        pids = item.get('prompt_ids')
+        if not pids:
+            pid = item.get('prompt_id')
+            pids = [pid] if pid is not None else []
+        else:
+            pids = [int(pid) for pid in pids if pid is not None]
+
+        group = {'prompt_ids': pids, 'domains': [domain], 'system_prompt_list': None}
+        if pids:
+            prompts = list(Prompt.objects.filter(id__in=pids, is_active=True).order_by('-version'))
+            if prompts:
+                group['system_prompt_list'] = [
+                    {'role': 'system', 'content': p.content} for p in prompts
+                ]
+            # 未找到任何有效提示词 → system_prompt_list 保持 None → 回退默认
+        result.append(group)
+    return result
+
+
 def _run_generation(task_id: str):
     """
-    后台线程函数：执行一次 AI 页面生成并实时更新进度。
+    后台线程函数：执行 AI 页面生成并实时更新进度。
+
+    支持多域名 + 多提示词分组：
+      - 将 domain_prompt_config 按提示词分组
+      - 每调用一次 AI 生成一个页面，绑定对应域名
+      - 进度按组数平均分配
+      - SEO 优化仅对最后生成的页面执行
 
     参数：
       task_id: PageGenerationTask.task_id (UUID 字符串)
@@ -138,137 +217,130 @@ def _run_generation(task_id: str):
     try:
         task = PageGenerationTask.objects.get(task_id=task_id)
 
-        # 中断检查：若任务已被标记为 failed（用户中止），直接退出
+        # 中断检查
         if task.status == PageGenerationTask.STATUS_FAILED:
             return
 
-        # 1. 加载提示词（5%）
-        task.update_progress(5, '正在加载提示词...')
-        system_prompt_list = Prompt.get_all_active_contents('page_generation')
-        task.prompt_snapshot = system_prompt_list[0]['content'] if system_prompt_list else ''
-        task.save(update_fields=['prompt_snapshot', 'updated_time'])
+        # ---- 1. 分析生成组（5%） ----
+        task.update_progress(5, '正在分析域名与提示词配置...')
+        groups = _group_domains_by_prompt(task)
+        if not groups:
+            groups = [{'prompt_id': None, 'domains': [], 'system_prompt_list': None}]
+        total = len(groups)
+        pages = []
 
-        # 2. 构造 system_prompt（15%）
-        task.update_progress(15, '正在构造请求参数...')
-        system_prompt_json = json.dumps(system_prompt_list, ensure_ascii=False)
+        for idx, group in enumerate(groups):
+            # 中断检查：每个组开始前
+            task.refresh_from_db()
+            if task.status == PageGenerationTask.STATUS_FAILED:
+                for p in pages:
+                    p.delete()
+                return
 
-        # 3. 调用 AI（20% → 80%）
-        task.update_progress(20, '正在请求 AI 接口（可能需要 30-60 秒）...')
-        # 把用户指定的域名（带协议前缀）拼接到内容中，便于 AI 进行 SEO 描述
-        user_content = task.input_content
-        if task.domain:
-            site_url = _normalize_domain_to_url(task.domain)
-            user_content = (
-                f'{user_content}\n\n'
-                f'【本次生成页面将绑定的域名】：{site_url}\n'
-                f'请在生成 HTML 时，将该域名用于 SEO 相关的 meta 标签、canonical 链接、'
-                f'Open Graph url 等需要引用站点地址的位置。'
-            )
+            base_progress = idx * 100 // total
+            next_progress = (idx + 1) * 100 // total
+            range_size = next_progress - base_progress
 
-        result = _call_deepseek(user_content, system_prompt_json)
+            # 当前组标签（给进度消息用）
+            group_label = f'第 {idx+1}/{total} 组' if total > 1 else ''
 
-        # 中断检查：AI 调用返回后，若任务已被中止，丢弃结果
+            # ---- 2. 加载提示词 ----
+            if group['system_prompt_list']:
+                prompt_list = group['system_prompt_list']
+            else:
+                prompt_list = Prompt.get_all_active_contents('page_generation')
+            system_prompt_json = json.dumps(prompt_list, ensure_ascii=False)
+
+            # 第一组的快照保留到 task（向后兼容）
+            if idx == 0:
+                task.prompt_snapshot = prompt_list[0]['content'] if prompt_list else ''
+                task.save(update_fields=['prompt_snapshot', 'updated_time'])
+
+            # ---- 3. 构造用户内容（域名注入） ----
+            user_content = task.input_content
+            group_domains = group['domains']
+            if group_domains:
+                domain_urls = [_normalize_domain_to_url(d) for d in group_domains]
+                user_content = (
+                    f'{user_content}\n\n'
+                    f'【本次生成页面将绑定的域名】：{", ".join(domain_urls)}\n'
+                    f'请在生成 HTML 时，将这些域名用于 SEO 相关的 meta 标签、'
+                    f'canonical 链接、Open Graph url 等需要引用站点地址的位置。'
+                )
+
+            # ---- 4. 调用 AI ----
+            msg = f'正在请求 AI 接口{"（" + group_label + "）" if group_label else ""}...'
+            task.update_progress(base_progress + range_size // 3, msg)
+            result = _call_deepseek(user_content, system_prompt_json)
+
+            # 中断检查
+            task.refresh_from_db()
+            if task.status == PageGenerationTask.STATUS_FAILED:
+                for p in pages:
+                    p.delete()
+                return
+
+            progress_after_ai = base_progress + range_size * 2 // 3
+            task.update_progress(progress_after_ai, '正在处理返回结果...')
+
+            if not result or not result.strip():
+                if idx == 0:
+                    task.mark_failed('AI 返回内容为空')
+                    return
+                continue  # 非首组失败时跳过
+
+            result = _strip_code_fence(result)
+
+            # ---- 5. 生成页面名称 + 保存到库 ----
+            page_name = _generate_page_name(task)
+            try:
+                page = GeneratedPage.objects.create(
+                    name=page_name,
+                    html_content=result,
+                    task_id=task.task_id,
+                    input_content=task.input_content,
+                    created_by=task.created_by,
+                    domains=group_domains,
+                    domain=group_domains[0] if group_domains else None,
+                )
+                pages.append(page)
+            except Exception:
+                pass  # 保存失败不影响主流程
+
+        # 所有组处理完毕
+        if not pages:
+            task.mark_failed('所有分组均生成失败')
+            return
+
+        # ---- 6. SEO 优化（仅对最后生成的页面） ----
+        last_page = pages[-1]
         task.refresh_from_db()
         if task.status == PageGenerationTask.STATUS_FAILED:
+            for p in pages:
+                p.delete()
             return
 
-        task.update_progress(80, '正在处理返回结果...')
-
-        if not result or not result.strip():
-            task.mark_failed('AI 返回内容为空')
-            return
-
-        # 简单清洗：如果返回是 markdown 代码块，去掉包裹
-        result = _strip_code_fence(result)
-
-        # 4. 保存结果 + AI 总结页面名称 + 自动保存到库
-        task.result_html = result
-        task.save(update_fields=['result_html', 'updated_time'])
+        task.update_progress(95, '正在进行 SEO 优化（可能需要 30-60 秒）...')
+        try:
+            optimized = seo_optimize_page(last_page)
+            if optimized and optimized.strip():
+                last_page.html_content = optimized
+                last_page.save(update_fields=['html_content', 'updated_time'])
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f'SEO 优化失败 (task={task_id}): {e}')
 
         # 中断检查
         task.refresh_from_db()
         if task.status == PageGenerationTask.STATUS_FAILED:
+            for p in pages:
+                p.delete()
             return
 
-        # 4a. 调用 AI 总结页面简短名称
-        task.update_progress(90, '正在总结页面名称...')
-        # 先尝试从用户输入中提取关键词（去掉常见前缀/后缀）作为兜底名称
-        raw = task.input_content.strip()
-        for prefix in _NAME_PREFIXES:
-            if raw.startswith(prefix):
-                raw = raw[len(prefix):]
-                break
-        for suffix in _NAME_SUFFIXES:
-            if raw.endswith(suffix):
-                raw = raw[:-len(suffix)]
-                break
-        raw = raw.strip()[:30]
-        fallback_name = raw if raw else '未命名页面'
-        try:
-            page_name = _call_deepseek(
-                f'从以下需求中提取简短页面名称（2-6个字），只返回名称不要任何其他文字：{task.input_content}',
-                json.dumps(
-                    [{'role': 'system', 'content': '只返回名称'}],
-                    ensure_ascii=False,
-                ),
-            )
-            page_name = page_name.strip().strip('"\'').strip()[:50]
-            if not page_name or len(page_name) > 20 or '?' in page_name or not any(ord(c) > 127 for c in page_name):
-                page_name = fallback_name
-        except RuntimeError:
-            page_name = fallback_name
-        task.page_name = page_name
-        task.save(update_fields=['page_name', 'updated_time'])
-
-        # 4b. 自动保存到 GeneratedPage 表
-        page = None
-        try:
-            # 若用户指定了域名，绑定到生成的页面
-            domain_list = []
-            if task.domain:
-                domain_list = [task.domain.strip().lower()]
-            page = GeneratedPage.objects.create(
-                name=page_name,
-                html_content=result,
-                task_id=task.task_id,
-                input_content=task.input_content,
-                created_by=task.created_by,
-                domains=domain_list,
-                domain=domain_list[0] if domain_list else None,
-            )
-        except Exception:
-            pass  # 保存失败不影响主流程
-
-        # 5. SEO 优化 — 生成成功后自动执行
-        if page is not None:
-            # 中断检查：SEO 优化前再确认一次
-            task.refresh_from_db()
-            if task.status == PageGenerationTask.STATUS_FAILED:
-                # 用户中断，清理已创建的页面（数据不保留）
-                page.delete()
-                return
-
-            task.update_progress(95, '正在进行 SEO 优化（可能需要 30-60 秒）...')
-            try:
-                optimized = seo_optimize_page(page)
-                if optimized and optimized.strip():
-                    # 回写优化后的 HTML 到页面和任务
-                    page.html_content = optimized
-                    page.save(update_fields=['html_content', 'updated_time'])
-                    task.result_html = optimized
-                    task.page_name = page_name  # 保持原有页面名称
-                    task.save(update_fields=['result_html', 'updated_time'])
-            except (RuntimeError, Exception) as e:
-                # SEO 优化失败不阻塞主流程，保留原始 HTML
-                import logging
-                logging.getLogger(__name__).warning(f'SEO 优化失败 (task={task_id}): {e}')
-
-        # 中断检查：最后确认一次（防止 SEO 优化期间用户中断）
-        task.refresh_from_db()
-        if task.status == PageGenerationTask.STATUS_FAILED:
-            if page is not None:
-                page.delete()
-            return
+        # 将最后页面的结果回写到 task（前端轮询用）
+        task.result_html = last_page.html_content
+        task.page_name = last_page.name
+        task.save(update_fields=['result_html', 'page_name', 'updated_time'])
 
         task.update_progress(100, '生成完成')
 
@@ -344,7 +416,8 @@ def _get_page_site_url(page) -> str:
 
 
 def start_generation(input_content: str, session_key: str = '',
-                     created_by=None, domain: str = '') -> PageGenerationTask:
+                     created_by=None, domain: str = '',
+                     domain_prompt_config: list | None = None) -> PageGenerationTask:
     """
     启动一次页面生成任务（主线程调用，立即返回）。
 
@@ -353,6 +426,9 @@ def start_generation(input_content: str, session_key: str = '',
       session_key: 当前 session_key，用于跨请求查询
       created_by: 发起任务的用户对象（User 实例或 None）
       domain: 用户指定的绑定域名（可选），生成完成后自动绑定
+      domain_prompt_config: 多域名配置，格式：
+        [{"domain": "...", "prompt_id": 1 | null}, ...]
+        每个域名可指定使用的提示词 ID，null 表示默认活跃提示词
 
     返回：
       新创建的 PageGenerationTask 实例
@@ -365,6 +441,7 @@ def start_generation(input_content: str, session_key: str = '',
         message='任务已创建，等待执行...',
         created_by=created_by,
         domain=domain,
+        domain_prompt_config=domain_prompt_config or [],
     )
 
     thread = threading.Thread(
@@ -399,6 +476,7 @@ def get_task_progress(task_id: str) -> dict | None:
         'message': task.message,
         'input_content': task.input_content,
         'domain': task.domain,
+        'domain_prompt_config': task.domain_prompt_config if task.domain_prompt_config else [],
     }
     if task.status == PageGenerationTask.STATUS_COMPLETED:
         data['result_html'] = task.result_html
