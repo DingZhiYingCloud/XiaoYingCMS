@@ -29,8 +29,14 @@
 .page-sidebar .sidebar-list li:hover .cat-del { display: inline; }
 .page-sidebar .sidebar-list li .cat-edit { display: none; color: #5FB878; font-size: 13px; cursor: pointer; padding: 0 2px; }
 .page-sidebar .sidebar-list li:hover .cat-edit { display: inline; }
+.page-sidebar .sidebar-list li .cat-domains { display: none; color: #1E9FFF; font-size: 13px; cursor: pointer; padding: 0 2px; }
+.page-sidebar .sidebar-list li:hover .cat-domains { display: inline; }
 .page-sidebar .sidebar-actions { margin-top: 8px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
 .page-sidebar .sidebar-actions .add-cat-btn { width: 100%; }
+.batch-cat-bar { padding: 6px 8px 10px; border-bottom: 1px solid #f0f0f0; }
+.batch-cat-btn { display:block; width:100%; padding:5px 0; font-size:12px; color:#5FB878; background:#f0faf4; border:1px dashed #b8e6c8; border-radius:4px; cursor:pointer; transition:all .15s; text-align:center; }
+.batch-cat-btn:hover { background:#e0f5e8; border-color:#5FB878; color:#2e7d32; }
+.batch-cat-btn i { font-size:11px; margin-right:4px; }
 
 .page-content { flex: 1; min-width: 0; }
 
@@ -76,6 +82,26 @@
 
 /* 空状态 */
 .tree-empty { padding: 30px; text-align: center; color: #bbb; font-size: 14px; }
+
+/* 根域名节点查看域名按钮 */
+.tree-domain-btn { margin-left:6px; padding:1px 8px; border:1px solid #e0e0e0; border-radius:3px; background:#fff; color:#1E9FFF; cursor:pointer; font-size:11px; transition:all .15s; flex-shrink:0; display:none; }
+.tree-node-root:hover .tree-domain-btn { display:inline-flex; align-items:center; gap:3px; }
+.tree-domain-btn:hover { background:#e3f2fd; border-color:#1E9FFF; }
+.tree-domain-btn i { font-size:10px; }
+
+/* 域名查看弹窗 */
+.domain-view-modal { padding:8px 4px; }
+.domain-view-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:0 8px; }
+.domain-view-count { font-size:12px; color:#999; }
+.domain-view-btn-all { padding:4px 14px; border:1px solid #1E9FFF; border-radius:4px; background:#fff; color:#1E9FFF; cursor:pointer; font-size:12px; transition:all .15s; }
+.domain-view-btn-all:hover { background:#1E9FFF; color:#fff; }
+.domain-view-list { max-height:320px; overflow-y:auto; border:1px solid #f0f0f0; border-radius:4px; }
+.domain-view-item { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid #f5f5f5; transition:background .1s; }
+.domain-view-item:last-child { border-bottom:none; }
+.domain-view-item:hover { background:#f8fbff; }
+.domain-view-url { font-family:Consolas,Monaco,monospace; font-size:13px; color:#1565C0; }
+.domain-view-copy { padding:2px 10px; border:1px solid #e0e0e0; border-radius:3px; background:#fff; color:#666; cursor:pointer; font-size:11px; transition:all .15s; }
+.domain-view-copy:hover { border-color:#5FB878; color:#5FB878; }
 
 /* ========== 弹窗响应式 ========== */
 .modal-scroll-wrap { max-height: 65vh; overflow-y: auto; }
@@ -237,6 +263,7 @@ function renderSidebar() {
         html += escHtml(c.name);
         html += ' <span class="cat-count" id="countCat' + c.id + '">0</span>';
         html += ' <span class="cat-edit" data-id="' + c.id + '" title="编辑分类"><i class="fas fa-pen"></i></span>';
+        html += ' <span class="cat-domains" data-id="' + c.id + '" title="查看分类下全部域名"><i class="fas fa-globe"></i></span>';
         html += ' <span class="cat-del" data-id="' + c.id + '" title="删除分类"><i class="fas fa-times"></i></span>';
         html += '</li>';
     });
@@ -255,7 +282,7 @@ function renderSidebar() {
     // 侧边栏点击事件
     ul.querySelectorAll('li[data-filter]').forEach(function(li) {
         li.addEventListener('click', function(e) {
-            if (e.target.closest('.cat-del') || e.target.closest('.cat-edit')) return;
+            if (e.target.closest('.cat-del') || e.target.closest('.cat-edit') || e.target.closest('.cat-domains')) return;
             currentFilter = li.getAttribute('data-filter');
             ul.querySelectorAll('li').forEach(function(l) { l.classList.remove('active'); });
             li.classList.add('active');
@@ -295,6 +322,15 @@ function renderSidebar() {
                     loadCategories().then(function() { loadTree(); });
                 }).catch(function() { layer.close(idx); layer.msg('删除失败', {icon:2}); });
             });
+        });
+    });
+
+    // 查看分类域名
+    ul.querySelectorAll('.cat-domains').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var id = parseInt(el.getAttribute('data-id'));
+            openDomainViewModal(id);
         });
     });
 }
@@ -495,10 +531,7 @@ function renderTree() {
         if (treeData.uncategorized && treeData.uncategorized.page_count > 0) {
             hasAny = true;
             html += renderSpecialNode('未分类', 'inbox', '#999', treeData.uncategorized);
-            // 批量分类按钮
-            html += '<div style="padding:8px 12px;text-align:center;border-bottom:1px solid #f0f0f0;">';
-            html += '<button class="layui-btn layui-btn-sm layui-btn-normal" id="btnBatchCategorize" onclick="openBatchCategorizeModal()"><i class="fas fa-tags"></i> 批量分类全部未分类域名</button>';
-            html += '</div>';
+            html += '<div class="batch-cat-bar"><button class="batch-cat-btn" onclick="openBatchCategorizeModal()"><i class="fas fa-tags"></i> 批量分类</button></div>';
         }
         // 未绑定域名
         if (treeData.unbound && treeData.unbound.page_count > 0) {
@@ -520,7 +553,7 @@ function renderTree() {
     } else if (currentFilter === 'uncategorized') {
         if (treeData.uncategorized && treeData.uncategorized.page_count > 0) {
             html = renderSpecialNode('未分类', 'inbox', '#999', treeData.uncategorized, true);
-            html += '<div style="padding:8px 12px;text-align:center;"><button class="layui-btn layui-btn-sm layui-btn-normal" onclick="openBatchCategorizeModal()"><i class="fas fa-tags"></i> 批量分类全部未分类域名</button></div>';
+            html += '<div class="batch-cat-bar"><button class="batch-cat-btn" onclick="openBatchCategorizeModal()"><i class="fas fa-tags"></i> 批量分类</button></div>';
         } else {
             html = '<div class="tree-empty">所有页面都已有分类</div>';
         }
@@ -607,6 +640,7 @@ function renderRootDomainNode(root) {
     html += '<span class="tree-icon"><i class="fas fa-globe"></i></span>';
     html += '<span class="tree-label">' + escHtml(root.root) + '</span>';
     html += '<span class="tree-count">' + (root.page_count || 0) + ' 个页面</span>';
+    html += '<button class="tree-domain-btn" onclick="event.stopPropagation();openDomainViewModalByRootName(\'' + escAttr(root.root) + '\')" title="查看全部子域名"><i class="fas fa-list"></i></button>';
     html += '</div>';
     html += '<div class="tree-children">';
     root.domains.forEach(function(dom) {
@@ -800,6 +834,142 @@ function openPageCategoryEditor(pageId) {
                 },
             });
         });
+}
+
+// ============================================================
+// 域名查看弹窗
+// ============================================================
+
+function openDomainViewModalForRoot(rootObj, title) {
+    // 从 rootObj 提取所有域名（含子域名）
+    title = title || escHtml(rootObj.root);
+    var domains = collectAllDomainsFromRoot(rootObj);
+    renderDomainModal(title, domains);
+}
+
+function openDomainViewModalByRootName(rootName) {
+    // 从 treeData 中全局搜索指定根域名
+    var rootObj = null;
+    if (treeData) {
+        // 搜索所有分类下的根域名
+        if (treeData.categories) {
+            treeData.categories.forEach(function(cat) {
+                if (cat.root_domains) {
+                    cat.root_domains.forEach(function(r) {
+                        if (r.root === rootName) rootObj = r;
+                    });
+                }
+            });
+        }
+        // 搜索未分类下的根域名
+        if (!rootObj && treeData.uncategorized && treeData.uncategorized.root_domains) {
+            treeData.uncategorized.root_domains.forEach(function(r) {
+                if (r.root === rootName) rootObj = r;
+            });
+        }
+    }
+    if (!rootObj) {
+        layer.msg('未找到该域名数据', {icon:0});
+        return;
+    }
+    openDomainViewModalForRoot(rootObj, rootName);
+}
+
+function collectAllDomainsFromRoot(rootObj) {
+    var list = [];
+    if (!rootObj || !rootObj.domains) return list;
+    rootObj.domains.forEach(function(d) {
+        if (d.domain) list.push('https://' + d.domain);
+    });
+    return list;
+}
+
+function openDomainViewModal(catId) {
+    // 从 treeData 中提取指定分类下的所有域名
+    var catName = '';
+    var domains = [];
+    if (treeData && treeData.categories) {
+        treeData.categories.forEach(function(cat) {
+            if (cat.id === catId) {
+                catName = cat.name || '';
+                if (cat.root_domains) {
+                    cat.root_domains.forEach(function(root) {
+                        if (root.domains) {
+                            root.domains.forEach(function(d) {
+                                if (d.domain) domains.push('https://' + d.domain);
+                            });
+                        }
+                    });
+                }
+            }
+        });
+    }
+    if (domains.length === 0) {
+        layer.msg('该分类下暂无域名', {icon:0});
+        return;
+    }
+    renderDomainModal('分类：' + catName, domains);
+}
+
+function renderDomainModal(title, domains) {
+    // 去重
+    var unique = [];
+    var seen = {};
+    domains.forEach(function(d) {
+        if (!seen[d]) { seen[d] = true; unique.push(d); }
+    });
+    domains = unique;
+
+    // 构造域名列表 HTML
+    var listHtml = '';
+    domains.forEach(function(d) {
+        listHtml += '<div class="domain-view-item">'
+            + '<span class="domain-view-url">' + escHtml(d) + '</span>'
+            + '<button class="domain-view-copy" onclick="copyText(this,\'' + escAttr(d) + '\')">复制</button>'
+            + '</div>';
+    });
+
+    var content = '<div class="domain-view-modal">'
+        + '<div class="domain-view-toolbar">'
+        + '<span class="domain-view-count">共 ' + domains.length + ' 个域名</span>'
+        + '<button class="domain-view-btn-all" onclick="copyAllDomains(this)"><i class="fas fa-copy"></i> 复制全部</button>'
+        + '</div>'
+        + '<div class="domain-view-list">' + listHtml + '</div>'
+        + '</div>';
+
+    layer.open({
+        type: 1,
+        title: '<i class="fas fa-globe" style="color:#1E9FFF;"></i> ' + escHtml(title),
+        area: ['520px', '440px'],
+        shadeClose: true,
+        content: content,
+    });
+}
+
+// 复制单个域名
+function copyText(btn, text) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+            var orig = btn.textContent;
+            btn.textContent = '已复制';
+            btn.style.color = '#5FB878';
+            setTimeout(function() { btn.textContent = orig; btn.style.color = ''; }, 1200);
+        });
+    }
+}
+
+// 复制全部域名
+function copyAllDomains(btn) {
+    var items = document.querySelectorAll('.domain-view-url');
+    var text = '';
+    items.forEach(function(el) { text += el.textContent + '\n'; });
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text.trim()).then(function() {
+            var orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> 已复制全部';
+            setTimeout(function() { btn.innerHTML = orig; }, 1200);
+        });
+    }
 }
 
 // ============================================================
