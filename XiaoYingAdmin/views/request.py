@@ -111,6 +111,11 @@ def index_view(request):
     # SEO 域名统计
     seo_domains_total = SeoDomain.objects.count()
 
+    # 数据库引擎 — 从 settings.py 动态读取
+    raw_engine = django_settings.DATABASES['default']['ENGINE']
+    # django.db.backends.sqlite3 → SQLite, django.db.backends.mysql → MySQL
+    db_engine = raw_engine.rsplit('.', 1)[-1].capitalize()
+
     context = {
         # 用户统计
         'total_users': User.objects.count(),
@@ -145,6 +150,8 @@ def index_view(request):
         # 防火墙
         'firewall_active': firewall_active,
         'firewall_total': firewall_total,
+        # 数据库引擎
+        'db_engine': db_engine,
     }
     return render(request, 'XiaoYingAdmin/index.html', context)
 

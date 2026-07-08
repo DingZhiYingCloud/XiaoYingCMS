@@ -10,32 +10,38 @@
 
 {# ===== 成功/失败提示 ===== #}
 {% if saved %}
-<div class="layui-alert layui-alert-success" style="margin-bottom:12px;">
+<div class="alert-banner alert-banner-success">
     <i class="fas fa-check-circle"></i> 记录模式已保存
 </div>
 {% endif %}
 {% if error == 'invalid_mode' %}
-<div class="layui-alert layui-alert-danger" style="margin-bottom:12px;">
+<div class="alert-banner alert-banner-danger">
     <i class="fas fa-exclamation-circle"></i> 记录模式值非法
 </div>
 {% endif %}
 
-{# ===== 记录模式配置（log_mode 切换） ===== #}
+{# ===== 记录模式配置 ===== #}
 {% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/记录模式配置.html' %}
 
-{# ===== 筛选 + 日志列表 ===== #}
-<div class="layui-card">
-    <div class="layui-card-header">
-        <i class="fas fa-list"></i> 访问日志
-        <span style="float:right;">
-            <span style="font-size:12px; color:#999; margin-right:10px;">
-                共 {{ total }} 条 · 第 {{ page }} / {{ total_pages }} 页
+{# ===== 访问日志卡片 ===== #}
+<div class="main-card">
+    <div class="main-card-header">
+        <div class="main-card-title">
+            <i class="fas fa-list"></i> 访问日志
+        </div>
+        <div class="main-card-actions">
+            <span class="main-card-count">
+                共 <strong>{{ total }}</strong> 条 · 第 {{ page }} / {{ total_pages }} 页
             </span>
-            <button class="layui-btn layui-btn-sm layui-btn-normal" id="btn-backup-spider" title="备份蜘蛛日志"><i class="fas fa-archive"></i> 备份</button>
-            <button class="layui-btn layui-btn-sm" id="btn-restore-spider" title="从备份文件恢复"><i class="fas fa-upload"></i> 导入备份</button>
-        </span>
+            <button class="hc-btn hc-btn-normal" id="btn-backup-spider" title="备份蜘蛛日志">
+                <i class="fas fa-archive"></i> 备份
+            </button>
+            <button class="hc-btn hc-btn-outline" id="btn-restore-spider" title="从备份文件恢复">
+                <i class="fas fa-upload"></i> 导入备份
+            </button>
+        </div>
     </div>
-    <div class="layui-card-body">
+    <div class="main-card-body">
 
         {# 筛选工具栏 #}
         {% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/筛选工具栏.html' %}
@@ -43,14 +49,102 @@
         {# 日志列表 #}
         {% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/日志列表.html' %}
 
-        {# 分页（view 已渲染好 HTML） #}
-        {{ pagination_html|safe }}
+        {# 分页 #}
+        <div class="spider-pagination-wrap">
+            {{ pagination_html|safe }}
+        </div>
 
     </div>
 </div>
 
-{# ===== 识别规则说明（spider_keywords 只读展示 + 跳转斗篷配置） ===== #}
+{# ===== 识别规则说明 ===== #}
 {% include 'XiaoYingAdmin/蜘蛛管理/蜘蛛日志/子组件/识别规则说明.html' %}
+
+<style>
+/* ===== 全局弹窗 ===== */
+.alert-banner {
+    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;
+    font-size: 13px; display: flex; align-items: center; gap: 8px;
+}
+.alert-banner-success {
+    background: #e8f8ee; color: #1a7d3a; border: 1px solid #b8e6cc;
+}
+.alert-banner-danger {
+    background: #fce8e8; color: #b71c1c; border: 1px solid #f5c6cb;
+}
+
+/* ===== 主卡片 ===== */
+.main-card {
+    background: #fff; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.03);
+    border: 1px solid #f0f0f0; margin-bottom: 20px;
+}
+.main-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap; gap: 10px;
+}
+.main-card-title {
+    font-size: 15px; font-weight: 600; color: #1a1a2e;
+}
+.main-card-title i { color: #5FB878; margin-right: 4px; }
+.main-card-actions {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.main-card-count {
+    font-size: 12px; color: #999; white-space: nowrap;
+}
+.main-card-body { padding: 16px 18px; }
+
+/* ===== 自定义按钮 ===== */
+.hc-btn {
+    height: 30px; padding: 0 14px; border-radius: 6px; font-size: 12px;
+    cursor: pointer; transition: all .18s; border: none;
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.hc-btn-normal {
+    background: #5FB878; color: #fff;
+}
+.hc-btn-normal:hover { background: #4aa86a; }
+.hc-btn-normal:active { transform: scale(.97); }
+.hc-btn-outline {
+    background: #fff; color: #666; border: 1px solid #d0d0d0;
+}
+.hc-btn-outline:hover { border-color: #5FB878; color: #5FB878; }
+
+/* ===== 分页包裹 ===== */
+.spider-pagination-wrap {
+    margin-top: 16px;
+}
+.spider-pagination-wrap .pagination {
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    padding: 10px 0; flex-wrap: wrap;
+}
+.spider-pagination-wrap .pagination a,
+.spider-pagination-wrap .pagination span {
+    min-width: 32px; height: 32px; padding: 0 10px;
+    border: 1px solid #e4e4e4; border-radius: 6px; background: #fff;
+    color: #555; font-size: 12px; cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all .18s;
+}
+.spider-pagination-wrap .pagination a:hover {
+    border-color: #5FB878; color: #5FB878; background: #f8fdf9;
+}
+.spider-pagination-wrap .pagination .current {
+    background: #5FB878; color: #fff; border-color: #5FB878; font-weight: 600;
+}
+.spider-pagination-wrap .pagination .disabled {
+    opacity: .4; cursor: not-allowed; color: #ccc;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .main-card-header { flex-direction: column; align-items: flex-start; }
+    .main-card-actions { width: 100%; }
+    .main-card-actions .hc-btn { flex: 1; justify-content: center; }
+    .main-card-body { padding: 12px 12px; }
+}
+</style>
 
 {% endblock %}
 

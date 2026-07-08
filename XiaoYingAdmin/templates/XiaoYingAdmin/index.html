@@ -520,7 +520,7 @@
       <div class="dash-footer-item"><i class="fas fa-tag"></i><span><strong>系统名称</strong> {{ site_name }}</span></div>
       <div class="dash-footer-item"><i class="fas fa-globe"></i><span><strong>站点域名</strong> {{ site_domain }}</span></div>
       <div class="dash-footer-item"><i class="fas fa-code-branch"></i><span><strong>系统版本</strong> {{ version|default:'1.0.0' }}</span></div>
-      <div class="dash-footer-item"><i class="fas fa-database"></i><span><strong>数据引擎</strong> SQLite</span></div>
+      <div class="dash-footer-item"><i class="fas fa-database"></i><span><strong>数据引擎</strong> {{ db_engine|default:'SQLite' }}</span></div>
       <div class="dash-footer-item"><i class="fas fa-python"></i><span><strong>后端框架</strong> Django</span></div>
       <div class="dash-footer-item"><i class="fas fa-robot"></i><span><strong>AI 引擎</strong> DeepSeek</span></div>
       <div class="dash-footer-item"><i class="fas fa-user"></i><span><strong>当前用户</strong> {{ request.user.get_username }}</span></div>

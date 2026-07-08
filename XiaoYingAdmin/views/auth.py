@@ -617,13 +617,23 @@ def login_log_list_api(request):
     offset = (page - 1) * limit
     items = logs[offset:offset + limit]
 
+    # 获取所有已封禁的 IP（活跃的 ip_block 规则）
+    from XiaoYingAdmin.models.firewall import FirewallRule
+    banned_ips = set(
+        FirewallRule.objects.filter(
+            rule_type='ip_block', is_active=True
+        ).values_list('value', flat=True)
+    )
+
     data = []
     for log in items:
+        ip = log.ip_address or ''
         data.append({
             'id': log.pk,
             'username': log.username,
             'user_id': log.user_id,
-            'ip_address': log.ip_address or '',
+            'ip_address': ip,
+            'banned': ip in banned_ips,
             'user_agent': log.user_agent[:100] if log.user_agent else '',
             'status': log.status,
             'status_display': log.get_status_display(),

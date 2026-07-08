@@ -3,6 +3,11 @@
     <div class="gen-header">
         <h3><i class="fas fa-magic"></i> AI 页面生成</h3>
         <span class="gen-desc">输入需求描述，AI 将自动生成完整 HTML 页面</span>
+        <div class="gen-header-actions">
+            <button id="genFlowBtn" type="button" class="layui-btn layui-btn-xs layui-btn-primary">
+                <i class="fas fa-project-diagram"></i> 查看生成流程
+            </button>
+        </div>
     </div>
 
     <div class="gen-body">
@@ -90,13 +95,53 @@
             </button>
         </div>
     </div>
+
+    {# ===== 生成流程弹窗 ===== #}
+    <div class="flow-overlay" id="flowOverlay">
+        <div class="flow-modal" id="flowModal">
+            <div class="flow-modal-header">
+                <span class="flow-modal-title"><i class="fas fa-project-diagram"></i> 单页面生成流程</span>
+                <button type="button" class="flow-close-btn" id="flowCloseBtn">&times;</button>
+            </div>
+            <div class="flow-modal-body" id="flowModalBody">
+                {# 由 JS 动态渲染 #}
+            </div>
+        </div>
+    </div>
+
+    {# ===== 右侧配置抽屉 ===== #}
+    <div class="config-drawer-overlay" id="configDrawerOverlay">
+        <div class="config-drawer" id="configDrawer">
+            <div class="config-drawer-header">
+                <span class="config-drawer-title">配置：<span id="configDomainLabel"></span></span>
+                <button type="button" class="drawer-close-btn" id="drawerCloseBtn">&times;</button>
+            </div>
+            <div class="config-drawer-body">
+                <div class="config-section">
+                    <div class="config-section-title">提示词 <span class="hint">（不选则使用全部活跃提示词）</span></div>
+                    <div class="prompt-search-wrap">
+                        <input type="text" class="layui-input prompt-search-input" id="promptSearchInput" placeholder="搜索提示词...">
+                        <span class="prompt-search-icon"><i class="fas fa-search"></i></span>
+                    </div>
+                    <div class="prompt-check-list" id="promptCheckList"></div>
+                    <div class="prompt-pagination" id="promptPagination"></div>
+                    <div class="prompt-stats" id="promptStats"></div>
+                </div>
+            </div>
+            <div class="config-drawer-footer">
+                <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="drawerCancelBtn">取消</button>
+                <button type="button" class="layui-btn layui-btn-sm" id="drawerSaveBtn">保存</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
     .gen-panel { background:#fff; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,.05); }
-    .gen-header { padding:15px 20px; border-bottom:1px solid #e6e6e6; display:flex; align-items:baseline; gap:15px; }
+    .gen-header { padding:15px 20px; border-bottom:1px solid #e6e6e6; display:flex; align-items:center; gap:15px; flex-wrap:wrap; }
     .gen-header h3 { margin:0; font-size:16px; color:#393D49; }
     .gen-desc { font-size:12px; color:#999; }
+    .gen-header-actions { margin-left:auto; }
     .gen-body { padding:20px; }
     .progress-row { display:flex; justify-content:space-between; margin-bottom:8px; }
     .progress-label { font-size:14px; color:#393D49; font-weight:500; }
@@ -104,18 +149,92 @@
     .progress-status { margin-top:8px; font-size:12px; color:#999; }
     .progress-actions { margin-top:12px; }
     .gen-domain-hint { font-size:12px; color:#FF9800; margin-top:5px; line-height:1.5; }
-    .domain-row { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
-    .domain-row .domain-input { flex:1; min-width:0; }
-    .domain-row .prompt-select { width:240px; flex-shrink:0; height:auto; min-height:60px; }
-    .domain-row .prompt-hint { font-size:11px; color:#999; margin-top:2px; line-height:1.4; }
+    .domain-row { display:flex; gap:8px; align-items:center; margin-bottom:6px; flex-wrap:wrap; }
+    .domain-row .domain-input { flex:1; min-width:120px; }
+    .domain-row .domain-config-btn { flex-shrink:0; width:34px; height:34px; padding:0; border:1px solid #d2d2d2; border-radius:4px; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#666; font-size:16px; transition:all .15s; }
+    .domain-row .domain-config-btn:hover { border-color:#1E9FFF; color:#1E9FFF; }
+    .domain-prompt-badge { flex-shrink:0; font-size:11px; color:#999; white-space:nowrap; padding:2px 6px; background:#f6f6f6; border-radius:3px; }
     .domain-row .domain-rm-btn { flex-shrink:0; }
+    /* 右侧配置抽屉 */
+    .config-drawer-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.3); z-index:9999; display:none; }
+    .config-drawer-overlay.open { display:block; }
+    .config-drawer { position:fixed; top:0; right:0; bottom:0; width:420px; max-width:100vw; background:#fff; z-index:10000; transform:translateX(100%); transition:transform .25s ease; display:flex; flex-direction:column; box-shadow:-2px 0 12px rgba(0,0,0,.12); }
+    .config-drawer.open { transform:translateX(0); }
+    .config-drawer-header { padding:16px 20px; border-bottom:1px solid #e9ecef; display:flex; justify-content:space-between; align-items:center; }
+    .config-drawer-title { font-size:15px; font-weight:600; color:#393D49; }
+    .config-drawer-title small { font-weight:400; font-size:12px; color:#999; }
+    .drawer-close-btn { cursor:pointer; font-size:22px; color:#999; background:none; border:none; line-height:1; padding:0 4px; }
+    .drawer-close-btn:hover { color:#333; }
+    .config-drawer-body { flex:1; overflow-y:auto; padding:20px; }
+    .config-section { margin-bottom:24px; }
+    .config-section-title { font-size:14px; font-weight:600; color:#393D49; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid #f0f0f0; }
+    .config-section-title .hint { font-weight:400; font-size:11px; color:#999; }
+    .prompt-check-list { display:flex; flex-direction:column; gap:8px; }
+    .prompt-check-item { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid #e6e6e6; border-radius:4px; cursor:pointer; transition:all .15s; user-select:none; }
+    .prompt-check-item:hover { border-color:#1E9FFF; background:#f8fbff; }
+    .prompt-check-item.checked { border-color:#1E9FFF; background:#f0f7ff; }
+    .prompt-check-item input[type="checkbox"] { margin-top:3px; flex-shrink:0; }
+    .prompt-check-item-text { flex:1; font-size:13px; line-height:1.5; }
+    .prompt-check-item-text .name { font-weight:500; color:#333; }
+    .prompt-check-item-text .desc { font-size:11px; color:#999; margin-top:2px; }
+    .prompt-search-wrap { position:relative; margin-bottom:10px; }
+    .prompt-search-input { padding-left:32px !important; height:34px; }
+    .prompt-search-icon { position:absolute; left:10px; top:9px; color:#999; font-size:13px; pointer-events:none; }
+    .prompt-pagination { display:flex; justify-content:center; gap:4px; margin-top:10px; flex-wrap:wrap; }
+    .prompt-page-btn { min-width:28px; height:28px; border:1px solid #e6e6e6; border-radius:3px; background:#fff; cursor:pointer; font-size:12px; color:#666; display:inline-flex; align-items:center; justify-content:center; padding:0 6px; transition:all .15s; }
+    .prompt-page-btn:hover { border-color:#1E9FFF; color:#1E9FFF; }
+    .prompt-page-btn.active { border-color:#1E9FFF; background:#1E9FFF; color:#fff; }
+    .prompt-page-btn:disabled { opacity:.4; cursor:default; }
+    .prompt-page-btn:disabled:hover { border-color:#e6e6e6; color:#666; }
+    .prompt-page-ellipsis { display:inline-flex; align-items:center; padding:0 3px; color:#999; font-size:12px; }
+    .prompt-stats { font-size:11px; color:#999; text-align:center; margin-top:6px; }
+    .config-drawer-footer { padding:12px 20px; border-top:1px solid #e9ecef; display:flex; justify-content:flex-end; gap:10px; }
     .result-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
     .result-toolbar h4 { margin:0; font-size:15px; }
     .result-code { background:#f6f6f6; padding:15px; border-radius:4px; max-height:500px; overflow:auto; font-size:12px; line-height:1.6; font-family:Consolas,Monaco,monospace; }
     .error-card { background:#FFF7F7; border:1px solid #FFD0D0; border-radius:4px; padding:15px; margin-bottom:15px; }
     .error-card h4 { color:#FF5722; margin:0 0 8px; font-size:15px; }
     .error-card p { color:#666; margin:0; line-height:1.7; }
+    /* 生成流程弹窗 */
+    .flow-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; display:none; align-items:center; justify-content:center; }
+    .flow-overlay.open { display:flex; }
+    .flow-modal { background:#fff; border-radius:8px; width:780px; max-width:94vw; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 30px rgba(0,0,0,.18); animation:flowIn .25s ease; }
+    @keyframes flowIn { from { opacity:0; transform:translateY(30px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+    .flow-modal-header { padding:18px 24px; border-bottom:1px solid #e9ecef; display:flex; justify-content:space-between; align-items:center; }
+    .flow-modal-title { font-size:16px; font-weight:600; color:#393D49; }
+    .flow-modal-title i { color:#1E9FFF; margin-right:6px; }
+    .flow-close-btn { cursor:pointer; font-size:24px; color:#999; background:none; border:none; line-height:1; padding:0 4px; }
+    .flow-close-btn:hover { color:#333; }
+    .flow-modal-body { flex:1; overflow-y:auto; padding:28px 30px; }
+    .flow-step { display:flex; gap:16px; position:relative; padding-bottom:28px; }
+    .flow-step:last-child { padding-bottom:0; }
+    /* 左侧竖线连接 */
+    .flow-step-line { display:flex; flex-direction:column; align-items:center; width:32px; flex-shrink:0; }
+    .flow-step-icon { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff; flex-shrink:0; position:relative; z-index:1; }
+    .flow-step-icon.step-1 { background:#1E9FFF; } /* 输入 — 蓝 */
+    .flow-step-icon.step-2 { background:#5FB878; } /* 提交 — 绿 */
+    .flow-step-icon.step-3 { background:#FF9800; } /* 分析 — 橙 */
+    .flow-step-icon.step-4 { background:#9C27B0; } /* 加载提示词 — 紫 */
+    .flow-step-icon.step-5 { background:#00BCD4; } /* 域名注入 — 青 */
+    .flow-step-icon.step-6 { background:#F44336; } /* AI 调用 — 红 */
+    .flow-step-icon.step-7 { background:#607D8B; } /* 处理结果 — 灰蓝 */
+    .flow-step-icon.step-8 { background:#FF5722; } /* 生成名称 — 橙红 */
+    .flow-step-icon.step-9 { background:#4CAF50; } /* 保存 — 绿 */
+    .flow-step-icon.step-10 { background:#3F51B5; } /* SEO — 靛 */
+    .flow-step-icon.step-11 { background:#8BC34A; } /* 完成 — 亮绿 */
+    .flow-step-connector { width:2px; flex:1; min-height:24px; background:#e0e0e0; }
+    .flow-step:last-child .flow-step-connector { display:none; }
+    /* 右侧内容 */
+    .flow-step-content { flex:1; padding-top:4px; }
+    .flow-step-title { font-size:14px; font-weight:600; color:#333; margin-bottom:4px; }
+    .flow-step-desc { font-size:12px; color:#888; line-height:1.6; }
+    .flow-step-tag { display:inline-block; font-size:10px; padding:1px 8px; border-radius:3px; margin-top:5px; color:#fff; }
+    .flow-step-tag.tag-api { background:#e3f2fd; color:#1565C0; }
+    .flow-step-tag.tag-db { background:#e8f5e9; color:#2E7D32; }
+    .flow-step-tag.tag-user { background:#fff3e0; color:#E65100; }
+    .flow-step-tag.tag-ai { background:#fce4ec; color:#C62828; }
 </style>
+
 
 <script>
 (function() {
@@ -140,6 +259,7 @@
 
     // ---- 域名行管理 ----
     var domainRows = [];
+    var configDrawerRowIndex = -1;  // 抽屉当前编辑的行索引
 
     function renderDomainRows() {
         var html = '';
@@ -148,9 +268,13 @@
             var rmBtn = domainRows.length > 1
                 ? '<button type="button" class="layui-btn layui-btn-xs layui-btn-danger domain-rm-btn" data-idx="' + i + '"><i class="fas fa-times"></i></button>'
                 : '';
+            var badge = (row.promptIds && row.promptIds.length > 0)
+                ? '已选' + row.promptIds.length + '个提示词'
+                : '默认提示词';
             html += '<div class="domain-row" data-idx="' + i + '">'
                 + '<input type="text" class="layui-input domain-input" placeholder="例如：example.com" value="' + escHtml(row.domain) + '">'
-                + buildPromptSelect(i, row.promptIds || [])
+                + '<button type="button" class="domain-config-btn" title="配置" data-idx="' + i + '"><i class="fas fa-sliders-h"></i></button>'
+                + '<span class="domain-prompt-badge">' + badge + '</span>'
                 + rmBtn
                 + '</div>';
         }
@@ -162,15 +286,10 @@
                 domainRows[i].domain = this.value.trim();
             });
         });
-        domainListEl.querySelectorAll('.prompt-select').forEach(function(sel, i) {
-            sel.addEventListener('change', function() {
-                var selected = [];
-                for (var j = 0; j < this.options.length; j++) {
-                    if (this.options[j].selected && this.options[j].value) {
-                        selected.push(parseInt(this.options[j].value, 10));
-                    }
-                }
-                domainRows[i].promptIds = selected;
+        domainListEl.querySelectorAll('.domain-config-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var idx = parseInt(this.getAttribute('data-idx'), 10);
+                openConfigDrawer(idx);
             });
         });
         domainListEl.querySelectorAll('.domain-rm-btn').forEach(function(btn) {
@@ -182,34 +301,190 @@
         });
     }
 
+    // ---- 右侧配置抽屉 ----
+    var promptSearchKeyword = '';
+    var promptPageSize = 5;
+    var promptCurrentPage = 1;
+    var drawerSelectedIds = [];  // 抽屉会话期间已选的提示词 ID
+
+    function openConfigDrawer(rowIndex) {
+        if (rowIndex < 0 || rowIndex >= domainRows.length) return;
+        configDrawerRowIndex = rowIndex;
+        var row = domainRows[rowIndex];
+        document.getElementById('configDomainLabel').textContent = row.domain || '(未填写域名)';
+        promptSearchKeyword = '';
+        promptCurrentPage = 1;
+        drawerSelectedIds = (row.promptIds || []).slice();  // 复制已选 ID
+        document.getElementById('promptSearchInput').value = '';
+        renderPromptCheckList();
+        document.getElementById('configDrawerOverlay').classList.add('open');
+        setTimeout(function() {
+            document.getElementById('configDrawer').classList.add('open');
+            document.getElementById('promptSearchInput').focus();
+        }, 10);
+    }
+
+    function closeConfigDrawer() {
+        document.getElementById('configDrawer').classList.remove('open');
+        document.getElementById('configDrawerOverlay').classList.remove('open');
+        configDrawerRowIndex = -1;
+        drawerSelectedIds = [];
+    }
+
+    function getFilteredPrompts() {
+        var kw = promptSearchKeyword.trim().toLowerCase();
+        if (!kw) return promptsCache;
+        return promptsCache.filter(function(p) {
+            return (p.name && p.name.toLowerCase().indexOf(kw) !== -1)
+                || (p.category && p.category.toLowerCase().indexOf(kw) !== -1);
+        });
+    }
+
+    function syncDrawerSelectedIds() {
+        // 将当前可见 checkbox 的状态同步到 drawerSelectedIds
+        document.querySelectorAll('#promptCheckList input[type="checkbox"]').forEach(function(cb) {
+            var id = parseInt(cb.value, 10);
+            var idx = drawerSelectedIds.indexOf(id);
+            if (cb.checked && idx === -1) drawerSelectedIds.push(id);
+            else if (!cb.checked && idx !== -1) drawerSelectedIds.splice(idx, 1);
+        });
+    }
+
+    function renderPromptCheckList() {
+        var filtered = getFilteredPrompts();
+        var list = document.getElementById('promptCheckList');
+        var statsEl = document.getElementById('promptStats');
+
+        if (!filtered.length) {
+            list.innerHTML = '<div style="color:#999;font-size:13px;padding:10px 0;">'
+                + (promptSearchKeyword ? '未找到匹配的提示词' : '暂无可用提示词')
+                + '</div>';
+            document.getElementById('promptPagination').innerHTML = '';
+            statsEl.textContent = promptSearchKeyword ? '搜索「' + promptSearchKeyword + '」无结果' : '共 0 条';
+            return;
+        }
+
+        var totalPages = Math.ceil(filtered.length / promptPageSize);
+        if (promptCurrentPage < 1) promptCurrentPage = 1;
+        if (promptCurrentPage > totalPages) promptCurrentPage = totalPages;
+
+        var startIdx = (promptCurrentPage - 1) * promptPageSize;
+        var pageItems = filtered.slice(startIdx, startIdx + promptPageSize);
+
+        // 渲染当前页
+        var html = '';
+        for (var i = 0; i < pageItems.length; i++) {
+            var p = pageItems[i];
+            var checked = drawerSelectedIds.indexOf(p.id) !== -1;
+            html += '<label class="prompt-check-item' + (checked ? ' checked' : '') + '">'
+                + '<input type="checkbox" value="' + p.id + '"' + (checked ? ' checked' : '') + '>'
+                + '<div class="prompt-check-item-text">'
+                + '<div class="name">' + escHtml(p.name) + '</div>'
+                + (p.category ? '<div class="desc">分类：' + escHtml(p.category) + '</div>' : '')
+                + '</div>'
+                + '</label>';
+        }
+        list.innerHTML = html;
+
+        // checkbox 高亮
+        list.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                this.parentElement.classList.toggle('checked', this.checked);
+                syncDrawerSelectedIds();
+            });
+        });
+
+        // 统计
+        statsEl.textContent = '共 ' + filtered.length + ' 条，已选 ' + drawerSelectedIds.length + ' 个'
+            + (promptSearchKeyword ? '（搜索：' + promptSearchKeyword + '）' : '');
+
+        // 分页
+        renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+        var pagEl = document.getElementById('promptPagination');
+        if (totalPages <= 1) {
+            pagEl.innerHTML = '';
+            return;
+        }
+
+        var html = '';
+        // 上一页
+        html += '<button type="button" class="prompt-page-btn" data-page="prev"'
+            + (promptCurrentPage <= 1 ? ' disabled' : '') + '>&laquo;</button>';
+
+        var maxVisible = 5;
+        var half = Math.floor(maxVisible / 2);
+        var startPage = Math.max(1, promptCurrentPage - half);
+        var endPage = Math.min(totalPages, startPage + maxVisible - 1);
+        if (endPage - startPage + 1 < maxVisible) {
+            startPage = Math.max(1, endPage - maxVisible + 1);
+        }
+
+        if (startPage > 1) {
+            html += '<button type="button" class="prompt-page-btn" data-page="1">1</button>';
+            if (startPage > 2) html += '<span class="prompt-page-ellipsis">…</span>';
+        }
+        for (var p = startPage; p <= endPage; p++) {
+            html += '<button type="button" class="prompt-page-btn'
+                + (p === promptCurrentPage ? ' active' : '') + '" data-page="' + p + '">' + p + '</button>';
+        }
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) html += '<span class="prompt-page-ellipsis">…</span>';
+            html += '<button type="button" class="prompt-page-btn" data-page="' + totalPages + '">' + totalPages + '</button>';
+        }
+
+        // 下一页
+        html += '<button type="button" class="prompt-page-btn" data-page="next"'
+            + (promptCurrentPage >= totalPages ? ' disabled' : '') + '>&raquo;</button>';
+
+        pagEl.innerHTML = html;
+
+        pagEl.querySelectorAll('.prompt-page-btn:not(:disabled)').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                syncDrawerSelectedIds();
+                var page = this.getAttribute('data-page');
+                if (page === 'prev') promptCurrentPage--;
+                else if (page === 'next') promptCurrentPage++;
+                else promptCurrentPage = parseInt(page, 10);
+                renderPromptCheckList();
+            });
+        });
+    }
+
+    // 搜索输入
+    document.getElementById('promptSearchInput').addEventListener('input', function() {
+        syncDrawerSelectedIds();
+        promptSearchKeyword = this.value;
+        promptCurrentPage = 1;
+        renderPromptCheckList();
+    });
+
+    // 搜索回车不提交
+    document.getElementById('promptSearchInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') e.preventDefault();
+    });
+
+    function saveConfigDrawer() {
+        if (configDrawerRowIndex < 0) return;
+        syncDrawerSelectedIds();
+        domainRows[configDrawerRowIndex].promptIds = drawerSelectedIds.slice();
+        closeConfigDrawer();
+        renderDomainRows();
+    }
+
+    // 抽屉事件
+    document.getElementById('drawerCloseBtn').addEventListener('click', closeConfigDrawer);
+    document.getElementById('drawerCancelBtn').addEventListener('click', closeConfigDrawer);
+    document.getElementById('drawerSaveBtn').addEventListener('click', saveConfigDrawer);
+    document.getElementById('configDrawerOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeConfigDrawer();
+    });
+
     function escHtml(s) {
         if (!s) return '';
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    function buildPromptSelect(rowIndex, selectedIds) {
-        var selId = 'prompt-sel-' + rowIndex;
-        var html = '<select id="' + selId + '" class="layui-input prompt-select" multiple size="4">';
-        for (var i = 0; i < promptsCache.length; i++) {
-            var p = promptsCache[i];
-            var sel = selectedIds.indexOf(p.id) !== -1 ? ' selected' : '';
-            html += '<option value="' + p.id + '"' + sel + '>' + escHtml(p.name) + '</option>';
-        }
-        html += '</select>'
-            + '<div class="prompt-hint">不选=全部提示词，Ctrl+点击/拖选可多选</div>';
-        return html;
-    }
-
-    function getSelectedPromptIds(rowIndex) {
-        var sel = document.getElementById('prompt-sel-' + rowIndex);
-        if (!sel) return [];
-        var ids = [];
-        for (var i = 0; i < sel.options.length; i++) {
-            if (sel.options[i].selected && sel.options[i].value) {
-                ids.push(parseInt(sel.options[i].value, 10));
-            }
-        }
-        return ids;
     }
 
     function addDomainRow(domain, promptIds) {
@@ -239,14 +514,10 @@
         for (var i = 0; i < domainRows.length; i++) {
             var d = domainRows[i].domain.trim().toLowerCase();
             if (!d) continue;
-            var entry = {domain: d};
-            var pids = getSelectedPromptIds(i);
-            if (pids.length > 0) {
-                entry.prompt_ids = pids;
-            } else {
-                entry.prompt_ids = [];
-            }
-            result.push(entry);
+            result.push({
+                domain: d,
+                prompt_ids: domainRows[i].promptIds || [],
+            });
         }
         return result;
     }
@@ -404,6 +675,66 @@
         document.body.appendChild(a); a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    });
+
+    // ===== 生成流程展示 =====
+    var FLOW_STEPS = [
+        { num: 1, title: '输入需求描述', icon: 'fa-pen', tag: '用户操作', tagClass: 'tag-user',
+          desc: '用户填写页面需求描述、绑定域名（支持多个域名，每个域名可独立配置提示词）' },
+        { num: 2, title: '提交生成请求', icon: 'fa-paper-plane', tag: 'API 请求', tagClass: 'tag-api',
+          desc: '前端向后端 API 提交生成请求，后端验证输入内容后创建 PageGenerationTask 任务记录（status=pending）' },
+        { num: 3, title: '分析域名与提示词配置', icon: 'fa-sitemap', tag: '后端处理', tagClass: 'tag-api',
+          desc: '后台线程启动，展开域名配置：每个域名独立为一个生成组，解析每个域名选中的提示词 ID 列表' },
+        { num: 4, title: '加载 AI 提示词', icon: 'fa-file-alt', tag: '数据库', tagClass: 'tag-db',
+          desc: '从数据库读取用户选中的提示词（或全部活跃提示词），组装为 system_prompt JSON' },
+        { num: 5, title: '注入绑定域名', icon: 'fa-link', tag: 'SEO 增强', tagClass: 'tag-api',
+          desc: '将用户提供的绑定域名（带 https://）注入到 AI 请求内容中，确保 AI 在生成时使用正确的 SEO 域名信息' },
+        { num: 6, title: '调用 AI 生成页面', icon: 'fa-robot', tag: 'AI 接口', tagClass: 'tag-ai',
+          desc: '发送 POST 请求到 DeepSeek API（含用户需求 + 域名 + 提示词），等待 AI 返回 HTML 代码。多域名情况下每个域名独立调用一次' },
+        { num: 7, title: '处理 AI 返回结果', icon: 'fa-broom', tag: '后处理', tagClass: 'tag-api',
+          desc: '清理 AI 返回内容：移除 Markdown 代码块标记（```html）、trim 空白字符，提取纯净 HTML' },
+        { num: 8, title: '生成页面名称', icon: 'fa-tag', tag: 'AI 接口', tagClass: 'tag-ai',
+          desc: '调用 AI 从用户需求描述中提取简短页面名称（2-6 字），失败时使用兜底名称' },
+        { num: 9, title: '保存页面到数据库', icon: 'fa-save', tag: '数据库', tagClass: 'tag-db',
+          desc: '创建 GeneratedPage 记录，保存 HTML 内容和绑定域名。每个域名组独立保存为一个页面' },
+        { num: 10, title: 'SEO 优化', icon: 'fa-chart-line', tag: 'AI 接口', tagClass: 'tag-ai',
+          desc: '对最后生成的页面再次调用 AI 进行 SEO 优化：注入域名强制 canonical/og:url 使用正确域名，确保返回纯净 HTML（无注释）' },
+        { num: 11, title: '生成完成', icon: 'fa-check-circle', tag: '完成', tagClass: 'tag-db',
+          desc: '将最终 HTML 回写到 PageGenerationTask，状态标记为 completed（100%），前端轮询检测到完成时展示结果' },
+    ];
+
+    function renderFlowSteps() {
+        var html = '';
+        for (var i = 0; i < FLOW_STEPS.length; i++) {
+            var s = FLOW_STEPS[i];
+            html += '<div class="flow-step">'
+                + '<div class="flow-step-line">'
+                + '<div class="flow-step-icon step-' + s.num + '"><i class="fas ' + s.icon + '"></i></div>'
+                + '<div class="flow-step-connector"></div>'
+                + '</div>'
+                + '<div class="flow-step-content">'
+                + '<div class="flow-step-title">' + s.num + '. ' + s.title + '</div>'
+                + '<div class="flow-step-desc">' + s.desc + '</div>'
+                + '<span class="flow-step-tag ' + (s.tagClass || '') + '">' + (s.tag || '') + '</span>'
+                + '</div>'
+                + '</div>';
+        }
+        document.getElementById('flowModalBody').innerHTML = html;
+    }
+
+    function openFlowModal() {
+        renderFlowSteps();
+        document.getElementById('flowOverlay').classList.add('open');
+    }
+
+    function closeFlowModal() {
+        document.getElementById('flowOverlay').classList.remove('open');
+    }
+
+    document.getElementById('genFlowBtn').addEventListener('click', openFlowModal);
+    document.getElementById('flowCloseBtn').addEventListener('click', closeFlowModal);
+    document.getElementById('flowOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeFlowModal();
     });
 
     // 初始化：加载提示词 + 恢复域名行
