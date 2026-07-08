@@ -223,12 +223,22 @@ def page_generate_view(request):
         if active_task and active_task['status'] in ('completed', 'failed'):
             # 已结束的任务不保留在 session
             request.session.pop('page_gen_task_id', None)
+
+    # 构造初始域名文本（批量文本框，一行一个）
+    initial_domain_text = ''
+    if active_task:
+        config = active_task.get('domain_prompt_config', [])
+        if config:
+            initial_domain_text = '\n'.join(
+                item.get('domain', '') for item in config if item.get('domain')
+            )
     return render(request, 'XiaoYingAdmin/页面管理/页面生成.html', {
         'active_task': active_task,
         'active_task_domain_config_json': (
             json.dumps(active_task.get('domain_prompt_config', []))
             if active_task else '[]'
         ),
+        'initial_domain_text': initial_domain_text,
     })
 
 
