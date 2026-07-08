@@ -495,6 +495,10 @@ function renderTree() {
         if (treeData.uncategorized && treeData.uncategorized.page_count > 0) {
             hasAny = true;
             html += renderSpecialNode('未分类', 'inbox', '#999', treeData.uncategorized);
+            // 批量分类按钮
+            html += '<div style="padding:8px 12px;text-align:center;border-bottom:1px solid #f0f0f0;">';
+            html += '<button class="layui-btn layui-btn-sm layui-btn-normal" id="btnBatchCategorize" onclick="openBatchCategorizeModal()"><i class="fas fa-tags"></i> 批量分类全部未分类域名</button>';
+            html += '</div>';
         }
         // 未绑定域名
         if (treeData.unbound && treeData.unbound.page_count > 0) {
@@ -516,6 +520,7 @@ function renderTree() {
     } else if (currentFilter === 'uncategorized') {
         if (treeData.uncategorized && treeData.uncategorized.page_count > 0) {
             html = renderSpecialNode('未分类', 'inbox', '#999', treeData.uncategorized, true);
+            html += '<div style="padding:8px 12px;text-align:center;"><button class="layui-btn layui-btn-sm layui-btn-normal" onclick="openBatchCategorizeModal()"><i class="fas fa-tags"></i> 批量分类全部未分类域名</button></div>';
         } else {
             html = '<div class="tree-empty">所有页面都已有分类</div>';
         }
@@ -795,6 +800,113 @@ function openPageCategoryEditor(pageId) {
                 },
             });
         });
+}
+
+// ============================================================
+// 批量分类弹窗
+// ============================================================
+
+function openBatchCategorizeModal() {
+    if (!treeData || !treeData.uncategorized || treeData.uncategorized.page_count === 0) {
+        layer.msg('没有未分类的页面', {icon:0});
+        return;
+    }
+    if (categories.length === 0) {
+        layer.msg('请先在左侧创建分类', {icon:0});
+        return;
+    }
+
+    // 构建域名列表（从未分类的 root_domains 中提取）
+    var rootDomains = treeData.uncategorized.root_domains || [];
+    var domainListHtml = '';
+    var hasDomains = false;
+    rootDomains.forEach(function(root) {
+        hasDomains = true;
+        var pageCount = root.page_count || 0;
+        domainListHtml += '<label style="display:flex;align-items:center;padding:4px 0;cursor:pointer;border-bottom:1px solid #f8f8f8;">';
+        domainListHtml += '<input type="checkbox" class="batch-domain-cb" value="' + escAttr(root.root) + '" checked> ';
+        domainListHtml += '<span style="flex:1;margin-left:6px;"><strong>' + escHtml(root.root) + '</strong></span>';
+        domainListHtml += '<span style="font-size:11px;color:#999;">' + pageCount + ' 个页面</span>';
+        domainListHtml += '</label>';
+    });
+    if (!hasDomains) {
+        // 如果树没有域名分组（可能只有无域名的页面），使用所有未分类页面的集合
+        domainListHtml = '<div style="color:#bbb;padding:8px;">域名信息不可用，将全部分类</div>';
+    }
+
+    var catOptions = '';
+    categories.forEach(function(c) {
+        catOptions += '<option value="' + c.id + '">' + escHtml(c.name) + '</option>';
+    });
+
+    var html = '<div style="padding:15px 20px;">';
+    html += '<div style="margin-bottom:12px;">';
+    html += '<label style="font-weight:500;display:block;margin-bottom:4px;">选择目标分类：</label>';
+    html += '<select id="batchCatSelect" class="layui-input" style="height:34px;">' + catOptions + '</select>';
+    html += '</div>';
+    html += '<div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">';
+    html += '<label style="font-weight:500;">选择域名（勾选的域名下所有未分类页面将分配到目标分类）：</label>';
+    html += '<span><label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="batchToggleAll" checked onchange="document.querySelectorAll(\'.batch-domain-cb\').forEach(function(el){el.checked=this.checked;},this);"> 全选</label></span>';
+    html += '</div>';
+    html += '<div style="max-height:240px;overflow-y:auto;border:1px solid #eee;border-radius:4px;padding:4px 10px;">' + domainListHtml + '</div>';
+    html += '<div style="margin-top:15px;text-align:center;"><button type="button" class="layui-btn" id="batchCatConfirmBtn"><i class="fas fa-check"></i> 确认分类</button></div>';
+    html += '</div>';
+
+    layer.open({
+        type: 1,
+        title: '<i class="fas fa-tags" style="color:#5FB878;"></i> 批量分类未分类域名',
+        area: ['480px', '420px'],
+        shadeClose: true,
+        content: html,
+        success: function(layero) {
+            layero.find('#batchCatConfirmBtn').on('click', function() {
+                var catId = parseInt(layero.find('#batchCatSelect').val());
+                if (!catId) { layer.msg('请选择分类', {icon:5}); return; }
+
+                var checkedDomains = [];
+                layero.find('.batch-domain-cb:checked').each(function() {
+                    checkedDomains.push(this.value);
+                });
+                if (checkedDomains.length === 0) {
+                    layer.msg('请至少选择一个域名', {icon:5});
+                    return;
+                }
+
+                var idx = layer.load(1);
+                // 对每个选中的域名分别请求
+                var promises = [];
+                checkedDomains.forEach(function(domain) {
+                    promises.push(
+                        fetch('/xiaoying_admin/api/pages/saved/batch-categorize/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ category_id: catId, domain: domain }),
+                        }).then(function(r) { return r.json(); })
+                    );
+                });
+
+                Promise.all(promises).then(function(results) {
+                    layer.close(idx);
+                    var total = 0;
+                    var errors = [];
+                    results.forEach(function(resp) {
+                        if (resp.ok) total += resp.count || 0;
+                        else errors.push(resp.error || '未知错误');
+                    });
+                    if (errors.length > 0) {
+                        layer.msg('完成，但部分请求出错：' + errors.join('; '), {icon:0});
+                    } else {
+                        layer.msg('已将 ' + total + ' 个页面批量分类', {icon:1});
+                    }
+                    layer.closeAll();
+                    loadTree();
+                }).catch(function() {
+                    layer.close(idx);
+                    layer.msg('网络错误', {icon:2});
+                });
+            });
+        },
+    });
 }
 
 // ============================================================

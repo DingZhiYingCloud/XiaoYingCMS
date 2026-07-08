@@ -179,6 +179,77 @@ def page_category_delete(request):
 
 @csrf_exempt
 @require_POST
+def page_batch_categorize(request):
+    """
+    POST /api/pages/saved/batch-categorize/
+    批量将未分类页面分配到指定分类。
+
+    请求: application/json
+      {"category_id": 1}               // 将所有未分类页面分配到此分类
+      {"category_id": 1, "domain": "example.com"}  // 仅将包含此域名的未分类页面分配
+
+    返回: {"ok": true, "count": 5, "message": "已将 5 个页面分类到「电商站」"}
+    """
+    body, error = parse_json_body(request)
+    if error is not None:
+        return error
+
+    category_id = body.get('category_id')
+    if not category_id:
+        return err('缺少分类 ID')
+
+    try:
+        category = PageCategory.objects.get(id=category_id)
+    except PageCategory.DoesNotExist:
+        return err('分类不存在')
+
+    # 找到所有未分类页面
+    all_pages = GeneratedPage.objects.all()
+    if not request.user.is_superuser:
+        all_pages = all_pages.filter(created_by=request.user)
+
+    # 预取分类关系以筛选未分类页面
+    all_pages = all_pages.prefetch_related('categories')
+    uncategorized = []
+    for page in all_pages:
+        cats = list(page.categories.all())
+        if not cats:
+            uncategorized.append(page)
+
+    if not uncategorized:
+        return JsonResponse({'ok': True, 'count': 0, 'message': '没有未分类的页面'})
+
+    # 如果指定了域名过滤
+    domain_filter = (body.get('domain') or '').strip().lower()
+    if domain_filter:
+        filtered = []
+        for page in uncategorized:
+            page_domains = [d.lower() for d in (page.domains or []) if d.strip()]
+            if any(domain_filter in d for d in page_domains):
+                filtered.append(page)
+        uncategorized = filtered
+
+    if not uncategorized:
+        return JsonResponse({'ok': True, 'count': 0, 'message': '没有匹配的未分类页面'})
+
+    # 批量分配分类
+    page_ids = [p.id for p in uncategorized]
+    with transaction.atomic():
+        for page in uncategorized:
+            page.categories.add(category)
+
+    log_operation(request, 'batch_update', 'GeneratedPage', None,
+                  f'批量将 {len(page_ids)} 个未分类页面分配到分类「{category.name}」')
+
+    return JsonResponse({
+        'ok': True,
+        'count': len(page_ids),
+        'message': f'已将 {len(page_ids)} 个未分类页面分配到分类「{category.name}」',
+    })
+
+
+@csrf_exempt
+@require_POST
 def page_set_categories(request):
     """
     POST /api/pages/saved/set-categories/

@@ -154,6 +154,7 @@ urlpatterns = [
     path('api/pages/categories/create/', page_tree_views.page_category_create, name='page_category_create'),
     path('api/pages/categories/update/', page_tree_views.page_category_update, name='page_category_update'),
     path('api/pages/categories/delete/', page_tree_views.page_category_delete, name='page_category_delete'),
+    path('api/pages/saved/batch-categorize/', page_tree_views.page_batch_categorize, name='api_page_batch_categorize'),
     path('api/pages/tree/', page_tree_views.page_tree_api, name='page_tree_api'),
 
     # 智能互链
