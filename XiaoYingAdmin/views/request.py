@@ -29,6 +29,7 @@ from XiaoYingAdmin.models.task import PageGenerationTask
 from XiaoYingAdmin.models.firewall import FirewallRule
 from XiaoYingAdmin.models.multi_page_project import MultiPageProject
 from XiaoYingAdmin.models.seo_domain import SeoDomain
+from XiaoYingAdmin.models.page_category import PageCategory
 
 
 # =============================================================================
@@ -990,20 +991,44 @@ def api_generate_crosslinks(request):
     """
     全量生成智能互链 —— 为每个页面完整替换互链块，保证不遗漏。
 
+    可选的请求参数（JSON）：
+      - category_id: int | null  — 仅针对指定分类下的页面进行互链（可选）
+                                  不传或传 null 则对所有未排除页面全量互链
+
     行为：
-      1. 遍历所有未排除的页面
-      2. 为每个页面计算"应当链接的所有合作域名"（其他页面的根域名，排除自己的）
+      1. 获取所有未排除的页面（或指定分类下的页面）
+      2. 为每个页面计算"应当链接的所有合作域名"（同组其他页面的根域名，排除自己的）
       3. 若页面已有互链块 → 整体替换为新块（包含全部链接）
       4. 若页面没有互链块 → 在末尾追加新块
       5. 无论点多少次，结果始终一致：每个页面链接所有其他非排除域名
     """
+    body, parse_error = parse_json_body(request)
+    category_id = None
+    if parse_error is None:
+        category_id = body.get('category_id')
+
     # 1. 获取当前用户可见且未排除的页面
     qs = GeneratedPage.objects.filter(crosslink_excluded=False)
     qs = _filter_pages_for_user(request, qs)
-    pages = list(qs)
+
+    # 若指定了分类，则仅获取该分类下的页面
+    category_name = None
+    if category_id is not None:
+        try:
+            category = PageCategory.objects.get(id=category_id)
+            category_name = category.name
+        except PageCategory.DoesNotExist:
+            return err('分类不存在')
+        # 预取分类关系筛选
+        qs = qs.prefetch_related('categories')
+        all_pages = list(qs)
+        pages = [p for p in all_pages if list(p.categories.filter(id=category_id))]
+    else:
+        pages = list(qs)
 
     if not pages:
-        return JsonResponse({'message': '没有可互链的页面', 'updated_count': 0, 'new_link_count': 0, 'total_pages': 0})
+        msg = f'分类「{category_name}」下没有可互链的页面' if category_name else '没有可互链的页面'
+        return JsonResponse({'message': msg, 'updated_count': 0, 'new_link_count': 0, 'total_pages': 0})
 
     # 2. 构建 {page_id: {根域名集合}}  + {根域名 → page_name}
     page_root_domains = {}
@@ -1055,19 +1080,22 @@ def api_generate_crosslinks(request):
         updated_count += 1
         new_link_count += len(desired_links)
 
+    scope_label = f'分类「{category_name}」' if category_name else '全量'
     if updated_count == 0:
         return JsonResponse({
-            'message': '所有页面已是最新，无需更新',
+            'message': f'{scope_label}：所有页面已是最新，无需更新',
             'updated_count': 0,
             'new_link_count': 0,
             'total_pages': len(pages),
+            'scope': category_name or 'all',
         })
 
     return JsonResponse({
-        'message': f'智能互链完成，已更新 {updated_count} 个页面，共 {new_link_count} 条链接',
+        'message': f'智能互链完成（{scope_label}），已更新 {updated_count} 个页面，共 {new_link_count} 条链接',
         'updated_count': updated_count,
         'new_link_count': new_link_count,
         'total_pages': len(pages),
+        'scope': category_name or 'all',
     })
 
 
