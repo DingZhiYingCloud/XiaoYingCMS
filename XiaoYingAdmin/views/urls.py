@@ -45,6 +45,7 @@ from XiaoYingAdmin.views.spider.ignore_paths import (
 )
 from XiaoYingAdmin.views.spider.analytics import spider_analytics_view
 from XiaoYingAdmin.views import page_tree as page_tree_views
+from XiaoYingAdmin.views.batch_import import api_batch_import_pages
 from XiaoYingAdmin.views.firewall import (
     firewall_view,
     firewall_api_list, firewall_api_save,
@@ -155,6 +156,7 @@ urlpatterns = [
     path('api/pages/categories/update/', page_tree_views.page_category_update, name='page_category_update'),
     path('api/pages/categories/delete/', page_tree_views.page_category_delete, name='page_category_delete'),
     path('api/pages/saved/batch-categorize/', page_tree_views.page_batch_categorize, name='api_page_batch_categorize'),
+    path('api/pages/saved/batch-import/', api_batch_import_pages, name='api_batch_import_pages'),
     path('api/pages/tree/', page_tree_views.page_tree_api, name='page_tree_api'),
 
     # 智能互链

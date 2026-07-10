@@ -568,6 +568,7 @@ def api_saved_page_create(request):
         "html_content": "HTML 代码",  // 必填
         "input_content": "需求描述",  // 可选
         "domains": ["example.com"],  // 可选，域名列表
+        "category_ids": [1, 3],       // 可选，分类 ID 列表
       }
     """
     body, error = parse_json_body(request)
@@ -597,6 +598,14 @@ def api_saved_page_create(request):
         created_by=request.user if request.user.is_authenticated else None,
     )
     page.save()
+
+    # 设置分类
+    category_ids = body.get('category_ids')
+    if category_ids and isinstance(category_ids, list):
+        from XiaoYingAdmin.models.page_category import PageCategory
+        cats = PageCategory.objects.filter(id__in=[c for c in category_ids if c])
+        if cats.exists():
+            page.categories.set(cats)
 
     log_operation(request, 'create', 'GeneratedPage', page.id,
                   f'手动创建页面「{page.name}」',

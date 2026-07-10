@@ -33,6 +33,14 @@
 .page-sidebar .sidebar-list li:hover .cat-domains { display: inline; }
 .page-sidebar .sidebar-actions { margin-top: 8px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
 .page-sidebar .sidebar-actions .add-cat-btn { width: 100%; }
+/* 侧边栏分类搜索 */
+.page-sidebar .sidebar-search { position:relative; margin-bottom:8px; }
+.page-sidebar .sidebar-search input { width:100%; padding:6px 8px 6px 28px; border:1px solid #e8e8e8; border-radius:4px; font-size:12px; outline:none; box-sizing:border-box; transition:border-color .15s; background:#fafafa; }
+.page-sidebar .sidebar-search input:focus { border-color:#5FB878; background:#fff; }
+.page-sidebar .sidebar-search .search-icon { position:absolute; left:8px; top:50%; transform:translateY(-50%); color:#bbb; font-size:12px; pointer-events:none; }
+.page-sidebar .sidebar-list-wrap { max-height:calc(100vh - 360px); overflow-y:auto; overflow-x:hidden; }
+.page-sidebar .sidebar-list-wrap::-webkit-scrollbar { width:4px; }
+.page-sidebar .sidebar-list-wrap::-webkit-scrollbar-thumb { background:#ddd; border-radius:2px; }
 .batch-cat-bar { padding: 6px 8px 10px; border-bottom: 1px solid #f0f0f0; }
 .batch-cat-btn { display:block; width:100%; padding:5px 0; font-size:12px; color:#5FB878; background:#f0faf4; border:1px dashed #b8e6c8; border-radius:4px; cursor:pointer; transition:all .15s; text-align:center; }
 .batch-cat-btn:hover { background:#e0f5e8; border-color:#5FB878; color:#2e7d32; }
@@ -130,6 +138,65 @@
 /* ========== 弹窗响应式 ========== */
 .modal-scroll-wrap { max-height: 65vh; overflow-y: auto; }
 .modal-scroll-wrap .code-textarea { font-family: Consolas, Monaco, monospace; font-size: 12px; line-height: 1.5; min-height: 100px; max-height: 35vh; resize: vertical; }
+/* 分类搜索选择器组件 */
+.cat-sel-wrap { position:relative; width:100%; }
+.cat-sel-bar { display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #e0e0e0; border-radius:4px; cursor:pointer; background:#fff; transition:border-color .15s; min-height:34px; box-sizing:border-box; }
+.cat-sel-bar:hover { border-color:#5FB878; }
+.cat-sel-placeholder { flex:1; font-size:13px; color:#bbb; }
+.cat-sel-count { font-size:11px; background:#5FB878; color:#fff; border-radius:10px; padding:0 7px; line-height:18px; min-width:18px; text-align:center; }
+.cat-sel-arrow { font-size:10px; color:#999; transition:transform .2s; }
+.cat-sel-dropdown.open + .cat-sel-tags .cat-sel-arrow { transform:rotate(180deg); }
+.cat-sel-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; min-height:0; }
+.cat-sel-tag { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; background:#e8f5e9; color:#2e7d32; border-radius:12px; font-size:12px; line-height:20px; }
+.cat-sel-tag i { font-size:10px; cursor:pointer; opacity:.6; }
+.cat-sel-tag i:hover { opacity:1; }
+.cat-sel-dropdown { display:none; position:absolute; top:100%; left:0; right:0; z-index:100; margin-top:2px; border:1px solid #e0e0e0; border-radius:6px; background:#fff; box-shadow:0 6px 20px rgba(0,0,0,.1); max-height:280px; overflow:hidden; }
+.cat-sel-dropdown.open { display:flex; flex-direction:column; }
+.cat-sel-search { display:flex; align-items:center; gap:6px; padding:8px 10px; border-bottom:1px solid #f0f0f0; }
+.cat-sel-search i { font-size:13px; color:#999; }
+.cat-sel-search input { flex:1; border:none; outline:none; font-size:13px; background:transparent; }
+.cat-sel-list { overflow-y:auto; flex:1; padding:4px 0; max-height:200px; }
+.cat-sel-item { display:flex; align-items:center; gap:6px; padding:6px 12px; cursor:pointer; font-size:13px; color:#333; transition:background .1s; }
+.cat-sel-item:hover { background:#f5f9f5; }
+.cat-sel-item input[type="checkbox"] { accent-color:#5FB878; width:15px; height:15px; cursor:pointer; flex-shrink:0; }
+.cat-sel-item span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cat-sel-empty { padding:20px; text-align:center; color:#bbb; font-size:13px; }
+/* ========== 批量导入弹窗 ========== */
+.bi-modal { padding:0 4px; }
+.bi-modal .layui-form-label { width:90px; }
+.bi-modal .layui-input-block { margin-left:120px; }
+.bi-domain-textarea { width:100%; min-height:150px; border:1px solid #e0e0e0; border-radius:4px; padding:8px 10px; font-size:13px; font-family:Consolas,Monaco,monospace; resize:vertical; outline:none; transition:border-color .15s; box-sizing:border-box; line-height:1.5; }
+.bi-domain-textarea:focus { border-color:#5FB878; box-shadow:0 0 0 3px rgba(95,184,120,.1); }
+.bi-hint { font-size:11px; color:#999; margin-top:4px; }
+.bi-hint i { margin-right:3px; }
+/* 文件上传区域 */
+.bi-upload-area { position:relative; border:2px dashed #d0d0d0; border-radius:6px; padding:24px 16px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s; }
+.bi-upload-area:hover { border-color:#8BC34A; background:#f7fcf5; }
+.bi-upload-area.bi-dragover { border-color:#5FB878; background:#f0faf4; }
+.bi-upload-area input[type=file] { display:none; }
+.bi-upload-area .bi-ua-icon { font-size:32px; color:#bbb; display:block; margin-bottom:6px; }
+.bi-upload-area .bi-ua-text { font-size:13px; color:#666; }
+.bi-upload-area .bi-ua-text strong { color:#5FB878; }
+.bi-upload-area .bi-ua-name { font-size:12px; color:#333; margin-top:6px; display:none; }
+.bi-upload-area .bi-ua-name i { color:#8BC34A; margin-right:4px; }
+.bi-upload-area.bi-has-file { border-color:#8BC34A; background:#f7fcf5; border-style:solid; }
+.bi-result { margin-top:10px; border:1px solid #e0e0e0; border-radius:6px; max-height:180px; overflow-y:auto; background:#fafafa; display:none; }
+.bi-result-item { display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #f0f0f0; font-size:12px; }
+.bi-result-item:last-child { border-bottom:none; }
+.bi-result-item .bi-ri-icon { width:16px; text-align:center; flex-shrink:0; }
+.bi-result-item.bi-ok .bi-ri-icon { color:#5FB878; }
+.bi-result-item.bi-err .bi-ri-icon { color:#e54d4d; }
+.bi-result-item .bi-ri-domain { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#333; }
+.bi-result-item .bi-ri-file { color:#999; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 8px; }
+.bi-result-item .bi-ri-status { flex-shrink:0; font-size:11px; }
+.bi-result-item.bi-ok .bi-ri-status { color:#5FB878; }
+.bi-result-item.bi-err .bi-ri-status { color:#e54d4d; }
+.bi-summary { margin-top:10px; padding:8px 12px; background:#f0faf4; border-radius:4px; font-size:13px; color:#2e7d32; text-align:center; display:none; }
+.bi-summary .bi-summary-err { color:#e54d4d; }
+.bi-summary.bi-has-err { background:#fff8f8; color:#c62828; }
+.bi-progress-bar { height:4px; background:#e8e8e8; border-radius:2px; margin:10px 0 4px; overflow:hidden; display:none; }
+.bi-progress-bar .bi-pb-fill { height:100%; width:0; background:linear-gradient(90deg,#8BC34A,#5FB878); border-radius:2px; transition:width .3s; }
+.bi-progress-text { font-size:11px; color:#999; text-align:center; display:none; }
 @media (max-width: 900px) {
   .modal-scroll-wrap .code-textarea { min-height: 80px; max-height: 28vh; }
 }
@@ -189,6 +256,7 @@
         <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnReset"><i class="fas fa-undo"></i> 重置</button>
         <button class="layui-btn layui-btn-sm layui-btn-warm" id="btnCrosslink"><i class="fas fa-link"></i> 智能互链</button>
         <button class="layui-btn layui-btn-sm layui-btn-normal" id="btnCreatePage"><i class="fas fa-plus"></i> 新增页面</button>
+        <button class="layui-btn layui-btn-sm" id="btnBatchImport" style="background:#8BC34A;border-color:#8BC34A;"><i class="fas fa-upload"></i> 批量导入</button>
         <span class="total-label" id="totalLabel">共 0 条</span>
     </div>
 
@@ -199,9 +267,15 @@
             <div class="sidebar-title">
                 <span class="title-text"><i class="fas fa-folder-open" style="color:#5FB878;"></i> 分类</span>
             </div>
-            <ul class="sidebar-list" id="categoryList">
-                <li class="active" data-filter="all"><i class="fas fa-th-list"></i> 所有分类 <span class="cat-count" id="countAll">0</span></li>
-            </ul>
+            <div class="sidebar-search">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="sidebarCatSearch" placeholder="搜索分类...">
+            </div>
+            <div class="sidebar-list-wrap">
+                <ul class="sidebar-list" id="categoryList">
+                    <li class="active" data-filter="all"><i class="fas fa-th-list"></i> 所有分类 <span class="cat-count" id="countAll">0</span></li>
+                </ul>
+            </div>
             <div class="sidebar-actions">
                 <button class="layui-btn layui-btn-sm layui-btn-primary add-cat-btn" id="btnManageCat"><i class="fas fa-cog"></i> 管理分类</button>
             </div>
@@ -357,6 +431,24 @@ function renderSidebar() {
             openDomainViewModal(id);
         });
     });
+
+    // 侧边栏分类搜索过滤
+    var sidebarSearchInput = document.getElementById('sidebarCatSearch');
+    if (sidebarSearchInput) {
+        sidebarSearchInput.oninput = function() {
+            var kw = this.value.trim().toLowerCase();
+            ul.querySelectorAll('li[data-filter]').forEach(function(li) {
+                var filter = li.getAttribute('data-filter');
+                // "所有分类"、"未分类"、"未绑定域名" 始终显示
+                if (filter === 'all' || filter === 'uncategorized' || filter === 'unbound') {
+                    li.style.display = '';
+                    return;
+                }
+                var text = li.textContent.toLowerCase();
+                li.style.display = (kw && text.indexOf(kw) === -1) ? 'none' : '';
+            });
+        };
+    }
 }
 
 function updateSidebarCounts() {
@@ -802,46 +894,38 @@ function deletePage(id) {
 // ============================================================
 
 function openPageCategoryEditor(pageId) {
-    var catCheckboxes = '';
-    categories.forEach(function(c) {
-        catCheckboxes += '<label style="display:block;padding:5px 0;cursor:pointer;">';
-        catCheckboxes += '<input type="checkbox" class="page-cat-cb" value="' + c.id + '"> ';
-        catCheckboxes += '<span>' + escHtml(c.name) + '</span></label>';
-    });
-    if (!categories.length) {
-        catCheckboxes = '<div style="color:#bbb;padding:10px 0;">暂无分类，请先在左侧创建</div>';
-    }
-
-    var html = '<div style="padding:15px 20px;">';
-    html += '<div style="font-size:13px;color:#666;margin-bottom:10px;">选择该页面的所属分类（可多选）：</div>';
-    html += '<div id="pageCatCheckWrap">' + catCheckboxes + '</div>';
-    html += '<div style="margin-top:15px;text-align:center;"><button type="button" class="layui-btn layui-btn-sm" id="pageCatSaveBtn"><i class="fas fa-save"></i> 保存</button></div>';
-    html += '</div>';
-
     // 先获取页面当前分类
     fetch('/xiaoying_admin/api/pages/saved/' + pageId + '/')
         .then(function(r) { return r.json(); })
         .then(function(page) {
             var currentCatIds = page.category_ids || [];
+
+            var catSelectorHtml = buildCategorySelector();
+            var html = '<div style="padding:15px 20px;">';
+            html += '<div style="font-size:13px;color:#666;margin-bottom:10px;">选择该页面的所属分类（可多选 / 搜索查找）：</div>';
+            html += catSelectorHtml;
+            html += '<div style="margin-top:15px;text-align:center;"><button type="button" class="layui-btn layui-btn-sm" id="pageCatSaveBtn"><i class="fas fa-save"></i> 保存</button></div>';
+            html += '</div>';
+
             layer.open({
                 type: 1,
                 title: '<i class="fas fa-tags" style="color:#5FB878;"></i> 设置页面分类',
-                area: ['380px', '350px'],
+                area: ['400px', '360px'],
                 shadeClose: true,
                 content: html,
                 success: function(layero) {
-                    // 勾选当前分类
-                    layero.find('.page-cat-cb').each(function() {
-                        if (currentCatIds.indexOf(parseInt(this.value)) !== -1) {
-                            this.checked = true;
-                        }
-                    });
+                    // 用预选分类初始化选择器
+                    initCategorySelector(layero, currentCatIds);
 
                     layero.find('#pageCatSaveBtn').on('click', function() {
+                        var wrap = layero.find('#catSelectorWrap')[0];
                         var ids = [];
-                        layero.find('.page-cat-cb:checked').each(function() {
-                            ids.push(parseInt(this.value));
-                        });
+                        if (wrap) {
+                            var raw = wrap.getAttribute('data-selected');
+                            if (raw) {
+                                ids = raw.split(',').map(function(s) { return parseInt(s, 10); }).filter(function(n) { return !isNaN(n); });
+                            }
+                        }
                         var idx = layer.load(1);
                         fetch('/xiaoying_admin/api/pages/saved/set-categories/', {
                             method: 'POST',
@@ -1378,16 +1462,13 @@ document.getElementById('btnCreatePage').addEventListener('click', function() {
 });
 
 function openCreatePage() {
-    var catOptions = '';
-    categories.forEach(function(c) {
-        catOptions += '<label style="display:inline-block;margin-right:12px;cursor:pointer;"><input type="checkbox" class="create-cat-cb" value="' + c.id + '"> ' + escHtml(c.name) + '</label>';
-    });
-    if (!categories.length) catOptions = '<span style="color:#bbb;">暂无分类</span>';
+    // 构建分类选择组件的 HTML
+    var catSelectorHtml = buildCategorySelector();
 
     var html = '<div class="modal-scroll-wrap"><form class="layui-form" style="padding:15px;">';
     html += '<div class="layui-form-item"><label class="layui-form-label">页面名称 <span style="color:#e54d4d;">*</span></label><div class="layui-input-block"><input type="text" id="createName" class="layui-input" placeholder="输入页面名称"></div></div>';
     html += '<div class="layui-form-item"><label class="layui-form-label">需求描述</label><div class="layui-input-block"><textarea id="createInput" class="layui-textarea" rows="2" placeholder="可选"></textarea></div></div>';
-    html += '<div class="layui-form-item"><label class="layui-form-label">所属分类</label><div class="layui-input-block" id="createCatWrap">' + catOptions + '</div></div>';
+    html += '<div class="layui-form-item"><label class="layui-form-label">所属分类</label><div class="layui-input-block">' + catSelectorHtml + '</div></div>';
     html += '<div class="layui-form-item"><label class="layui-form-label">HTML 代码 <span style="color:#e54d4d;">*</span></label><div class="layui-input-block"><textarea id="createHtml" class="layui-textarea code-textarea" placeholder="粘贴完整的 HTML 代码"></textarea></div></div>';
     html += '<div class="layui-form-item"><label class="layui-form-label">绑定域名</label><div class="layui-input-block"><input type="text" id="createDomains" class="layui-input" placeholder="可选，多个域名用逗号分隔"></div></div>';
     html += '<div class="layui-form-item" style="margin-top:15px;text-align:center;"><button type="button" class="layui-btn" id="createSaveBtn"><i class="fas fa-save"></i> 创建页面</button></div>';
@@ -1400,6 +1481,9 @@ function openCreatePage() {
         shadeClose: true,
         content: html,
         success: function(layero) {
+            // 初始化分类选择器
+            initCategorySelector(layero);
+
             layero.find('#createSaveBtn').on('click', function() {
                 var name = layero.find('#createName').val().trim();
                 var htmlContent = layero.find('#createHtml').val().trim();
@@ -1414,10 +1498,15 @@ function openCreatePage() {
                     domains = domainsStr.split(',').map(function(s) { return s.trim().toLowerCase(); }).filter(function(s) { return s.length > 0; });
                 }
 
+                // 从 data 属性读取已选分类 ID
+                var catWrap = layero.find('#catSelectorWrap')[0];
                 var catIds = [];
-                layero.find('.create-cat-cb:checked').each(function() {
-                    catIds.push(parseInt(this.value));
-                });
+                if (catWrap) {
+                    var raw = catWrap.getAttribute('data-selected');
+                    if (raw) {
+                        catIds = raw.split(',').map(function(s) { return parseInt(s, 10); }).filter(function(n) { return !isNaN(n); });
+                    }
+                }
 
                 var idx = layer.load(1);
                 fetch('/xiaoying_admin/api/pages/saved/create/', {
@@ -1428,20 +1517,11 @@ function openCreatePage() {
                         html_content: htmlContent,
                         input_content: inputContent,
                         domains: domains,
+                        category_ids: catIds,
                     }),
                 }).then(function(r) { return r.json(); }).then(function(resp) {
-                    if (resp.error) { layer.close(idx); layer.msg(resp.error, {icon:2}); return; }
-                    var pageId = resp.page ? resp.page.id : null;
-                    if (pageId && catIds.length) {
-                        return fetch('/xiaoying_admin/api/pages/saved/set-categories/', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ id: pageId, category_ids: catIds }),
-                        }).then(function() { return resp; });
-                    }
-                    return resp;
-                }).then(function(resp) {
                     layer.close(idx);
+                    if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
                     layer.closeAll();
                     layer.msg('创建成功', {icon:1});
                     loadTree();
@@ -1450,6 +1530,149 @@ function openCreatePage() {
             });
         },
     });
+}
+
+// ---- 分类搜索选择器组件 ----
+
+function buildCategorySelector() {
+    var html = '<div class="cat-sel-wrap" id="catSelectorWrap" data-selected="">';
+    html += '<div class="cat-sel-bar" id="catSelBar">';
+    html += '<span class="cat-sel-placeholder" id="catSelPlaceholder">选择分类</span>';
+    html += '<span class="cat-sel-count" id="catSelCount" style="display:none;">0</span>';
+    html += '<span class="cat-sel-arrow"><i class="fas fa-chevron-down"></i></span>';
+    html += '</div>';
+    html += '<div class="cat-sel-tags" id="catSelTags"></div>';
+    html += '<div class="cat-sel-dropdown" id="catSelDropdown">';
+    html += '<div class="cat-sel-search"><i class="fas fa-search"></i><input type="text" id="catSelSearch" placeholder="搜索分类..."></div>';
+    html += '<div class="cat-sel-list" id="catSelList"></div>';
+    html += '</div>';
+    html += '</div>';
+    return html;
+}
+
+function initCategorySelector(layero, initialSelected) {
+    var wrap = layero.find('#catSelectorWrap');
+    if (!wrap.length) return;
+    var wrapEl = wrap[0];
+    var bar = layero.find('#catSelBar')[0];
+    var dropdown = layero.find('#catSelDropdown')[0];
+    var searchInput = layero.find('#catSelSearch')[0];
+    var listEl = layero.find('#catSelList')[0];
+    var tagsEl = layero.find('#catSelTags')[0];
+    var countEl = layero.find('#catSelCount')[0];
+    var placeholderEl = layero.find('#catSelPlaceholder')[0];
+
+    var selected = new Set(initialSelected || []);  // 已选分类 ID
+
+    // 渲染列表
+    function renderList(filter) {
+        var html = '';
+        var kw = (filter || '').trim().toLowerCase();
+        categories.forEach(function(c) {
+            if (kw && c.name.toLowerCase().indexOf(kw) === -1) return;
+            var checked = selected.has(c.id) ? 'checked' : '';
+            html += '<label class="cat-sel-item">'
+                + '<input type="checkbox" value="' + c.id + '" ' + checked + '>'
+                + '<span>' + escHtml(c.name) + '</span>'
+                + '</label>';
+        });
+        if (!html) html = '<div class="cat-sel-empty">无匹配分类</div>';
+        listEl.innerHTML = html;
+
+        // 绑定 checkbox 变更事件
+        listEl.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                var id = parseInt(this.value);
+                if (this.checked) {
+                    selected.add(id);
+                } else {
+                    selected.delete(id);
+                }
+                updateUI();
+            });
+        });
+    }
+
+    // 更新标签和计数
+    function updateUI() {
+        var ids = Array.from(selected);
+        wrapEl.setAttribute('data-selected', ids.join(','));
+
+        // 计数
+        if (ids.length > 0) {
+            countEl.textContent = ids.length;
+            countEl.style.display = '';
+            placeholderEl.style.display = 'none';
+        } else {
+            countEl.style.display = 'none';
+            placeholderEl.style.display = '';
+        }
+
+        // 标签
+        var tagHtml = '';
+        ids.forEach(function(id) {
+            var cat = null;
+            categories.forEach(function(c) { if (c.id === id) cat = c; });
+            if (cat) {
+                tagHtml += '<span class="cat-sel-tag" data-id="' + id + '">' + escHtml(cat.name) + '<i class="fas fa-times cat-sel-tag-rm"></i></span>';
+            }
+        });
+        tagsEl.innerHTML = tagHtml;
+
+        // 标签删除事件
+        tagsEl.querySelectorAll('.cat-sel-tag-rm').forEach(function(rm) {
+            rm.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var tag = this.closest('.cat-sel-tag');
+                var id = parseInt(tag.getAttribute('data-id'));
+                selected.delete(id);
+                // 同步列表中的 checkbox
+                listEl.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+                    if (parseInt(cb.value) === id) cb.checked = false;
+                });
+                updateUI();
+            });
+        });
+    }
+
+    // 点击 bar 切换下拉
+    bar.addEventListener('click', function(e) {
+        if (dropdown.classList.contains('open')) {
+            closeDropdown();
+        } else {
+            openDropdown();
+        }
+    });
+
+    function openDropdown() {
+        renderList(searchInput ? searchInput.value : '');
+        dropdown.classList.add('open');
+        if (searchInput) { searchInput.focus(); }
+    }
+
+    function closeDropdown() {
+        dropdown.classList.remove('open');
+    }
+
+    // 搜索
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            renderList(this.value);
+        });
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeDropdown();
+        });
+    }
+
+    // 点击外部关闭
+    document.addEventListener('click', function(e) {
+        if (wrapEl && !wrapEl.contains(e.target)) {
+            closeDropdown();
+        }
+    });
+
+    // 初始渲染（空搜索）
+    renderList('');
 }
 
 // ============================================================
@@ -1580,17 +1803,11 @@ function openEditor(id) {
     fetch('/xiaoying_admin/api/pages/saved/' + id + '/')
         .then(function(r) { return r.json(); })
         .then(function(page) {
-            var catOptions = '';
-            categories.forEach(function(c) {
-                var checked = (page.category_ids || []).indexOf(c.id) !== -1 ? 'checked' : '';
-                catOptions += '<label style="display:inline-block;margin-right:12px;cursor:pointer;"><input type="checkbox" class="edit-cat-cb" value="' + c.id + '" ' + checked + '> ' + escHtml(c.name) + '</label>';
-            });
-            if (!categories.length) catOptions = '<span style="color:#bbb;">暂无分类</span>';
-
+            var catSelectorHtml = buildCategorySelector();
             var html = '<div class="modal-scroll-wrap"><form class="layui-form" style="padding:15px;">';
             html += '<div class="layui-form-item"><label class="layui-form-label">页面名称</label><div class="layui-input-block"><input type="text" id="editName" class="layui-input" value="' + escAttr(page.name) + '"></div></div>';
             html += '<div class="layui-form-item"><label class="layui-form-label">需求描述</label><div class="layui-input-block"><textarea id="editInput" class="layui-textarea" rows="2">' + escHtml(page.input_content || '') + '</textarea></div></div>';
-            html += '<div class="layui-form-item"><label class="layui-form-label">所属分类</label><div class="layui-input-block" id="editCatWrap">' + catOptions + '</div></div>';
+            html += '<div class="layui-form-item"><label class="layui-form-label">所属分类</label><div class="layui-input-block">' + catSelectorHtml + '</div></div>';
             html += '<div class="layui-form-item"><label class="layui-form-label">HTML 代码</label><div class="layui-input-block"><textarea id="editHtml" class="layui-textarea code-textarea">' + escHtml(page.html_content) + '</textarea></div></div>';
             html += '<div class="layui-form-item" style="margin-top:15px;text-align:center;"><button type="button" class="layui-btn" id="editSaveBtn"><i class="fas fa-save"></i> 保存修改</button></div>';
             html += '</form></div>';
@@ -1602,6 +1819,9 @@ function openEditor(id) {
                 shadeClose: true,
                 content: html,
                 success: function(layero) {
+                    // 用预选分类初始化选择器
+                    initCategorySelector(layero, page.category_ids || []);
+
                     layero.find('#editSaveBtn').on('click', function() {
                         var name = layero.find('#editName').val().trim();
                         var inputContent = layero.find('#editInput').val().trim();
@@ -1609,10 +1829,14 @@ function openEditor(id) {
                         if (!name) { layer.msg('请输入页面名称', {icon:5}); return; }
                         if (!htmlContent) { layer.msg('请输入 HTML 内容', {icon:5}); return; }
 
+                        var wrap = layero.find('#catSelectorWrap')[0];
                         var catIds = [];
-                        layero.find('.edit-cat-cb:checked').each(function() {
-                            catIds.push(parseInt(this.value));
-                        });
+                        if (wrap) {
+                            var raw = wrap.getAttribute('data-selected');
+                            if (raw) {
+                                catIds = raw.split(',').map(function(s) { return parseInt(s, 10); }).filter(function(n) { return !isNaN(n); });
+                            }
+                        }
 
                         var idx = layer.load(1);
                         fetch('/xiaoying_admin/api/pages/saved/update/', {
@@ -1865,6 +2089,340 @@ document.addEventListener('DOMContentLoaded', function() {
         loadTree();
     });
 });
+
+// ============================================================
+// 批量导入单页面
+// ============================================================
+
+document.getElementById('btnBatchImport').addEventListener('click', function() {
+    openBatchImportModal();
+});
+
+function openBatchImportModal() {
+    // 构建分类选择器
+    var catSelectorHtml = buildCategorySelector();
+    
+    var html = '<div class="bi-modal" style="padding:15px 20px;">';
+    html += '<div class="layui-form-item">';
+    html += '<label class="layui-form-label">域名列表</label>';
+    html += '<div class="layui-input-block">';
+    html += '<textarea class="bi-domain-textarea" id="biDomainInput" placeholder="每行一个域名，例如：&#10;asdf.sghf-whatsapp.hl.cn&#10;sghf-whatsapp.hl.cn&#10;https://example.com"></textarea>';
+    html += '<div class="bi-hint"><i class="fas fa-info-circle"></i> 每行一个域名，系统自动检测协议，缺失则默认添加 https://</div>';
+    html += '</div></div>';
+    html += '<div class="layui-form-item">';
+    html += '<label class="layui-form-label">压缩包</label>';
+    html += '<div class="layui-input-block">';
+    html += '<div class="bi-upload-area" id="biUploadArea">';
+    html += '<input type="file" id="biFileInput" accept=".zip">';
+    html += '<span class="bi-ua-icon"><i class="fas fa-cloud-upload-alt"></i></span>';
+    html += '<span class="bi-ua-text">点击或拖拽 <strong>zip</strong> 文件到此处</span>';
+    html += '<div class="bi-ua-name"><i class="fas fa-file-archive"></i> <span id="biFileName"></span></div>';
+    html += '</div>';
+    html += '<div class="bi-hint"><i class="fas fa-info-circle"></i> zip 内请包含多个子文件夹，每个子文件夹放一个 .html 文件</div>';
+    html += '</div></div>';
+    html += '<div class="layui-form-item">';
+    html += '<label class="layui-form-label">目标分类</label>';
+    html += '<div class="layui-input-block">' + catSelectorHtml + '</div>';
+    html += '</div>';
+    html += '<div class="layui-form-item" style="margin-bottom:0;">';
+    html += '<div class="layui-input-block" style="margin-left:0;text-align:center;">';
+    html += '<button type="button" class="layui-btn" id="biStartBtn" style="background:#8BC34A;border-color:#8BC34A;padding:0 30px;"><i class="fas fa-rocket"></i> 开始导入</button>';
+    html += '</div></div>';
+    
+    // 进度条
+    html += '<div class="bi-progress-bar" id="biProgressBar"><div class="bi-pb-fill" id="biProgressFill"></div></div>';
+    html += '<div class="bi-progress-text" id="biProgressText">准备中...</div>';
+    
+    // 结果展示区
+    html += '<div class="bi-result" id="biResultWrap"></div>';
+    html += '<div class="bi-summary" id="biSummary"></div>';
+    html += '</div>';
+
+    layer.open({
+        type: 1,
+        title: '<i class="fas fa-upload" style="color:#8BC34A;"></i> 批量导入单页面',
+        area: ['620px', '530px'],
+        shadeClose: true,
+        content: html,
+        success: function(layero) {
+            // 初始化分类选择器
+            initCategorySelector(layero);
+
+            // 文件上传交互
+            var uploadArea = layero.find('#biUploadArea')[0];
+            var fileInput = layero.find('#biFileInput')[0];
+            var fileNameSpan = layero.find('#biFileName')[0];
+            var selectedFile = null;
+
+            // 点击上传区域触发文件选择
+            uploadArea.addEventListener('click', function() { fileInput.click(); });
+
+            // 选择文件后显示文件名
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    selectedFile = this.files[0];
+                    fileNameSpan.textContent = selectedFile.name + ' (' + (selectedFile.size / 1024).toFixed(1) + ' KB)';
+                    uploadArea.classList.add('bi-has-file');
+                    uploadArea.querySelector('.bi-ua-icon').innerHTML = '<i class="fas fa-check-circle" style="color:#8BC34A;"></i>';
+                    uploadArea.querySelector('.bi-ua-text').innerHTML = '<span style="color:#666;">已选择文件，点击或拖拽可更换</span>';
+                    uploadArea.querySelector('.bi-ua-name').style.display = '';
+                }
+            });
+
+            // 拖拽上传
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.classList.add('bi-dragover');
+            });
+            uploadArea.addEventListener('dragleave', function() {
+                uploadArea.classList.remove('bi-dragover');
+            });
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('bi-dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    var f = e.dataTransfer.files[0];
+                    if (!f.name.toLowerCase().endsWith('.zip')) {
+                        layer.msg('只支持 .zip 文件', {icon:5});
+                        return;
+                    }
+                    fileInput.files = e.dataTransfer.files;
+                    selectedFile = f;
+                    fileNameSpan.textContent = selectedFile.name + ' (' + (selectedFile.size / 1024).toFixed(1) + ' KB)';
+                    uploadArea.classList.add('bi-has-file');
+                    uploadArea.querySelector('.bi-ua-icon').innerHTML = '<i class="fas fa-check-circle" style="color:#8BC34A;"></i>';
+                    uploadArea.querySelector('.bi-ua-text').innerHTML = '<span style="color:#666;">已选择文件，点击或拖拽可更换</span>';
+                    uploadArea.querySelector('.bi-ua-name').style.display = '';
+                }
+            });
+
+            // 点击开始导入
+            layero.find('#biStartBtn').on('click', function() {
+                var btn = this;
+
+                // 收集输入
+                var domainText = layero.find('#biDomainInput').val().trim();
+                var catWrap = layero.find('#catSelectorWrap')[0];
+                var catIds = [];
+                if (catWrap) {
+                    var raw = catWrap.getAttribute('data-selected');
+                    if (raw) {
+                        catIds = raw.split(',').map(function(s) { return parseInt(s, 10); }).filter(function(n) { return !isNaN(n); });
+                    }
+                }
+
+                // 校验
+                if (!domainText) {
+                    layer.msg('请输入域名列表', {icon:5});
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-rocket"></i> 开始导入';
+                    return;
+                }
+                if (!selectedFile) {
+                    layer.msg('请选择要上传的 zip 压缩包', {icon:5});
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-rocket"></i> 开始导入';
+                    return;
+                }
+
+                // 解析域名
+                var domains = domainText.split('\n')
+                    .map(function(s) { return s.trim(); })
+                    .filter(function(s) { return s.length > 0; });
+
+                if (domains.length === 0) {
+                    layer.msg('没有有效的域名', {icon:5});
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-rocket"></i> 开始导入';
+                    return;
+                }
+
+                // —— 提交函数（闭包，可访问上方所有局部变量） ——
+                // mode: ''（首次，可能触发选择对话框）| 'duplicate' | 'ai_generate'
+                function doSubmit(mode) {
+                    btn.disabled = true;
+                    btn.style.background = '';
+                    btn.style.borderColor = '';
+                    btn.innerHTML = mode === 'ai_generate'
+                        ? '<i class="fas fa-spinner fa-spin"></i> AI 生成中（可能需要数分钟）...'
+                        : '<i class="fas fa-spinner fa-spin"></i> 导入中...';
+
+                    // 显示进度
+                    var progressBar = document.getElementById('biProgressBar');
+                    var progressFill = document.getElementById('biProgressFill');
+                    var progressText = document.getElementById('biProgressText');
+                    var resultWrap = document.getElementById('biResultWrap');
+                    var summary = document.getElementById('biSummary');
+                    if (progressBar) progressBar.style.display = '';
+                    if (progressText) {
+                        progressText.style.display = '';
+                        progressText.textContent = mode === 'ai_generate'
+                            ? '正在 AI 生成页面，每个约 30-120 秒，请耐心等待...'
+                            : '正在上传并处理 ' + domains.length + ' 个页面...';
+                    }
+                    if (progressFill) progressFill.style.width = '20%';
+
+                    // 构建 FormData
+                    var formData = new FormData();
+                    formData.append('domains', domainText);
+                    formData.append('file', selectedFile);
+                    if (catIds.length > 0) {
+                        formData.append('category_ids', catIds.join(','));
+                    }
+                    if (mode) {
+                        formData.append('mode', mode);
+                    }
+
+                    // 发送请求
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/xiaoying_admin/api/pages/saved/batch-import/', true);
+
+                    xhr.upload.onprogress = function(e) {
+                        if (e.lengthComputable && progressFill) {
+                            var pct = Math.round(20 + (e.loaded / e.total) * 40);
+                            progressFill.style.width = pct + '%';
+                            if (progressText) progressText.textContent = '上传中 ' + Math.round((e.loaded / e.total) * 100) + '%...';
+                        }
+                    };
+
+                    xhr.onload = function() {
+                        var resp;
+                        try { resp = JSON.parse(xhr.responseText); } catch(_) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-rocket"></i> 开始导入';
+                            if (progressBar) progressBar.style.display = 'none';
+                            if (progressText) progressText.style.display = 'none';
+                            layer.msg('服务器返回数据异常', {icon:2});
+                            return;
+                        }
+
+                        // —— .html 不足，弹出选择对话框 ——
+                        if (resp.need_choice) {
+                            if (progressBar) progressBar.style.display = 'none';
+                            if (progressText) progressText.style.display = 'none';
+                            if (progressFill) progressFill.style.width = '0%';
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-rocket"></i> 开始导入';
+
+                            var shortMsg = '.html 文件不足：需要 ' + resp.domain_count + ' 个，实际 ' + resp.html_count + ' 个';
+                            var contentHtml = '<div style="padding:20px 25px;">';
+                            contentHtml += '<div style="margin-bottom:16px;color:#e65100;font-size:14px;"><i class="fas fa-exclamation-triangle"></i> ' + escHtml(shortMsg) + '</div>';
+                            contentHtml += '<div style="display:flex;flex-direction:column;gap:12px;">';
+                            contentHtml += '<div style="padding:14px 16px;border:1px solid #e0e0e0;border-radius:6px;background:#fafafa;">';
+                            contentHtml += '<div style="font-weight:600;color:#5FB878;margin-bottom:4px;"><i class="fas fa-times-circle"></i> 选项 1：放弃导入</div>';
+                            contentHtml += '<div style="color:#999;font-size:12px;">补齐 .html 文件后重新上传</div>';
+                            contentHtml += '</div>';
+                            contentHtml += '<div style="padding:14px 16px;border:1px solid #e0e0e0;border-radius:6px;background:#fff8e1;">';
+                            contentHtml += '<div style="font-weight:600;color:#FF9800;margin-bottom:4px;"><i class="fas fa-copy"></i> 选项 2：允许页面重复</div>';
+                            contentHtml += '<div style="color:#999;font-size:12px;">先分配全部 ' + resp.html_count + ' 个 .html，剩余 ' + (resp.domain_count - resp.html_count) + ' 个域名随机复用已有页面</div>';
+                            contentHtml += '</div>';
+                            contentHtml += '<div style="padding:14px 16px;border:1px solid #e0e0e0;border-radius:6px;background:#e3f2fd;">';
+                            contentHtml += '<div style="font-weight:600;color:#1E9FFF;margin-bottom:4px;"><i class="fas fa-robot"></i> 选项 3：AI 自动生成</div>';
+                            contentHtml += '<div style="color:#999;font-size:12px;">通过 AI 为剩余 ' + (resp.domain_count - resp.html_count) + ' 个域名生成页面（每个约 30-120 秒，耗时较长）</div>';
+                            contentHtml += '</div>';
+                            contentHtml += '</div></div>';
+
+                            layer.open({
+                                type: 1,
+                                title: '<i class="fas fa-question-circle" style="color:#FF9800;"></i> 请选择处理方式',
+                                area: ['500px', 'auto'],
+                                shadeClose: false,
+                                content: contentHtml,
+                                btn: ['放弃导入', '允许重复', 'AI 生成'],
+                                btn1: function(index) {
+                                    layer.close(index);
+                                    // 放弃，不做事
+                                },
+                                btn2: function(index) {
+                                    layer.close(index);
+                                    doSubmit('duplicate');
+                                },
+                                btn3: function(index) {
+                                    layer.close(index);
+                                    doSubmit('ai_generate');
+                                },
+                            });
+                            return;
+                        }
+
+                        if (progressFill) progressFill.style.width = '100%';
+                        setTimeout(function() {
+                            if (progressBar) progressBar.style.display = 'none';
+                            if (progressText) progressText.style.display = 'none';
+                        }, 500);
+
+                        if (resp.error) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-rocket"></i> 开始导入';
+                            layer.msg(resp.error, {icon:2});
+                            return;
+                        }
+
+                        // 展示结果
+                        var resultHtml = '';
+                        var created = resp.created || [];
+                        var errors = resp.errors || [];
+
+                        created.forEach(function(item) {
+                            var domainShow = item.domain.replace('https://', '').replace('http://', '');
+                            resultHtml += '<div class="bi-result-item bi-ok">';
+                            resultHtml += '<span class="bi-ri-icon"><i class="fas fa-check-circle"></i></span>';
+                            resultHtml += '<span class="bi-ri-domain">' + escHtml(domainShow) + '</span>';
+                            resultHtml += '<span class="bi-ri-file">← ' + escHtml(item.name) + '</span>';
+                            resultHtml += '<span class="bi-ri-status">' + (item.source === 'AI 生成' ? 'AI生成' : '成功') + '</span>';
+                            resultHtml += '</div>';
+                        });
+                        errors.forEach(function(item) {
+                            var domainShow = item.domain.replace('https://', '').replace('http://', '');
+                            resultHtml += '<div class="bi-result-item bi-err">';
+                            resultHtml += '<span class="bi-ri-icon"><i class="fas fa-times-circle"></i></span>';
+                            resultHtml += '<span class="bi-ri-domain">' + escHtml(domainShow) + '</span>';
+                            resultHtml += '<span class="bi-ri-status">' + escHtml(item.error) + '</span>';
+                            resultHtml += '</div>';
+                        });
+
+                        resultWrap.innerHTML = resultHtml;
+                        resultWrap.style.display = '';
+
+                        // 汇总
+                        var summaryHtml = '<i class="fas fa-check-circle"></i> 成功导入 <strong>' + created.length + '</strong> 个页面';
+                        if (errors.length > 0) {
+                            summaryHtml += '，<span class="bi-summary-err"><i class="fas fa-exclamation-circle"></i> ' + errors.length + ' 个失败</span>';
+                        }
+                        summary.innerHTML = summaryHtml;
+                        summary.style.display = '';
+                        if (errors.length > 0) summary.className = 'bi-summary bi-has-err';
+                        else summary.className = 'bi-summary';
+
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-check"></i> 导入完成';
+                        btn.style.background = '#5FB878';
+                        btn.style.borderColor = '#5FB878';
+
+                        // 刷新页面列表
+                        loadTree();
+                        if (typeof loadTableView === 'function' && currentPageTV) {
+                            loadTableView(currentPageTV);
+                        }
+                    };
+
+                    xhr.onerror = function() {
+                        if (progressBar) progressBar.style.display = 'none';
+                        if (progressText) progressText.style.display = 'none';
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-rocket"></i> 开始导入';
+                        layer.msg('网络错误，请重试', {icon:2});
+                    };
+
+                    xhr.send(formData);
+                }
+
+                // 首次提交（不带 mode，若 .html 不足后端会返回 need_choice）
+                doSubmit('');
+            });
+        },
+    });
+}
 </script>
 
 {% endblock %}

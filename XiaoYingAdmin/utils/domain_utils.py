@@ -189,6 +189,9 @@ def group_domains_by_root(domains: list) -> dict:
       - 分组内按字母排序
       - IP / localhost 保持自身为根
       - 端口/通配符/大小写差异会自动归一化
+      - 当根域名不在列表中时（只有子域名在），自动推断虚拟根域名：
+        对 3+ 段的域名去掉最左边一段得到候选根域名，
+        仅当被 2+ 个域名共享时才作为虚拟根域名（避免把 com.cn 等 TLD 当根域名）
     """
     if not domains:
         return {}
@@ -204,7 +207,33 @@ def group_domains_by_root(domains: list) -> dict:
         norm = _normalize_domain(d)
         norm_to_raws.setdefault(norm, []).append(d)
 
-    # 归一化名列表（去重）
+    # 第二步半：推断虚拟根域名
+    # 当根域名本身不在列表中（只有子域名在），子域名无法被分组。
+    # 对每个 3+ 段的域名，去掉最左边一段得到候选根域名。
+    # 仅当候选根域名被 2+ 个域名共享时，才添加为虚拟根域名。
+    # 这样 api.web-apply-whatsapp.com.cn 和 m.web-apply-whatsapp.com.cn
+    # 会被分组到虚拟根域名 web-apply-whatsapp.com.cn 下。
+    parent_count: dict = {}  # {候选根域名: 共享的域名数量}
+    for d in raw_list:
+        cleaned = _clean_domain(d).lower()
+        if _is_ip_or_local(cleaned):
+            continue
+        parts = cleaned.split('.')
+        if len(parts) > 2:  # 只有 3+ 段的域名才推断父域名
+            parent = '.'.join(parts[1:])
+            parent_count[parent] = parent_count.get(parent, 0) + 1
+
+    # 虚拟父域名集合：不在原始列表中，但被 2+ 个域名共享
+    virtual_parents: set = set()
+    for parent, count in parent_count.items():
+        if count >= 2 and parent not in norm_to_raws:
+            virtual_parents.add(parent)
+
+    # 将虚拟父域名加入 norm_to_raws（用于父域名查找）
+    for vp in virtual_parents:
+        norm_to_raws[vp] = [vp]  # 虚拟父域名的"原始名"用自身
+
+    # 归一化名列表（去重，包含虚拟父域名）
     norm_names = sorted(norm_to_raws.keys())
 
     # 第三步：找出每个归一化名的父域名（基于归一化名）
@@ -213,10 +242,6 @@ def group_domains_by_root(domains: list) -> dict:
         parent_of[nd] = _find_parent_domain(nd, norm_names)
 
     # 第四步：收集根域名并构建分组（使用原始域名的 first occurrence 作为分组 key）
-    root_set = set(parent_of.values())
-    # 根域名用其原始字符串
-    root_raw = {norm: norm_to_raws[norm][0] for norm in root_set}
-
     groups: dict = {}
     # 先把根域名对应的原始名作为 key
     for nd in norm_names:
@@ -224,6 +249,9 @@ def group_domains_by_root(domains: list) -> dict:
         root_key = norm_to_raws[root_norm][0]  # 根域名用第一个原始字符串
         if root_key not in groups:
             groups[root_key] = []
+        # 虚拟父域名不加入分组内的域名列表（它只是一个分组 key，不是真实页面域名）
+        if nd in virtual_parents:
+            continue
         # 子域名也用第一个原始字符串
         groups[root_key].append(norm_to_raws[nd][0])
 
