@@ -173,6 +173,129 @@ def page_category_delete(request):
 
 
 # =============================================================================
+# 清空分类/未分类/未绑定域名下的所有页面
+# =============================================================================
+
+
+@csrf_exempt
+@require_POST
+def api_page_category_clear(request):
+    """
+    POST /api/pages/categories/clear/
+    清空指定分类下的所有页面（删除页面本身）。
+
+    请求: application/json
+      {"id": 1}               // 分类 ID
+    """
+    body, error = parse_json_body(request)
+    if error is not None:
+        return error
+
+    cat_id = body.get('id')
+    if not cat_id:
+        return err('缺少分类 ID')
+
+    try:
+        cat = PageCategory.objects.get(id=cat_id)
+    except PageCategory.DoesNotExist:
+        return err('分类不存在')
+
+    # 获取该分类下的所有页面
+    pages = GeneratedPage.objects.filter(categories=cat)
+    if not request.user.is_superuser:
+        pages = pages.filter(created_by=request.user)
+
+    count = pages.count()
+    if count == 0:
+        return JsonResponse({'message': f'分类「{cat.name}」下没有页面'})
+
+    # 删除页面（会级联删除分类关联）
+    page_ids = list(pages.values_list('id', flat=True))
+    with transaction.atomic():
+        pages.delete()
+
+    log_operation(request, 'delete', 'GeneratedPage', None,
+                  f'清空分类「{cat.name}」，删除 {count} 个页面',
+                  detail={'page_ids': page_ids, 'category_id': cat_id})
+
+    return JsonResponse({
+        'message': f'已清空分类「{cat.name}」，删除 {count} 个页面',
+        'count': count,
+    })
+
+
+@csrf_exempt
+@require_POST
+def api_page_uncategorized_clear(request):
+    """
+    POST /api/pages/uncategorized/clear/
+    删除所有未分类页面（没有任何分类的页面）。
+    """
+    all_pages = GeneratedPage.objects.all()
+    if not request.user.is_superuser:
+        all_pages = all_pages.filter(created_by=request.user)
+
+    all_pages = all_pages.prefetch_related('categories')
+    uncategorized = []
+    for page in all_pages:
+        cats = list(page.categories.all())
+        if not cats:
+            uncategorized.append(page)
+
+    count = len(uncategorized)
+    if count == 0:
+        return JsonResponse({'message': '没有未分类的页面'})
+
+    page_ids = [p.id for p in uncategorized]
+    with transaction.atomic():
+        GeneratedPage.objects.filter(id__in=page_ids).delete()
+
+    log_operation(request, 'delete', 'GeneratedPage', None,
+                  f'清空未分类页面，删除 {count} 个页面',
+                  detail={'page_ids': page_ids})
+
+    return JsonResponse({
+        'message': f'已清空未分类页面，删除 {count} 个页面',
+        'count': count,
+    })
+
+
+@csrf_exempt
+@require_POST
+def api_page_unbound_clear(request):
+    """
+    POST /api/pages/unbound/clear/
+    删除所有未绑定域名的页面。
+    """
+    all_pages = GeneratedPage.objects.all()
+    if not request.user.is_superuser:
+        all_pages = all_pages.filter(created_by=request.user)
+
+    # 没有域名的页面
+    unbound = []
+    for page in all_pages:
+        if not page.domains or not any(d.strip() for d in page.domains):
+            unbound.append(page)
+
+    count = len(unbound)
+    if count == 0:
+        return JsonResponse({'message': '没有未绑定域名的页面'})
+
+    page_ids = [p.id for p in unbound]
+    with transaction.atomic():
+        GeneratedPage.objects.filter(id__in=page_ids).delete()
+
+    log_operation(request, 'delete', 'GeneratedPage', None,
+                  f'清空未绑定域名页面，删除 {count} 个页面',
+                  detail={'page_ids': page_ids})
+
+    return JsonResponse({
+        'message': f'已清空未绑定域名页面，删除 {count} 个页面',
+        'count': count,
+    })
+
+
+# =============================================================================
 # 为页面设置分类
 # =============================================================================
 

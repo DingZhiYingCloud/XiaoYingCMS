@@ -1,0 +1,43 @@
+<script>
+// ============================================================
+// 页面列表 — 工具栏事件 & 初始化
+// ============================================================
+
+// ========== 工具栏 & 搜索 ==========
+
+document.getElementById('btnSearch').addEventListener('click', function() {
+    var isTree = document.getElementById('treeView').classList.contains('active');
+    if (!isTree) loadTableView(1);
+});
+document.getElementById('btnReset').addEventListener('click', function() {
+    searchInput.value = '';
+    var isTree = document.getElementById('treeView').classList.contains('active');
+    if (!isTree) loadTableView(1);
+});
+searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        var isTree = document.getElementById('treeView').classList.contains('active');
+        if (!isTree) loadTableView(1);
+    }
+});
+
+// ========== 新增页面 ==========
+
+document.getElementById('btnCreatePage').addEventListener('click', function() {
+    openCreatePage();
+});
+
+// ========== 批量导入 ==========
+
+document.getElementById('btnBatchImport').addEventListener('click', function() {
+    openBatchImportModal();
+});
+
+// ========== 初始化：加载分类 & 树形数据 ==========
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadCategories().then(function() {
+        loadTree();
+    });
+});
+</script>

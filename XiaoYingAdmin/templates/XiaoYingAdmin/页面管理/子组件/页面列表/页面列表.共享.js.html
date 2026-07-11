@@ -1,0 +1,53 @@
+<script>
+// ============================================================
+// 页面列表 — 共享状态 & 工具函数
+// ============================================================
+
+// ---- 工具函数 ----
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ---- 共享状态 ----
+var categories = [];           // 所有分类列表
+var treeData = null;            // 缓存的树形数据
+var currentFilter = 'all';      // 当前侧边栏选中筛选条件: 'all' | 'cat_1' | 'uncategorized' | 'unbound'
+var currentPageTV = 1;          // 表格视图当前页码
+var pageSize = 15;
+var totalCount = 0;
+var tbody = document.getElementById('pageTableBody');
+var pagWrap = document.getElementById('paginationWrap');
+var totalLabel = document.getElementById('totalLabel');
+var searchInput = document.getElementById('searchKeyword');
+
+// ---- 分类 API 加载 ----
+function loadCategories() {
+    return fetch('/xiaoying_admin/api/pages/categories/')
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+            categories = resp.categories || [];
+            renderSidebar();
+            return categories;
+        });
+}
+
+// ---- 树形数据加载 ----
+function loadTree() {
+    var container = document.getElementById('treeContainer');
+    container.innerHTML = '<div class="loading-mask">加载中...</div>';
+    return fetch('/xiaoying_admin/api/pages/tree/')
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+            treeData = resp;
+            updateSidebarCounts();
+            renderTree();
+        })
+        .catch(function() {
+            container.innerHTML = '<div class="loading-mask" style="color:#FF5722;">加载失败</div>';
+        });
+}
+
+// ---- 刷新页面数据（树 + 分类数量） ----
+function refreshPageData() {
+    loadCategories().then(function() { loadTree(); });
+}
+</script>
