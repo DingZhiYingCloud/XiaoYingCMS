@@ -127,6 +127,16 @@ def api_seo_domains_tree(request):
     for root_domain in root_groups:
         root_obj = domain_map.get(root_domain)
         if not root_obj:
+            # 虚拟根域名（由 group_domains_by_root 自动推断，不在 SeoDomain 表中）
+            # 将其子域名作为独立根节点展示，避免域名"消失"
+            subs = root_groups[root_domain]
+            for sub in subs:
+                obj = domain_map.get(sub)
+                if obj and obj.id not in seen_ids:
+                    seen_ids.add(obj.id)
+                    node = obj.to_dict()
+                    node['children'] = []
+                    tree.append(node)
             continue
         seen_ids.add(root_obj.id)
 

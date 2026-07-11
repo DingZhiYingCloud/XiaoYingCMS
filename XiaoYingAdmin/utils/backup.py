@@ -78,6 +78,43 @@ def backup_model(model_class, filename_prefix: str, filters: dict = None) -> dic
     }
 
 
+def check_and_auto_backup(model_class, filename_prefix: str, threshold_field: str):
+    """检查日志数量是否达到自动备份阈值，达到则备份并清空。
+
+    由中间件在写入每条日志后调用，实现"达到阈值自动备份"功能。
+
+    Args:
+        model_class: Django Model 类（SpiderAccessLog / OperationLog）
+        filename_prefix: 备份文件名前缀，如 spider_logs、op_logs
+        threshold_field: SiteSettings 上的阈值字段名
+            auto_backup_spider_threshold / auto_backup_operation_threshold
+    """
+    # 懒导入避免循环依赖
+    from XiaoYingAdmin.models.site_settings import SiteSettings
+
+    try:
+        settings = SiteSettings.objects.get(pk=1)
+    except SiteSettings.DoesNotExist:
+        return
+
+    threshold = getattr(settings, threshold_field, 0)
+    if threshold <= 0:
+        return  # 自动备份已关闭
+
+    count = model_class.objects.count()
+    if count >= threshold:
+        logger.info("自动备份触发: %s 当前 %d 条 >= 阈值 %d", filename_prefix, count, threshold)
+        try:
+            result = backup_model(model_class, filename_prefix)
+            model_class.objects.all().delete()
+            logger.info(
+                "自动备份完成: %s 共 %d 条 | 文件: %s",
+                filename_prefix, result['count'], result['filename'],
+            )
+        except Exception as e:
+            logger.error("自动备份失败 %s: %s", filename_prefix, e)
+
+
 # ========== 恢复 / 导入功能 ==========
 
 

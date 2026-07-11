@@ -27,6 +27,7 @@ from django.db import DatabaseError
 from XiaoYingAdmin.models.generated_page import GeneratedPage
 from XiaoYingAdmin.models.seo_cloak import SeoCloakRule
 from XiaoYingAdmin.models.spider_log import SpiderAccessLog, SpiderLogConfig
+from XiaoYingAdmin.utils.backup import check_and_auto_backup
 
 
 logger = logging.getLogger(__name__)
@@ -188,5 +189,10 @@ class SpiderLogMiddleware:
             )
         except (DatabaseError, ValueError, TypeError, Exception) as e:  # noqa: BLE001 — 故意捕获所有异常，避免日志写入影响主响应
             logger.warning('SpiderLogMiddleware 写日志失败: %s', e)
+
+        # === 11. 自动备份阈值检查 ===
+        check_and_auto_backup(
+            SpiderAccessLog, 'spider_logs', 'auto_backup_spider_threshold',
+        )
 
         return response

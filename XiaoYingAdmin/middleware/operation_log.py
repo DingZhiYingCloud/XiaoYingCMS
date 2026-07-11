@@ -20,6 +20,7 @@ from django.utils.deprecation import MiddlewareMixin
 
 from XiaoYingAdmin.common.http import get_client_ip
 from XiaoYingAdmin.models.operation_log import OperationLog
+from XiaoYingAdmin.utils.backup import check_and_auto_backup
 
 
 # =============================================================================
@@ -303,6 +304,13 @@ class OperationLogMiddleware(MiddlewareMixin):
         # =====================================================================
         log_operation(request, action, target_type, target_id='',
                       target_repr=target_repr or path, detail=detail)
+
+        # =====================================================================
+        # 自动备份阈值检查（写入一条后判断是否达到阈值）
+        # =====================================================================
+        check_and_auto_backup(
+            OperationLog, 'op_logs', 'auto_backup_operation_threshold',
+        )
 
         return response
 
