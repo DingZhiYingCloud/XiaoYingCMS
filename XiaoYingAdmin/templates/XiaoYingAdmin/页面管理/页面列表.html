@@ -2257,7 +2257,7 @@ function openBatchImportModal() {
                     if (progressText) {
                         progressText.style.display = '';
                         progressText.textContent = mode === 'ai_generate'
-                            ? '正在 AI 生成页面，每个约 30-120 秒，请耐心等待...'
+                            ? '正在并行 AI 生成页面，约 1-2 分钟，请耐心等待...'
                             : '正在上传并处理 ' + domains.length + ' 个页面...';
                     }
                     if (progressFill) progressFill.style.width = '20%';
@@ -2318,7 +2318,7 @@ function openBatchImportModal() {
                             contentHtml += '</div>';
                             contentHtml += '<div style="padding:14px 16px;border:1px solid #e0e0e0;border-radius:6px;background:#e3f2fd;">';
                             contentHtml += '<div style="font-weight:600;color:#1E9FFF;margin-bottom:4px;"><i class="fas fa-robot"></i> 选项 3：AI 自动生成</div>';
-                            contentHtml += '<div style="color:#999;font-size:12px;">通过 AI 为剩余 ' + (resp.domain_count - resp.html_count) + ' 个域名生成页面（每个约 30-120 秒，耗时较长）</div>';
+                            contentHtml += '<div style="color:#999;font-size:12px;">通过 AI 为剩余 ' + (resp.domain_count - resp.html_count) + ' 个域名生成页面（并行生成，约 1-2 分钟）</div>';
                             contentHtml += '</div>';
                             contentHtml += '</div></div>';
 

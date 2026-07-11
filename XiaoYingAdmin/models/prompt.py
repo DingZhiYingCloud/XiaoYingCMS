@@ -143,15 +143,15 @@ class Prompt(BaseModel):
     @classmethod
     def get_all_active_contents(cls, category: str = 'page_generation') -> list[dict]:
         """
-        获取所有活跃提示词，返回 system_prompt 条目列表。
+        获取指定分类下所有活跃提示词，返回 system_prompt 条目列表。
 
         策略（按优先级排列）：
-          1. 如果有任意分类（不限 category）is_active=True 的提示词 → 全部返回
-          2. 全部没有 → 返回内置默认提示词（兜底）
+          1. 如果指定分类下有 is_active=True 的提示词 → 全部返回
+          2. 没有 → 返回内置默认提示词（兜底）
 
         每个条目: {"role": "system", "content": "..."}
         """
-        prompts = cls.objects.filter(is_active=True).order_by('-version')
+        prompts = cls.objects.filter(category=category, is_active=True).order_by('-version')
         if prompts.exists():
             return [{'role': 'system', 'content': p.content} for p in prompts]
         return [{'role': 'system', 'content': DEFAULT_PAGE_GENERATION_PROMPT}]

@@ -15,6 +15,7 @@
   - 'duplicate'   ：允许重复，先全部分配 .html，剩余域名随机复用
   - 'ai_generate' ：剩余域名通过 AI 自动生成页面，绑定域名和分类
 """
+import concurrent.futures
 import json
 import os
 import random
@@ -427,13 +428,26 @@ def api_batch_import_pages(request):
         })
 
     # ---------- 5. AI 生成剩余域名页面（仅 mode=ai_generate 时执行） ----------
-    for domain in ai_domains:
-        domain_display = domain.replace('https://', '').replace('http://', '')
-        result = _ai_generate_page_for_domain(domain, domain_display, cats, request)
-        if result['ok']:
-            created_pages.append(result['page'])
-        else:
-            errors.append({'domain': domain, 'error': result['error']})
+    # 使用线程池并行调用 AI，减少总等待时间（N×120s → ~120s）
+    if ai_domains:
+        ai_futures = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(5, len(ai_domains))) as executor:
+            for domain in ai_domains:
+                domain_display = domain.replace('https://', '').replace('http://', '')
+                fut = executor.submit(_ai_generate_page_for_domain, domain, domain_display, cats, request)
+                ai_futures.append((domain, fut))
+
+        for domain, fut in ai_futures:
+            try:
+                result = fut.result(timeout=180)  # 单个 AI 调用最多等 180 秒
+                if result['ok']:
+                    created_pages.append(result['page'])
+                else:
+                    errors.append({'domain': domain, 'error': result['error']})
+            except concurrent.futures.TimeoutError:
+                errors.append({'domain': domain, 'error': 'AI 生成超时（超过 180 秒）'})
+            except Exception as e:
+                errors.append({'domain': domain, 'error': f'AI 生成异常: {type(e).__name__}: {e}'})
 
     return JsonResponse({
         'ok': True,
