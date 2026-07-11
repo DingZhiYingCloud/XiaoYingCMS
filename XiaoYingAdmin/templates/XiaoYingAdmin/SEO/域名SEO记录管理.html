@@ -99,6 +99,14 @@
 /* ===== 搜索时树转平铺 ===== */
 .tree-flat .tree-children { display: block !important; }
 .tree-flat .tree-arrow { visibility: hidden; }
+
+/* ===== 批量模式 ===== */
+.tree-row.selected { background: #e6f7ff !important; box-shadow: inset 3px 0 0 #1890ff; }
+.batch-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; background: #f0f9ff; border-radius: 4px; border: 1px solid #bae7ff; }
+.batch-bar .batch-count { font-size: 13px; font-weight: 600; color: #1890ff; white-space: nowrap; }
+.batch-bar .batch-input { height: 32px; border: 1px solid #d2d2d2; border-radius: 4px; padding: 0 8px; font-size: 13px; outline: none; }
+.batch-bar .batch-input:focus { border-color: #5FB878; }
+.batch-bar .batch-textarea { height: 32px; border: 1px solid #d2d2d2; border-radius: 4px; padding: 4px 8px; font-size: 13px; outline: none; resize: vertical; min-width: 200px; }
 </style>
 {% endblock %}
 
@@ -110,12 +118,30 @@
         <span style="font-size:16px;font-weight:600;margin-left:6px;">域名SEO记录</span>
         <span style="font-size:13px;color:#999;margin-left:8px;">点击域名查看快排手段时间线 · 展开根域名查看子域名</span>
     </div>
-    <div>
+    <div id="toolbarActions">
         <button class="layui-btn layui-btn-sm" onclick="syncDomains()" id="syncBtn">
             <i class="fas fa-sync"></i> 从项目同步
         </button>
         <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="openDomainModal(null)">
             <i class="fas fa-plus"></i> 新增域名
+        </button>
+        <button class="layui-btn layui-btn-sm layui-btn-warm" onclick="enterBatchMode()">
+            <i class="fas fa-tasks"></i> 批量记录
+        </button>
+    </div>
+</div>
+
+<!-- 批量记录工具栏（默认隐藏） -->
+<div class="dsr-toolbar" id="batchToolbar" style="display:none;">
+    <div class="batch-bar">
+        <span class="batch-count" id="batchCount">已选择 0 个域名</span>
+        <input type="datetime-local" class="batch-input" id="batchDate">
+        <textarea class="batch-textarea" id="batchDesc" placeholder="操作描述，如：上传了蜘蛛池" rows="1"></textarea>
+        <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="submitBatchRecords()">
+            <i class="fas fa-check"></i> 提交
+        </button>
+        <button class="layui-btn layui-btn-sm" onclick="exitBatchMode()">
+            <i class="fas fa-times"></i> 取消
         </button>
     </div>
 </div>
@@ -183,7 +209,7 @@ function renderTreeNode(node, depth) {
 
     if (depth === 0) {
         // 根节点
-        html += '<div class="tree-root-row" onclick="toggleTree(this)">';
+        html += '<div class="tree-root-row tree-row" data-domain-id="' + node.id + '" onclick="toggleTree(this)">';
         html += '<span class="tree-arrow' + (hasChildren ? '' : ' no-children') + '"><i class="fas fa-caret-right"></i></span>';
         html += '<span class="tree-icon root"><i class="fas fa-globe"></i></span>';
         html += '<span class="tree-badge root-badge">根域名</span>';
@@ -201,7 +227,7 @@ function renderTreeNode(node, depth) {
     } else {
         // 子域名节点（任意层级）— 始终有真实 SeoDomain 记录
         var subLabel = node.domain_type_label || '子域名';
-        html += '<div class="tree-node-row" style="padding-left:' + paddingLeft + 'px" onclick="event.stopPropagation();toggleTreeNode(this)">';
+        html += '<div class="tree-node-row tree-row" data-domain-id="' + node.id + '" style="padding-left:' + paddingLeft + 'px" onclick="event.stopPropagation();toggleTreeNode(this)">';
         html += '<span class="tree-arrow' + (hasChildren ? '' : ' no-children') + '"><i class="fas fa-caret-right"></i></span>';
         html += '<span class="tree-icon child"><i class="fas fa-link"></i></span>';
         html += '<span class="tree-badge sub-badge">' + escHtml(subLabel) + '</span>';
@@ -316,6 +342,11 @@ function goPage(p) {
 
 // ===== 加载数据 =====
 function loadDomains() {
+    // 切页时如果处于批量模式，清除选择
+    if (isBatchMode) {
+        selectedDomainIds = {};
+        updateBatchCount();
+    }
     var url = '/xiaoying_admin/api/seo/domains/tree/?page=' + page + '&page_size=20';
     if (searchQuery) url += '&q=' + encodeURIComponent(searchQuery);
     fetch(url).then(function(r){return r.json()}).then(function(data){
@@ -413,6 +444,102 @@ function syncDomains() {
         else { layer.msg(data.error||'同步失败', {icon:2}); }
     }).catch(function(){ layer.msg('网络错误', {icon:2}); })
     .finally(function(){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync"></i> 从项目同步'; });
+}
+
+// ===== 批量记录模式 =====
+var isBatchMode = false;
+var selectedDomainIds = {};
+
+function getNowDateTime() {
+    var now = new Date();
+    var y = now.getFullYear();
+    var m = String(now.getMonth() + 1).padStart(2, '0');
+    var d = String(now.getDate()).padStart(2, '0');
+    var h = String(now.getHours()).padStart(2, '0');
+    var min = String(now.getMinutes()).padStart(2, '0');
+    return y + '-' + m + '-' + d + 'T' + h + ':' + min;
+}
+
+function enterBatchMode() {
+    isBatchMode = true;
+    selectedDomainIds = {};
+    document.getElementById('toolbarActions').style.display = 'none';
+    document.getElementById('batchToolbar').style.display = '';
+    document.getElementById('batchDate').value = getNowDateTime();
+    document.getElementById('batchDesc').value = '';
+    updateBatchCount();
+    // 清除旧的选中样式
+    document.querySelectorAll('.tree-row.selected').forEach(function(el) {
+        el.classList.remove('selected');
+    });
+}
+
+function exitBatchMode() {
+    isBatchMode = false;
+    selectedDomainIds = {};
+    document.getElementById('toolbarActions').style.display = '';
+    document.getElementById('batchToolbar').style.display = 'none';
+    document.querySelectorAll('.tree-row.selected').forEach(function(el) {
+        el.classList.remove('selected');
+    });
+}
+
+function updateBatchCount() {
+    var count = Object.keys(selectedDomainIds).length;
+    document.getElementById('batchCount').textContent = '已选择 ' + count + ' 个域名';
+}
+
+// 批量模式下点击树节点切换选中
+document.addEventListener('click', function(e) {
+    if (!isBatchMode) return;
+    var row = e.target.closest('.tree-row[data-domain-id]');
+    if (!row) return;
+    var id = parseInt(row.dataset.domainId);
+    if (!id || id === 0) return; // 虚拟根域名不可选
+    // 阻止事件冒泡到父级避免误触
+    e.stopPropagation();
+    if (selectedDomainIds[id]) {
+        delete selectedDomainIds[id];
+        row.classList.remove('selected');
+    } else {
+        selectedDomainIds[id] = true;
+        row.classList.add('selected');
+    }
+    updateBatchCount();
+});
+
+function submitBatchRecords() {
+    var ids = Object.keys(selectedDomainIds).map(Number);
+    if (ids.length === 0) {
+        layer.msg('请先选择至少一个域名', {icon:2});
+        return;
+    }
+    var actionDate = document.getElementById('batchDate').value.trim();
+    var description = document.getElementById('batchDesc').value.trim();
+    if (!actionDate) { layer.msg('请选择操作时间', {icon:2}); return; }
+    if (!description) { layer.msg('请输入操作描述', {icon:2}); return; }
+
+    var btn = document.querySelector('#batchToolbar .layui-btn-normal');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
+
+    fetch('/xiaoying_admin/api/seo/domains/records/batch-create/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            domain_ids: ids,
+            action_date: actionDate.replace('T', ' '),
+            description: description,
+        }),
+    }).then(function(r){return r.json()}).then(function(data){
+        if (data.ok) {
+            layer.msg(data.message, {icon:1});
+            exitBatchMode();
+            loadDomains();
+        } else {
+            layer.msg(data.error||'操作失败', {icon:2});
+        }
+    }).catch(function(){ layer.msg('网络错误', {icon:2}); })
+    .finally(function(){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> 提交'; });
 }
 
 // ===== 初始化 =====

@@ -26,6 +26,7 @@ from XiaoYingAdmin.views.seo.domain_records import (
     api_seo_domains_sync,
     api_seo_domain_records_list,
     api_seo_domain_records_create,
+    api_seo_domain_records_batch_create,
     api_seo_records_update,
     api_seo_records_delete,
 )
@@ -137,6 +138,7 @@ urlpatterns = [
     path('api/seo/domains/sync/', api_seo_domains_sync, name='api_seo_domains_sync'),
     path('api/seo/domains/<int:pk>/records/', api_seo_domain_records_list, name='api_seo_domain_records_list'),
     path('api/seo/domains/<int:pk>/records/create/', api_seo_domain_records_create, name='api_seo_domain_records_create'),
+    path('api/seo/domains/records/batch-create/', api_seo_domain_records_batch_create, name='api_seo_domain_records_batch_create'),
     path('api/seo/records/<int:pk>/update/', api_seo_records_update, name='api_seo_records_update'),
     path('api/seo/records/<int:pk>/delete/', api_seo_records_delete, name='api_seo_records_delete'),
 

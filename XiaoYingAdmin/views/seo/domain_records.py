@@ -371,6 +371,55 @@ def api_seo_domain_records_create(request, pk):
 
 @csrf_exempt
 @require_POST
+def api_seo_domain_records_batch_create(request):
+    """为多个域名批量新增同一条时间线记录
+
+    POST JSON:
+      { "domain_ids": [1,2,3], "action_date": "2026-07-11 14:30:00", "description": "上传了蜘蛛池" }
+    """
+    data, error = parse_json_body(request)
+    if error:
+        return error
+
+    domain_ids = data.get('domain_ids', [])
+    action_date_str = (data.get('action_date') or '').strip()
+    description = (data.get('description') or '').strip()
+
+    if not domain_ids or not isinstance(domain_ids, list):
+        return err('请选择至少一个域名')
+    if not action_date_str:
+        return err('操作时间不能为空')
+    if not description:
+        return err('操作描述不能为空')
+
+    action_date = _parse_dt(action_date_str)
+    if action_date is None:
+        return err('操作时间格式无效，请使用 YYYY-MM-DD HH:MM:SS 格式')
+
+    # 查重：过滤掉不存在的 domain_id
+    existing = set(SeoDomain.objects.filter(id__in=domain_ids).values_list('id', flat=True))
+    if not existing:
+        return err('所选域名均不存在')
+
+    created = []
+    for did in existing:
+        record = DomainSeoRecord(
+            seo_domain_id=did,
+            action_date=action_date,
+            description=description,
+        )
+        record.save()
+        created.append(record.to_dict())
+
+    return JsonResponse({
+        'ok': True,
+        'message': f'已为 {len(created)} 个域名创建时间线记录',
+        'records': created,
+    })
+
+
+@csrf_exempt
+@require_POST
 def api_seo_records_update(request, pk):
     """更新一条时间线记录"""
     try:
