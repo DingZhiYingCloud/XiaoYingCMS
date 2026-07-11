@@ -227,7 +227,7 @@ function renderTreeNode(node, depth) {
     } else {
         // 子域名节点（任意层级）— 始终有真实 SeoDomain 记录
         var subLabel = node.domain_type_label || '子域名';
-        html += '<div class="tree-node-row tree-row" data-domain-id="' + node.id + '" style="padding-left:' + paddingLeft + 'px" onclick="event.stopPropagation();toggleTreeNode(this)">';
+        html += '<div class="tree-node-row tree-row" data-domain-id="' + node.id + '" style="padding-left:' + paddingLeft + 'px" onclick="toggleTreeNode(this)">';
         html += '<span class="tree-arrow' + (hasChildren ? '' : ' no-children') + '"><i class="fas fa-caret-right"></i></span>';
         html += '<span class="tree-icon child"><i class="fas fa-link"></i></span>';
         html += '<span class="tree-badge sub-badge">' + escHtml(subLabel) + '</span>';
@@ -256,6 +256,8 @@ function renderTreeNode(node, depth) {
 
 // ===== 子域名行点击：有 children 则切换展开，否则进时间线 =====
 function toggleTreeNode(el) {
+    // 批量模式下不导航，由批量选择事件处理
+    if (isBatchMode) return;
     var hasChildren = el.querySelector('.tree-arrow:not(.no-children)');
     if (hasChildren) {
         toggleTree(el);
@@ -496,7 +498,9 @@ document.addEventListener('click', function(e) {
     if (!row) return;
     var id = parseInt(row.dataset.domainId);
     if (!id || id === 0) return; // 虚拟根域名不可选
-    // 阻止事件冒泡到父级避免误触
+    // 点击操作按钮（时间线/编辑/删除）时不切换选择
+    if (e.target.closest('.tree-actions, button')) return;
+    // 阻止事件冒泡到父级避免展开/收起被触发两次
     e.stopPropagation();
     if (selectedDomainIds[id]) {
         delete selectedDomainIds[id];
