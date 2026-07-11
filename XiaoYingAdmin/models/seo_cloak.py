@@ -277,20 +277,36 @@ class SeoCloakRule(models.Model):
 
         匹配顺序：
           1. 精确匹配 domain 字段（保留端口）
-          2. 去除端口再次匹配
-          3. 降级到全局默认规则（domain=''）
+          2. 通配符匹配（*.example.com → sub.example.com）
+          3. 去除端口再次精确匹配
+          4. 去除端口再次通配符匹配
+          5. 降级到全局默认规则（domain=''）
         """
         if domain:
-            # 先尝试精确匹配（含端口）
+            # 1. 精确匹配（含端口）
             rule = cls.objects.filter(domain=domain).first()
             if rule:
                 return rule
-            # 无匹配时去端口再试
+
+            # 2. 通配符匹配 — 遍历所有以 *. 开头的规则
+            wild_rules = cls.objects.filter(domain__startswith='*.')
+            for wr in wild_rules:
+                pattern = wr.domain[2:]  # 去掉 *.，得到 .example.com
+                if domain.endswith(pattern):
+                    return wr
+
+            # 3. 去除端口再次精确匹配
             clean = domain.split(':')[0]
             if clean != domain:
                 rule = cls.objects.filter(domain=clean).first()
                 if rule:
                     return rule
+                # 4. 去除端口后通配符匹配
+                for wr in wild_rules:
+                    pattern = wr.domain[2:]
+                    if clean.endswith(pattern):
+                        return wr
+
         return cls.get_singleton()
 
     def save(self, *args, **kwargs):

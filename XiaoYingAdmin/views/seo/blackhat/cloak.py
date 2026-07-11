@@ -186,10 +186,11 @@ def seo_cloak_config_save(request):
             return err(f'redirect_status_code 非法，可选：{sorted(valid_codes)}')
         rule.redirect_status_code = code
 
-    # 重定向 URL
+    # 重定向 URL（自动清除多余的反引号、引号、空格）
     for field in ('spider_redirect_url', 'search_redirect_url', 'direct_redirect_url'):
         if field in body:
-            setattr(rule, field, (body[field] or '').strip())
+            val = (body[field] or '').strip().strip('`"\' ')
+            setattr(rule, field, val)
 
     # 其他文本字段
     for field in ('whitelist_paths', 'seo_content', 'cloak_content'):
