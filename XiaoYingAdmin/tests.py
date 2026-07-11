@@ -20,7 +20,7 @@ from XiaoYingAdmin.utils.backup import (
     get_backup_dir,
     list_backup_files,
 )
-from XiaoYingAdmin.views.seo.domain_records import api_seo_domains_tree
+from XiaoYingAdmin.views.seo.domain_records import api_seo_domains_sync, api_seo_domains_tree
 
 
 class TestCheckAndAutoBackup(TestCase):
@@ -163,6 +163,26 @@ class TestSeoDomainTree(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
 
+    def _collect_all_domains(self, nodes):
+        """递归收集树中所有域名字符串"""
+        result = set()
+        for node in nodes:
+            result.add(node['domain'])
+            if node.get('children'):
+                result.update(self._collect_all_domains(node['children']))
+        return result
+
+    def _find_node(self, nodes, domain):
+        """在树中递归查找域名节点"""
+        for node in nodes:
+            if node['domain'] == domain:
+                return node
+            if node.get('children'):
+                found = self._find_node(node['children'], domain)
+                if found:
+                    return found
+        return None
+
     def test_subdomains_with_virtual_root_appear_in_tree(self):
         """
         复现 bug：多个子域名共享一个虚拟根域名时，树形 API 不显示这些域名。
@@ -192,12 +212,7 @@ class TestSeoDomainTree(TestCase):
         self.assertTrue(data['ok'], f'API 应返回 ok=True，实际: {data}')
 
         # 检查 tree 中包含这两个域名
-        all_domains_in_tree = set()
-        for node in data['tree']:
-            all_domains_in_tree.add(node['domain'])
-            for child in node.get('children', []):
-                all_domains_in_tree.add(child['domain'])
-
+        all_domains_in_tree = self._collect_all_domains(data['tree'])
         self.assertIn(
             'm.web-apply-whatsapp.com.cn',
             all_domains_in_tree,
@@ -208,6 +223,21 @@ class TestSeoDomainTree(TestCase):
             all_domains_in_tree,
             f'树中应包含 www.web-apply-whatsapp.com.cn，实际树节点: {all_domains_in_tree}',
         )
+
+        # 验证虚拟根域名有效作为根节点展现，且子域名嵌套在它下面
+        virtual_root = None
+        for node in data['tree']:
+            if node['domain'] == 'web-apply-whatsapp.com.cn':
+                virtual_root = node
+                break
+        self.assertIsNotNone(
+            virtual_root,
+            '虚拟根域名 web-apply-whatsapp.com.cn 应作为根节点出现',
+        )
+        self.assertEqual(virtual_root['id'], 0, '虚拟根域名 id 应为 0')
+        child_domains = [c['domain'] for c in (virtual_root.get('children') or [])]
+        self.assertIn('m.web-apply-whatsapp.com.cn', child_domains)
+        self.assertIn('www.web-apply-whatsapp.com.cn', child_domains)
 
     def test_single_subdomain_works(self):
         """单个子域名（没有虚拟根域名）应正常显示"""
@@ -391,3 +421,114 @@ class TestSeoDomainTreeMultiLevel(TestCase):
         all_domains = self._collect_all_domains(data['tree'])
         for d in ['www.example.com', 'api.example.com']:
             self.assertIn(d, all_domains, f'{d} 应在树中')
+
+        # 验证虚拟根域名 example.com 作为根节点出现
+        virtual_root = None
+        for node in data['tree']:
+            if node['domain'] == 'example.com':
+                virtual_root = node
+                break
+        self.assertIsNotNone(virtual_root, '虚拟根域名 example.com 应作为根节点出现')
+        child_domains = [c['domain'] for c in (virtual_root.get('children') or [])]
+        self.assertIn('www.example.com', child_domains)
+        self.assertIn('api.example.com', child_domains)
+
+
+class TestSyncAndTreeEndToEnd(TestCase):
+    """端到端测试：批量导入 → 同步 → 树形展示"""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def _collect_all_domains(self, nodes):
+        result = set()
+        for node in nodes:
+            result.add(node['domain'])
+            if node.get('children'):
+                result.update(self._collect_all_domains(node['children']))
+        return result
+
+    def test_sync_from_generated_page_and_show_in_tree(self):
+        """从单页面同步域名到SeoDomain，并在树形API中展示，且在虚拟根下正确嵌套"""
+        from XiaoYingAdmin.models.generated_page import GeneratedPage
+        import uuid
+
+        # 1. 模拟批量导入：创建两个 GeneratedPage，各有一个域名
+        GeneratedPage.objects.create(
+            name='page1.html',
+            html_content='<h1>Page 1</h1>',
+            domains=['m.web-apply-whatsapp.com.cn'],
+            task_id=uuid.uuid4(),
+        )
+        GeneratedPage.objects.create(
+            name='page2.html',
+            html_content='<h1>Page 2</h1>',
+            domains=['www.web-apply-whatsapp.com.cn'],
+            task_id=uuid.uuid4(),
+        )
+
+        # 2. 同步
+        sync_request = self.factory.post('/xiaoying_admin/api/seo/domains/sync/')
+        sync_response = api_seo_domains_sync(sync_request)
+        sync_data = json.loads(sync_response.content)
+        self.assertTrue(sync_data['ok'], '同步应成功')
+        self.assertEqual(sync_data['message'], '同步完成，新增 2 个域名',
+                         '应新增 2 个域名')
+
+        # 3. 验证 SeoDomain 记录已创建
+        self.assertTrue(
+            SeoDomain.objects.filter(domain='m.web-apply-whatsapp.com.cn').exists(),
+        )
+        self.assertTrue(
+            SeoDomain.objects.filter(domain='www.web-apply-whatsapp.com.cn').exists(),
+        )
+
+        # 4. 树形 API 应展示这两个域名，且嵌套在虚拟根下
+        tree_request = self.factory.get('/xiaoying_admin/api/seo/domains/tree/')
+        tree_response = api_seo_domains_tree(tree_request)
+        tree_data = json.loads(tree_response.content)
+        self.assertTrue(tree_data['ok'])
+
+        tree_domains = self._collect_all_domains(tree_data['tree'])
+        self.assertIn('m.web-apply-whatsapp.com.cn', tree_domains,
+                      '同步后树中应包含 m.web-apply-whatsapp.com.cn')
+        self.assertIn('www.web-apply-whatsapp.com.cn', tree_domains,
+                      '同步后树中应包含 www.web-apply-whatsapp.com.cn')
+
+        # 验证虚拟根域名出现，且子域名嵌套在它下面
+        virtual_root = None
+        for node in tree_data['tree']:
+            if node['domain'] == 'web-apply-whatsapp.com.cn':
+                virtual_root = node
+                break
+        self.assertIsNotNone(
+            virtual_root,
+            '虚拟根域名 web-apply-whatsapp.com.cn 应作为根节点',
+        )
+        child_domains = [c['domain'] for c in (virtual_root.get('children') or [])]
+        self.assertIn('m.web-apply-whatsapp.com.cn', child_domains)
+        self.assertIn('www.web-apply-whatsapp.com.cn', child_domains)
+
+    def test_sync_idempotent(self):
+        """重复同步不应新增重复域名"""
+        from XiaoYingAdmin.models.generated_page import GeneratedPage
+        import uuid
+
+        GeneratedPage.objects.create(
+            name='test.html',
+            html_content='<h1>Test</h1>',
+            domains=['test.example.com'],
+            task_id=uuid.uuid4(),
+        )
+
+        # 第一次同步
+        sync_request = self.factory.post('/xiaoying_admin/api/seo/domains/sync/')
+        sync_data = json.loads(api_seo_domains_sync(sync_request).content)
+        self.assertEqual(sync_data['message'], '同步完成，新增 1 个域名')
+
+        # 第二次同步 — 应新增 0 个
+        sync_data2 = json.loads(api_seo_domains_sync(sync_request).content)
+        self.assertEqual(sync_data2['message'], '同步完成，新增 0 个域名',
+                         '重复同步不应新增域名')
+        self.assertEqual(SeoDomain.objects.filter(domain='test.example.com').count(),
+                         1, '不应有重复域名记录')
