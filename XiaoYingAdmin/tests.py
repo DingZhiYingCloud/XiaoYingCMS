@@ -228,3 +228,166 @@ class TestSeoDomainTree(TestCase):
                 all_domains_in_tree.add(child['domain'])
 
         self.assertIn('m.web-apply-whatsapp.com.cn', all_domains_in_tree)
+
+
+class TestBuildDomainHierarchy(TestCase):
+    """测试 build_domain_hierarchy 多层级树构建"""
+
+    def test_two_levels(self):
+        """二级域名结构：a.com + www.a.com"""
+        from XiaoYingAdmin.utils.domain_utils import build_domain_hierarchy
+        result = build_domain_hierarchy(['a.com', 'www.a.com'])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['domain'], 'a.com')
+        self.assertEqual(len(result[0]['children']), 1)
+        self.assertEqual(result[0]['children'][0]['domain'], 'www.a.com')
+
+    def test_three_levels(self):
+        """三级域名结构：a.com > www.a.com > sub.www.a.com"""
+        from XiaoYingAdmin.utils.domain_utils import build_domain_hierarchy
+        result = build_domain_hierarchy(['a.com', 'www.a.com', 'sub.www.a.com'])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['domain'], 'a.com')
+        self.assertEqual(len(result[0]['children']), 1)
+        self.assertEqual(result[0]['children'][0]['domain'], 'www.a.com')
+        self.assertEqual(len(result[0]['children'][0]['children']), 1)
+        self.assertEqual(
+            result[0]['children'][0]['children'][0]['domain'],
+            'sub.www.a.com',
+        )
+
+    def test_four_levels(self):
+        """四级域名结构：a.com > www.a.com > sub.www.a.com > deep.sub.www.a.com"""
+        from XiaoYingAdmin.utils.domain_utils import build_domain_hierarchy
+        result = build_domain_hierarchy([
+            'a.com', 'www.a.com', 'sub.www.a.com', 'deep.sub.www.a.com',
+        ])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['domain'], 'a.com')
+        # 追溯最深层的域名
+        deepest = result[0]['children'][0]['children'][0]['children'][0]
+        self.assertEqual(deepest['domain'], 'deep.sub.www.a.com')
+
+    def test_multiple_roots(self):
+        """多根域名混合"""
+        from XiaoYingAdmin.utils.domain_utils import build_domain_hierarchy
+        result = build_domain_hierarchy([
+            'a.com', 'www.a.com', 'b.com', 'api.b.com',
+        ])
+        self.assertEqual(len(result), 2)
+        # 按 domain 排序
+        result.sort(key=lambda n: n['domain'])
+        self.assertEqual(result[0]['domain'], 'a.com')
+        self.assertEqual(len(result[0]['children']), 1)
+        self.assertEqual(result[1]['domain'], 'b.com')
+        self.assertEqual(len(result[1]['children']), 1)
+
+
+class TestSeoDomainTreeMultiLevel(TestCase):
+    """测试多层级域名树的 API 返回"""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def _collect_all_domains(self, nodes):
+        """递归收集树中所有域名字符串"""
+        result = set()
+        for node in nodes:
+            result.add(node['domain'])
+            if node.get('children'):
+                result.update(self._collect_all_domains(node['children']))
+        return result
+
+    def _has_hierarchy(self, nodes, parent_domain, child_domain):
+        """检查 parent_domain 下是否有直接的 child_domain 子节点"""
+        for node in nodes:
+            if node['domain'] == parent_domain and node.get('children'):
+                for child in node['children']:
+                    if child['domain'] == child_domain:
+                        return True
+                # 递归检查更深层
+                for child in node['children']:
+                    if self._has_hierarchy([child], parent_domain, child_domain):
+                        return True
+            elif node.get('children'):
+                if self._has_hierarchy(node['children'], parent_domain, child_domain):
+                    return True
+        return False
+
+    def test_multi_level_tree(self):
+        """2级+3级+4级域名混合的树形展示"""
+        # 根域名
+        SeoDomain.objects.create(domain='example.com', domain_type='root')
+        SeoDomain.objects.create(domain='test.org', domain_type='root')
+        # 二级域名
+        SeoDomain.objects.create(domain='www.example.com', domain_type='multi')
+        SeoDomain.objects.create(domain='api.example.com', domain_type='multi')
+        # 三级域名
+        SeoDomain.objects.create(domain='sub.www.example.com', domain_type='multi')
+        # 四级域名
+        SeoDomain.objects.create(
+            domain='deep.sub.www.example.com', domain_type='multi',
+        )
+
+        request = self.factory.get('/xiaoying_admin/api/seo/domains/tree/')
+        response = api_seo_domains_tree(request)
+        data = json.loads(response.content)
+        self.assertTrue(data['ok'])
+
+        # 所有域名都存在
+        all_domains = self._collect_all_domains(data['tree'])
+        for d in ['example.com', 'test.org', 'www.example.com',
+                   'api.example.com', 'sub.www.example.com',
+                   'deep.sub.www.example.com']:
+            self.assertIn(d, all_domains, f'{d} 应在树中')
+
+        # 检查层级结构：example.com is root
+        example_root = None
+        for node in data['tree']:
+            if node['domain'] == 'example.com':
+                example_root = node
+                break
+        self.assertIsNotNone(example_root, 'example.com 应作为根节点')
+        self.assertIsNotNone(example_root['children'], 'example.com 应有子节点')
+
+        # www.example.com 在 example.com 下
+        www = None
+        for child in example_root['children']:
+            if child['domain'] == 'www.example.com':
+                www = child
+                break
+        self.assertIsNotNone(www, 'www.example.com 应在 example.com 下')
+
+        # sub.www.example.com 在 www.example.com 下
+        sub = None
+        for child in www['children']:
+            if child['domain'] == 'sub.www.example.com':
+                sub = child
+                break
+        self.assertIsNotNone(sub, 'sub.www.example.com 应在 www.example.com 下')
+
+        # deep.sub.www.example.com 在 sub.www.example.com 下
+        deep = None
+        for child in sub['children']:
+            if child['domain'] == 'deep.sub.www.example.com':
+                deep = child
+                break
+        self.assertIsNotNone(
+            deep,
+            'deep.sub.www.example.com 应在 sub.www.example.com 下',
+        )
+
+    def test_virtual_root_two_levels(self):
+        """虚拟根域名下仍然保留多层级结构"""
+        # 创建两级子域名，但根域名不存在
+        SeoDomain.objects.create(domain='www.example.com', domain_type='multi')
+        SeoDomain.objects.create(domain='api.example.com', domain_type='multi')
+
+        request = self.factory.get('/xiaoying_admin/api/seo/domains/tree/')
+        response = api_seo_domains_tree(request)
+        data = json.loads(response.content)
+        self.assertTrue(data['ok'])
+
+        all_domains = self._collect_all_domains(data['tree'])
+        for d in ['www.example.com', 'api.example.com']:
+            self.assertIn(d, all_domains, f'{d} 应在树中')

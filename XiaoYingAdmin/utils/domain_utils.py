@@ -270,3 +270,83 @@ def group_domains_by_root(domains: list) -> dict:
                 break
 
     return groups
+
+
+def _find_immediate_parent(domain: str, candidates: list) -> str:
+    """
+    在 candidates 中查找 domain 的直接父域名（取最长匹配）。
+
+    与 _find_parent_domain 不同，此函数返回最近的上层域名（最长匹配字符串），
+    而非最远的根域名（最短匹配）。用于构建多层级域名树。
+
+    示例：
+      domain = 'sub.www.example.com'
+      candidates = ['example.com', 'www.example.com']
+      _find_parent_domain  → 返回 'example.com'（最短匹配，根域名）
+      _find_immediate_parent → 返回 'www.example.com'（最长匹配，直接父域名）
+    """
+    cleaned = _clean_domain(domain)
+    if _is_ip_or_local(cleaned):
+        return domain
+
+    best_parent = domain  # 默认自己就是根
+    best_len = 0
+
+    for cand in candidates:
+        c_clean = _clean_domain(cand)
+        if c_clean == cleaned:
+            continue
+        dot_candidate = '.' + c_clean
+        if cleaned.endswith(dot_candidate):
+            # 选最长的那个（最近的父域名）
+            if len(c_clean) > best_len:
+                best_parent = cand
+                best_len = len(c_clean)
+    return best_parent
+
+
+def build_domain_hierarchy(group_members: list) -> list:
+    """
+    将扁平分组成员域名列表构建为多层级树结构。
+
+    输入: ['a.com', 'www.a.com', 'sub.www.a.com', 'deep.sub.www.a.com']
+    输出:
+    [{
+        'domain': 'a.com',
+        'children': [{
+            'domain': 'www.a.com',
+            'children': [{
+                'domain': 'sub.www.a.com',
+                'children': [{
+                    'domain': 'deep.sub.www.a.com',
+                    'children': []
+                }]
+            }]
+        }]
+    }]
+
+    规则：
+      - 按域名层级排序（点数少的优先作为父域名）
+      - 每个域名找其直接父域名（最长匹配后缀）
+      - 返回顶层节点列表
+    """
+    if not group_members:
+        return []
+
+    # 按域名层级排序（点少的在前，父域名排在前面）
+    sorted_members = sorted(set(group_members), key=lambda d: d.count('.'))
+
+    # 构建节点映射 {domain: {'domain': d, 'children': []}}
+    nodes = {}
+    for d in sorted_members:
+        nodes[d] = {'domain': d, 'children': []}
+
+    # 为每个域名找直接父域名并挂载
+    for d in sorted_members:
+        parent = _find_immediate_parent(d, sorted_members)
+        if parent != d:
+            nodes[parent]['children'].append(nodes[d])
+
+    # 返回所有顶层节点（父域名是自己的）
+    return [nodes[d] for d in sorted_members
+            if _find_immediate_parent(d, sorted_members) == d]

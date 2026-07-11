@@ -21,16 +21,16 @@
 .tree-card { background: #fff; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
 
 /* ===== 树节点公共 ===== */
-.tree-root-row, .tree-child-row {
+.tree-root-row, .tree-node-row {
     display: flex; align-items: center; padding: 0 16px;
     cursor: pointer; transition: background 0.12s;
     text-decoration: none; color: inherit; gap: 8px;
 }
-.tree-root-row:hover, .tree-child-row:hover { background: #f8faf8; }
+.tree-root-row:hover, .tree-node-row:hover { background: #f8faf8; }
 
 .tree-root-row { height: 44px; border-bottom: 1px solid #f3f3f3; }
-.tree-child-row { height: 38px; padding-left: 44px; border-bottom: 1px solid #f8f8f8; }
-.tree-child-row:last-child { border-bottom: none; }
+.tree-node-row { height: 38px; border-bottom: 1px solid #f8f8f8; }
+.tree-node-row:last-child { border-bottom: none; }
 
 .tree-arrow {
     width: 16px; flex-shrink: 0; text-align: center;
@@ -156,9 +156,9 @@ function onSearch(e) {
 
 // ===== 展开/收起 =====
 function toggleTree(el) {
-    var rootNode = el.closest('.tree-root');
-    if (!rootNode) return;
-    var children = rootNode.querySelector('.tree-children');
+    var node = el.closest('.tree-node');
+    if (!node) return;
+    var children = node.querySelector(':scope > .tree-children');
     var arrow = el.querySelector('.tree-arrow');
     if (!children || !arrow) return;
     if (children.classList.contains('open')) {
@@ -167,6 +167,77 @@ function toggleTree(el) {
     } else {
         children.classList.add('open');
         arrow.classList.add('expanded');
+    }
+}
+
+// ===== 递归渲染节点 =====
+function renderTreeNode(node, depth) {
+    var hasChildren = node.children && node.children.length > 0;
+    var recordLabel = node.record_count > 0 ? node.record_count + ' 条记录' : '暂无记录';
+    var paddingLeft = 16 + depth * 28;
+    var isRealRoot = depth === 0 && node.id > 0;
+
+    var html = '<div class="tree-node">';
+
+    if (depth === 0) {
+        // 根节点
+        html += '<div class="tree-root-row" onclick="toggleTree(this)">';
+        html += '<span class="tree-arrow' + (hasChildren ? '' : ' no-children') + '"><i class="fas fa-caret-right"></i></span>';
+        html += '<span class="tree-icon root"><i class="fas fa-globe"></i></span>';
+        html += '<span class="tree-badge root-badge">根域名</span>';
+        html += '<span class="tree-label">' + escHtml(node.domain) + '</span>';
+        html += '<span class="tree-count">' + recordLabel + '</span>';
+        html += '<span class="tree-actions">' +
+            '<button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();goTimeline(' + node.id + ')"><i class="fas fa-clock"></i> 时间线</button> ' +
+            '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();openDomainModal(' + node.id + ')"><i class="fas fa-edit"></i></button> ' +
+            '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteDomain(' + node.id + ')"><i class="fas fa-trash"></i></button>' +
+        '</span>';
+        html += '</div>';
+    } else {
+        // 子域名节点（任意层级）
+        var subLabel = node.domain_type_label || '子域名';
+        html += '<div class="tree-node-row" style="padding-left:' + paddingLeft + 'px" onclick="event.stopPropagation();toggleTreeNode(this)">';
+        html += '<span class="tree-arrow' + (hasChildren ? '' : ' no-children') + '"><i class="fas fa-caret-right"></i></span>';
+        html += '<span class="tree-icon child"><i class="fas fa-link"></i></span>';
+        html += '<span class="tree-badge sub-badge">' + escHtml(subLabel) + '</span>';
+        html += '<span class="tree-label">' + escHtml(node.domain) + '</span>';
+        html += '<span class="tree-count">' + recordLabel + '</span>';
+        html += '<span class="tree-actions">' +
+            '<button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();goTimeline(' + node.id + ')"><i class="fas fa-clock"></i> 时间线</button> ' +
+            '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();openDomainModal(' + node.id + ')"><i class="fas fa-edit"></i></button> ' +
+            '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteDomain(' + node.id + ')"><i class="fas fa-trash"></i></button>' +
+        '</span>';
+        html += '</div>';
+    }
+
+    // 子节点（递归）
+    if (hasChildren) {
+        html += '<div class="tree-children">';
+        for (var j = 0; j < node.children.length; j++) {
+            html += renderTreeNode(node.children[j], depth + 1);
+        }
+        html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+// ===== 子域名行点击：有 children 则切换展开，否则进时间线 =====
+function toggleTreeNode(el) {
+    var hasChildren = el.querySelector('.tree-arrow:not(.no-children)');
+    if (hasChildren) {
+        toggleTree(el);
+    } else {
+        // 找 id 进时间线
+        var nodeEl = el.closest('.tree-node');
+        if (nodeEl) {
+            var idEl = nodeEl.querySelector('[onclick*="goTimeline"]');
+            if (idEl) {
+                var match = idEl.getAttribute('onclick').match(/goTimeline\((\d+)\)/);
+                if (match) goTimeline(parseInt(match[1]));
+            }
+        }
     }
 }
 
@@ -186,52 +257,22 @@ function renderTree(treeData) {
     var html = '<div class="' + (isSearch ? 'tree-flat' : '') + '">';
 
     for (var i = 0; i < treeData.length; i++) {
-        var r = treeData[i];
-        var hasChildren = r.children && r.children.length > 0;
-        var recordLabel = r.record_count > 0 ? r.record_count + ' 条记录' : '暂无记录';
-
-        // 根节点
-        html += '<div class="tree-root">';
-        html += '<div class="tree-root-row" onclick="toggleTree(this)">';
-        html += '<span class="tree-arrow' + (hasChildren ? '' : ' no-children') + '"><i class="fas fa-caret-right"></i></span>';
-        html += '<span class="tree-icon root"><i class="fas fa-globe"></i></span>';
-        html += '<span class="tree-badge root-badge">根域名</span>';
-        html += '<span class="tree-label">' + escHtml(r.domain) + '</span>';
-        html += '<span class="tree-count">' + recordLabel + '</span>';
-        html += '<span class="tree-actions">' +
-            '<button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();goTimeline(' + r.id + ')"><i class="fas fa-clock"></i> 时间线</button> ' +
-            '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();openDomainModal(' + r.id + ')"><i class="fas fa-edit"></i></button> ' +
-            '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteDomain(' + r.id + ')"><i class="fas fa-trash"></i></button>' +
-        '</span>';
-        html += '</div>';
-
-        // 子节点
-        if (hasChildren) {
-            html += '<div class="tree-children">';
-            for (var j = 0; j < r.children.length; j++) {
-                var c = r.children[j];
-                var childLabel = c.record_count > 0 ? c.record_count + ' 条记录' : '暂无记录';
-                html += '<div class="tree-child-row" onclick="event.stopPropagation();goTimeline(' + c.id + ')">';
-                html += '<span class="tree-arrow no-children"><i class="fas fa-caret-right"></i></span>';
-                html += '<span class="tree-icon child"><i class="fas fa-link"></i></span>';
-                html += '<span class="tree-badge sub-badge">多域名</span>';
-                html += '<span class="tree-label">' + escHtml(c.domain) + '</span>';
-                html += '<span class="tree-count">' + childLabel + '</span>';
-                html += '<span class="tree-actions">' +
-                    '<button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();goTimeline(' + c.id + ')"><i class="fas fa-clock"></i> 时间线</button> ' +
-                    '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();openDomainModal(' + c.id + ')"><i class="fas fa-edit"></i></button> ' +
-                    '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteDomain(' + c.id + ')"><i class="fas fa-trash"></i></button>' +
-                '</span>';
-                html += '</div>';
-            }
-            html += '</div>';
-        }
-
-        html += '</div>';
+        html += renderTreeNode(treeData[i], 0);
     }
 
     html += '</div>';
     container.innerHTML = html;
+
+    // 搜索时自动展开所有层级
+    if (isSearch) {
+        container.querySelectorAll('.tree-children').forEach(function(el) {
+            el.classList.add('open');
+        });
+        container.querySelectorAll('.tree-arrow').forEach(function(el) {
+            el.classList.add('expanded');
+        });
+    }
+
     renderPagination();
 }
 
@@ -285,19 +326,18 @@ function loadDomains() {
 
 // ===== 新增/编辑域名 =====
 var treeDomains = [];
-function openDomainModal(id) {
-    var r = null;
-    if (id) {
-        // 从 tree 查找
-        for (var i = 0; i < treeDomains.length; i++) { if (treeDomains[i].id === id) { r = treeDomains[i]; break; } }
-        if (!r && treeDomains.length) {
-            for (var i = 0; i < treeDomains.length; i++) {
-                var ch = treeDomains[i].children || [];
-                for (var j = 0; j < ch.length; j++) { if (ch[j].id === id) { r = ch[j]; break; } }
-                if (r) break;
-            }
+function findNodeById(list, id) {
+    for (var i = 0; i < list.length; i++) {
+        if (list[i].id === id) return list[i];
+        if (list[i].children && list[i].children.length > 0) {
+            var found = findNodeById(list[i].children, id);
+            if (found) return found;
         }
     }
+    return null;
+}
+function openDomainModal(id) {
+    var r = id ? findNodeById(treeDomains, id) : null;
     var title = r ? '编辑域名' : '新增域名';
     var domainVal = r ? escAttr(r.domain) : '';
     var typeVal = r ? r.domain_type : 'root';

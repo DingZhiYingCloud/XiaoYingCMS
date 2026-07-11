@@ -16,7 +16,10 @@ from XiaoYingAdmin.models.domain_seo_record import DomainSeoRecord
 from XiaoYingAdmin.models.generated_page import GeneratedPage
 from XiaoYingAdmin.models.multi_page_project import MultiPageProject
 from XiaoYingAdmin.models.seo_domain import SeoDomain
-from XiaoYingAdmin.utils.domain_utils import group_domains_by_root
+from XiaoYingAdmin.utils.domain_utils import (
+    build_domain_hierarchy,
+    group_domains_by_root,
+)
 
 DOMAINS_TEMPLATE = 'XiaoYingAdmin/SEO/域名SEO记录管理.html'
 TIMELINE_TEMPLATE = 'XiaoYingAdmin/SEO/域名时间线.html'
@@ -101,7 +104,7 @@ def api_seo_domains_tree(request):
     GET /xiaoying_admin/api/seo/domains/tree/?page=1&page_size=20&q=xxx
 
     返回结构：
-      tree: [{ domain, domain_type, remark, record_count, children: [{...}] }]
+      tree: [{ domain, domain_type, remark, record_count, children: [递归多层] }]
     """
     q = request.GET.get('q', '').strip()
     page = int(request.GET.get('page', 1))
@@ -121,40 +124,76 @@ def api_seo_domains_tree(request):
     root_groups = group_domains_by_root(domain_names)
     domain_map = {d.domain: d for d in all_domains}
 
-    # 构建树：每个根节点含 children
+    def _hierarchy_to_dict(hierarchy_list):
+        """将 build_domain_hierarchy 输出的结构映射为 SeoDomain dict + 递归 children。"""
+        result = []
+        for h_node in hierarchy_list:
+            domain_str = h_node['domain']
+            obj = domain_map.get(domain_str)
+            if obj:
+                node = obj.to_dict()
+            else:
+                # 虚拟根域名（不在 SeoDomain 表中）
+                node = {
+                    'id': 0,
+                    'domain': domain_str,
+                    'domain_type': 'root',
+                    'domain_type_label': '根域名',
+                    'remark': '',
+                    'record_count': 0,
+                    'create_time': '',
+                }
+            # 递归处理子域名
+            child_nodes = _hierarchy_to_dict(h_node['children']) if h_node['children'] else []
+            node['children'] = child_nodes
+            result.append(node)
+        return result
+
+    def _dedup_ids(node, seen):
+        """递归标记已见过的 id，避免重复。"""
+        if node.get('id') and node['id'] in seen:
+            return False
+        if node.get('id'):
+            seen.add(node['id'])
+        for child in node.get('children', []):
+            _dedup_ids(child, seen)
+        return True
+
+    # 构建多层级树
     tree = []
     seen_ids = set()
+
     for root_domain in root_groups:
         root_obj = domain_map.get(root_domain)
+        group_members = root_groups[root_domain]
+
         if not root_obj:
             # 虚拟根域名（由 group_domains_by_root 自动推断，不在 SeoDomain 表中）
-            # 将其子域名作为独立根节点展示，避免域名"消失"
-            subs = root_groups[root_domain]
-            for sub in subs:
-                obj = domain_map.get(sub)
-                if obj and obj.id not in seen_ids:
-                    seen_ids.add(obj.id)
-                    node = obj.to_dict()
-                    node['children'] = []
-                    tree.append(node)
+            # 用 build_domain_hierarchy 构建多层级结构，然后映射
+            hierarchy = build_domain_hierarchy(group_members)
+            for h_node in hierarchy:
+                mapped_nodes = _hierarchy_to_dict([h_node])
+                for node in mapped_nodes:
+                    _dedup_ids(node, seen_ids)
+                tree.extend(mapped_nodes)
             continue
-        seen_ids.add(root_obj.id)
 
-        subs = root_groups[root_domain]
-        children = []
-        for sub in subs:
-            if sub == root_domain:
-                continue
-            obj = domain_map.get(sub)
-            if obj and obj.id not in seen_ids:
-                seen_ids.add(obj.id)
-                children.append(obj.to_dict())
+        # 真实根域名：用 hierarchy 来组织子域名
+        hierarchy = build_domain_hierarchy(group_members)
+        for h_node in hierarchy:
+            if h_node['domain'] == root_domain:
+                node = root_obj.to_dict()
+                child_nodes = _hierarchy_to_dict(h_node['children'])
+                node['children'] = child_nodes
+                _dedup_ids(node, seen_ids)
+                tree.append(node)
+            else:
+                # 根域名不在 group 最前面（非常规情况），按独立节点处理
+                mapped = _hierarchy_to_dict([h_node])
+                for nd in mapped:
+                    _dedup_ids(nd, seen_ids)
+                tree.extend(mapped)
 
-        node = root_obj.to_dict()
-        node['children'] = children
-        tree.append(node)
-
-    # 独立的域名（没有在同一个根组中的，已全部覆盖在 tree 中）
     # 分页
     paginator = Paginator(tree, page_size)
     total = paginator.count
