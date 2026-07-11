@@ -134,6 +134,11 @@ def seo_cloak_config_save(request):
             rule = SeoCloakRule.objects.get(pk=rule_id)
         except SeoCloakRule.DoesNotExist:
             return err('规则不存在')
+        # 编辑时若 domain 有变化，先检查唯一性再赋值
+        if domain != rule.domain:
+            if SeoCloakRule.objects.filter(domain=domain).exclude(pk=rule_id).exists():
+                return err(f'域名 "{domain}" 的规则已存在')
+            rule.domain = domain
     else:
         # 新增：检查 domain 是否已存在
         if SeoCloakRule.objects.filter(domain=domain).exists():
