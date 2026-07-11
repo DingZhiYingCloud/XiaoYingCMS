@@ -179,6 +179,8 @@ function renderTreeNode(node, depth) {
 
     var html = '<div class="tree-node">';
 
+    var isVirtualRoot = (depth === 0 && node.id === 0);
+
     if (depth === 0) {
         // 根节点
         html += '<div class="tree-root-row" onclick="toggleTree(this)">';
@@ -187,14 +189,17 @@ function renderTreeNode(node, depth) {
         html += '<span class="tree-badge root-badge">根域名</span>';
         html += '<span class="tree-label">' + escHtml(node.domain) + '</span>';
         html += '<span class="tree-count">' + recordLabel + '</span>';
-        html += '<span class="tree-actions">' +
-            '<button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();goTimeline(' + node.id + ')"><i class="fas fa-clock"></i> 时间线</button> ' +
-            '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();openDomainModal(' + node.id + ')"><i class="fas fa-edit"></i></button> ' +
-            '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteDomain(' + node.id + ')"><i class="fas fa-trash"></i></button>' +
-        '</span>';
+        // 虚拟根域名（id=0）不是真实 SeoDomain 记录，不可操作
+        if (!isVirtualRoot) {
+            html += '<span class="tree-actions">' +
+                '<button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();goTimeline(' + node.id + ')"><i class="fas fa-clock"></i> 时间线</button> ' +
+                '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();openDomainModal(' + node.id + ')"><i class="fas fa-edit"></i></button> ' +
+                '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteDomain(' + node.id + ')"><i class="fas fa-trash"></i></button>' +
+            '</span>';
+        }
         html += '</div>';
     } else {
-        // 子域名节点（任意层级）
+        // 子域名节点（任意层级）— 始终有真实 SeoDomain 记录
         var subLabel = node.domain_type_label || '子域名';
         html += '<div class="tree-node-row" style="padding-left:' + paddingLeft + 'px" onclick="event.stopPropagation();toggleTreeNode(this)">';
         html += '<span class="tree-arrow' + (hasChildren ? '' : ' no-children') + '"><i class="fas fa-caret-right"></i></span>';
