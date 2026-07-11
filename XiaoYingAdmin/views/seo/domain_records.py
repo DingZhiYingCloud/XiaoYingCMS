@@ -169,8 +169,10 @@ def api_seo_domains_tree(request):
 
         if not root_obj:
             # 虚拟根域名（由 group_domains_by_root 自动推断，不在 SeoDomain 表中）
-            # 用 build_domain_hierarchy 构建多层级结构，然后映射
-            hierarchy = build_domain_hierarchy(group_members)
+            # 注意：group_members 不包含虚拟根域名本身，必须手动加入，
+            # 否则 build_domain_hierarchy 无法识别层级关系，所有子域名
+            # 都会变成独立根节点（没有父域名可匹配）。
+            hierarchy = build_domain_hierarchy([root_domain] + group_members)
             for h_node in hierarchy:
                 mapped_nodes = _hierarchy_to_dict([h_node])
                 for node in mapped_nodes:

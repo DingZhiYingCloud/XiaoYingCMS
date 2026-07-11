@@ -179,19 +179,24 @@ function renderTreeNode(node, depth) {
 
     var html = '<div class="tree-node">';
 
+    // 虚拟根节点（id=0，由 group_domains_by_root 自动推断，不在 DB 中）不显示操作按钮
+    var isVirtualRoot = !node.id;
+
     if (depth === 0) {
         // 根节点
         html += '<div class="tree-root-row" onclick="toggleTree(this)">';
         html += '<span class="tree-arrow' + (hasChildren ? '' : ' no-children') + '"><i class="fas fa-caret-right"></i></span>';
         html += '<span class="tree-icon root"><i class="fas fa-globe"></i></span>';
-        html += '<span class="tree-badge root-badge">根域名</span>';
+        html += '<span class="tree-badge root-badge">' + (isVirtualRoot ? '虚拟根' : '根域名') + '</span>';
         html += '<span class="tree-label">' + escHtml(node.domain) + '</span>';
         html += '<span class="tree-count">' + recordLabel + '</span>';
-        html += '<span class="tree-actions">' +
-            '<button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();goTimeline(' + node.id + ')"><i class="fas fa-clock"></i> 时间线</button> ' +
-            '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();openDomainModal(' + node.id + ')"><i class="fas fa-edit"></i></button> ' +
-            '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteDomain(' + node.id + ')"><i class="fas fa-trash"></i></button>' +
-        '</span>';
+        if (!isVirtualRoot) {
+            html += '<span class="tree-actions">' +
+                '<button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();goTimeline(' + node.id + ')"><i class="fas fa-clock"></i> 时间线</button> ' +
+                '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();openDomainModal(' + node.id + ')"><i class="fas fa-edit"></i></button> ' +
+                '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteDomain(' + node.id + ')"><i class="fas fa-trash"></i></button>' +
+            '</span>';
+        }
         html += '</div>';
     } else {
         // 子域名节点（任意层级）
@@ -202,11 +207,13 @@ function renderTreeNode(node, depth) {
         html += '<span class="tree-badge sub-badge">' + escHtml(subLabel) + '</span>';
         html += '<span class="tree-label">' + escHtml(node.domain) + '</span>';
         html += '<span class="tree-count">' + recordLabel + '</span>';
-        html += '<span class="tree-actions">' +
-            '<button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();goTimeline(' + node.id + ')"><i class="fas fa-clock"></i> 时间线</button> ' +
-            '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();openDomainModal(' + node.id + ')"><i class="fas fa-edit"></i></button> ' +
-            '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteDomain(' + node.id + ')"><i class="fas fa-trash"></i></button>' +
-        '</span>';
+        if (!isVirtualRoot) {
+            html += '<span class="tree-actions">' +
+                '<button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();goTimeline(' + node.id + ')"><i class="fas fa-clock"></i> 时间线</button> ' +
+                '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();openDomainModal(' + node.id + ')"><i class="fas fa-edit"></i></button> ' +
+                '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteDomain(' + node.id + ')"><i class="fas fa-trash"></i></button>' +
+            '</span>';
+        }
         html += '</div>';
     }
 
