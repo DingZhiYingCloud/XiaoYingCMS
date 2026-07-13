@@ -335,4 +335,73 @@ function openEditCategory(id) {
         }).catch(function() { layer.close(ld); layer.msg('更新失败', {icon:2}); });
     });
 }
+
+// ===== 批量分类 =====
+function openBatchCategorizeModal() {
+    var catHtml = '<div style="padding:15px 20px;">';
+
+    // 分类下拉
+    var cats = window.categories || [];
+    catHtml += '<div style="margin-bottom:12px;">';
+    catHtml += '<label style="display:block;font-size:13px;color:#666;margin-bottom:6px;"><i class="fas fa-folder" style="color:#5FB878;"></i> 目标分类</label>';
+    catHtml += '<select id="batchCatSelect" class="layui-input" style="height:36px;">';
+    catHtml += '<option value="">请选择分类...</option>';
+    cats.forEach(function(c) {
+        catHtml += '<option value="' + c.id + '">' + escHtml(c.name) + '</option>';
+    });
+    catHtml += '</select>';
+    catHtml += '</div>';
+
+    // 域名过滤
+    catHtml += '<div style="margin-bottom:12px;">';
+    catHtml += '<label style="display:block;font-size:13px;color:#666;margin-bottom:6px;"><i class="fas fa-filter"></i> 域名过滤（可选，留空则全部未分类页面）</label>';
+    catHtml += '<input type="text" id="batchCatDomain" class="layui-input" placeholder="如：example.com">';
+    catHtml += '</div>';
+
+    // 说明
+    catHtml += '<div style="font-size:12px;color:#999;margin-bottom:12px;">';
+    catHtml += '<i class="fas fa-info-circle"></i> 将所有未分类的页面批量分配到所选分类。';
+    catHtml += '</div>';
+
+    catHtml += '<div style="text-align:center;">';
+    catHtml += '<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" id="batchCatSubmitBtn"><i class="fas fa-check"></i> 执行批量分类</button>';
+    catHtml += '</div>';
+    catHtml += '</div>';
+
+    layer.open({
+        type: 1,
+        title: '<i class="fas fa-tags" style="color:#5FB878;"></i> 批量分类',
+        area: ['380px', '300px'],
+        shadeClose: true,
+        content: catHtml,
+        success: function(layero) {
+            layero.find('#batchCatSubmitBtn').on('click', function() {
+                var categoryId = parseInt(layero.find('#batchCatSelect').val());
+                if (!categoryId) { layer.msg('请选择目标分类', {icon:2}); return; }
+                var domain = layero.find('#batchCatDomain').val().trim();
+                var btn = this;
+                btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                var body = { category_id: categoryId };
+                if (domain) body.domain = domain;
+                fetch('/xiaoying_admin/api/pages/saved/batch-categorize/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                }).then(function(r) { return r.json(); }).then(function(resp) {
+                    if (resp.ok) {
+                        layer.msg(resp.message || '批量分类成功', {icon:1});
+                        layer.closeAll();
+                        loadTree();
+                    } else {
+                        layer.msg(resp.error || '批量分类失败', {icon:2});
+                        btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> 执行批量分类';
+                    }
+                }).catch(function() {
+                    layer.msg('网络错误', {icon:2});
+                    btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> 执行批量分类';
+                });
+            });
+        },
+    });
+}
 </script>
