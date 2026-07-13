@@ -123,6 +123,12 @@
         "icon": "",
         "url": "/xiaoying_admin/seo/domain-records/",
         "children": []
+      },
+      {
+        "name": "SEO测试流程",
+        "icon": "",
+        "url": "/xiaoying_admin/seo/test-workflows/",
+        "children": []
       }
     ]
   },

@@ -30,6 +30,21 @@ from XiaoYingAdmin.views.seo.domain_records import (
     api_seo_records_update,
     api_seo_records_delete,
 )
+from XiaoYingAdmin.views.seo.test_workflow import (
+    test_workflow_list_view,
+    test_workflow_detail_view,
+    api_test_workflow_list,
+    api_test_workflow_create,
+    api_test_workflow_update,
+    api_test_workflow_delete,
+    api_test_workflow_detail,
+    api_test_workflow_step_create,
+    api_test_workflow_step_update,
+    api_test_workflow_step_complete,
+    api_test_workflow_step_delete,
+    api_seo_domains_for_workflow,
+    api_test_workflow_set_result,
+)
 from XiaoYingAdmin.views.spider.logs import (
     spider_logs_view,
     spider_logs_api_list,
@@ -141,6 +156,21 @@ urlpatterns = [
     path('api/seo/domains/records/batch-create/', api_seo_domain_records_batch_create, name='api_seo_domain_records_batch_create'),
     path('api/seo/records/<int:pk>/update/', api_seo_records_update, name='api_seo_records_update'),
     path('api/seo/records/<int:pk>/delete/', api_seo_records_delete, name='api_seo_records_delete'),
+
+    # SEO 测试流程
+    path('seo/test-workflows/', test_workflow_list_view, name='test_workflow_list'),
+    path('seo/test-workflows/<int:pk>/', test_workflow_detail_view, name='test_workflow_detail'),
+    path('api/seo/test-workflows/list/', api_test_workflow_list, name='api_test_workflow_list'),
+    path('api/seo/test-workflows/create/', api_test_workflow_create, name='api_test_workflow_create'),
+    path('api/seo/test-workflows/<int:pk>/update/', api_test_workflow_update, name='api_test_workflow_update'),
+    path('api/seo/test-workflows/<int:pk>/delete/', api_test_workflow_delete, name='api_test_workflow_delete'),
+    path('api/seo/test-workflows/<int:pk>/', api_test_workflow_detail, name='api_test_workflow_detail'),
+    path('api/seo/test-workflows/<int:pk>/steps/create/', api_test_workflow_step_create, name='api_test_workflow_step_create'),
+    path('api/seo/test-workflows/<int:pk>/steps/<int:step_pk>/update/', api_test_workflow_step_update, name='api_test_workflow_step_update'),
+    path('api/seo/test-workflows/<int:pk>/steps/<int:step_pk>/complete/', api_test_workflow_step_complete, name='api_test_workflow_step_complete'),
+    path('api/seo/test-workflows/<int:pk>/steps/<int:step_pk>/delete/', api_test_workflow_step_delete, name='api_test_workflow_step_delete'),
+    path('api/seo/test-workflows/<int:pk>/set-result/', api_test_workflow_set_result, name='api_test_workflow_set_result'),
+    path('api/seo/domains/for-workflow/', api_seo_domains_for_workflow, name='api_seo_domains_for_workflow'),
 
     # AJAX API: 已保存页面
     path('api/pages/saved/', admin_request.api_saved_pages, name='api_saved_pages'),

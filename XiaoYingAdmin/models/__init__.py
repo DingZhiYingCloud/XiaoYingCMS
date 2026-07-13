@@ -17,6 +17,7 @@ from XiaoYingAdmin.models.multi_page import MultiPage
 from XiaoYingAdmin.models.multi_page_config import MultiPageConfig
 from XiaoYingAdmin.models.seo_domain import SeoDomain
 from XiaoYingAdmin.models.domain_seo_record import DomainSeoRecord
+from XiaoYingAdmin.models.seo_test_workflow import SeoTestWorkflow, SeoTestWorkflowStep
 
 __all__ = [
     'BaseModel',
@@ -39,4 +40,6 @@ __all__ = [
     'DomainSeoRecord',
     'MultiPageConfig',
     'SeoDomain',
+    'SeoTestWorkflow',
+    'SeoTestWorkflowStep',
 ]
