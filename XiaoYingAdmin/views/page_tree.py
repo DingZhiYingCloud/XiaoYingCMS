@@ -20,7 +20,7 @@ from XiaoYingAdmin.common.http import parse_json_body, err
 from XiaoYingAdmin.middleware.operation_log import log_operation
 from XiaoYingAdmin.models.generated_page import GeneratedPage
 from XiaoYingAdmin.models.page_category import PageCategory
-from XiaoYingAdmin.utils.domain_utils import group_domains_by_root
+from XiaoYingAdmin.utils.domain_utils import group_domains_by_root, _find_parent_domain
 
 
 # =============================================================================
@@ -463,10 +463,29 @@ def _build_domain_tree(pages):
     all_domains = list(domain_to_pages.keys())
     root_groups = group_domains_by_root(all_domains)
 
-    # 第三步：构建树形结构
+    # 第三步：展开虚假根域名
+    # group_domains_by_root 可能推断出 2 段的虚拟根域名（如 com.cn、hl.cn），
+    # 这些实际上是公共后缀而非真实根域名。对此类虚拟根域名，用 _find_parent_domain
+    # 在其成员中重新查找正确的父域名，实现子域名正确归属。
+    expanded_groups = {}
+    for root, domain_list in root_groups.items():
+        is_virtual = root not in domain_to_pages
+        if is_virtual and len(root.split('.')) <= 2:
+            members = sorted(domain_list)
+            # 找出每个成员的正确父域名（在其同级域名中查找）
+            groups = {}
+            for d in members:
+                p = _find_parent_domain(d, members)
+                groups.setdefault(p, []).append(d)
+            for new_root, new_domains in groups.items():
+                expanded_groups.setdefault(new_root, []).extend(new_domains)
+        else:
+            expanded_groups.setdefault(root, []).extend(domain_list)
+
+    # 第四步：构建树形结构
     result = []
-    for root in sorted(root_groups.keys()):
-        domain_list = root_groups[root]
+    for root in sorted(expanded_groups.keys()):
+        domain_list = expanded_groups[root]
         domains_node = []
         for d in sorted(domain_list):
             pages_for_domain = domain_to_pages.get(d, [])

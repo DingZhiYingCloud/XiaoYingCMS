@@ -434,6 +434,95 @@ class TestSeoDomainTreeMultiLevel(TestCase):
         self.assertIn('api.example.com', child_domains)
 
 
+class TestPageTreeDomainGrouping(TestCase):
+    """页面列表树形视图中域名分组正确性"""
+
+    def test_com_cn_domains_not_grouped_under_com_cn(self):
+        """多个 *.com.cn 域名不应被错误分组到 2 段虚拟根域名 com.cn 下"""
+        from XiaoYingAdmin.views.page_tree import _build_domain_tree
+        from XiaoYingAdmin.models.generated_page import GeneratedPage
+
+        # 模拟线上：多个独立的 *.com.cn 域名，其中 new-xiaoying.com.cn 有子域名
+        pages_data = [
+            {'name': 'page1', 'domains': ['new-xiaoying.com.cn']},
+            {'name': 'page2', 'domains': ['app.new-xiaoying.com.cn']},
+            {'name': 'page3', 'domains': ['im.new-xiaoying.com.cn']},
+            {'name': 'page4', 'domains': ['help-xiaoying-chat.com.cn']},
+            {'name': 'page5', 'domains': ['m-xiaoying-chat.com.cn']},
+        ]
+        pages = [GeneratedPage(name=d['name'], domains=d['domains']) for d in pages_data]
+        result = _build_domain_tree(pages)
+
+        # 不应出现 com.cn 作为根域名
+        root_names = [r['root'] for r in result]
+        self.assertNotIn('com.cn', root_names, 'com.cn 不应作为根域名出现')
+
+        # new-xiaoying.com.cn 应作为根域名，且包含 app. 和 im. 子域名
+        root_new = None
+        for r in result:
+            if r['root'] == 'new-xiaoying.com.cn':
+                root_new = r
+                break
+        self.assertIsNotNone(root_new, 'new-xiaoying.com.cn 应作为根域名')
+        child_domains = [d['domain'] for d in root_new['domains']]
+        self.assertIn('app.new-xiaoying.com.cn', child_domains)
+        self.assertIn('im.new-xiaoying.com.cn', child_domains)
+        self.assertIn('new-xiaoying.com.cn', child_domains)
+
+        # help-xiaoying-chat.com.cn 和 m-xiaoying-chat.com.cn 应作为独立根域名
+        self.assertIn('help-xiaoying-chat.com.cn', root_names)
+        self.assertIn('m-xiaoying-chat.com.cn', root_names)
+
+    def test_hl_cn_domains_grouped_correctly(self):
+        """多个 *.hl.cn 域名，chat-xiaoying.hl.cn 应作为根域名包含其子域名"""
+        from XiaoYingAdmin.views.page_tree import _build_domain_tree
+        from XiaoYingAdmin.models.generated_page import GeneratedPage
+
+        pages_data = [
+            {'name': 'page1', 'domains': ['chat-xiaoying.hl.cn']},
+            {'name': 'page2', 'domains': ['app.chat-xiaoying.hl.cn']},
+            {'name': 'page3', 'domains': ['www.chat-xiaoying.hl.cn']},
+            {'name': 'page4', 'domains': ['for-xiaoiyng.hl.cn']},
+        ]
+        pages = [GeneratedPage(name=d['name'], domains=d['domains']) for d in pages_data]
+        result = _build_domain_tree(pages)
+
+        root_names = [r['root'] for r in result]
+        self.assertNotIn('hl.cn', root_names, 'hl.cn 不应作为根域名出现')
+
+        # chat-xiaoying.hl.cn 应作为根域名，包含 app. 和 www. 子域名
+        root_chat = None
+        for r in result:
+            if r['root'] == 'chat-xiaoying.hl.cn':
+                root_chat = r
+                break
+        self.assertIsNotNone(root_chat, 'chat-xiaoying.hl.cn 应作为根域名')
+        child_domains = [d['domain'] for d in root_chat['domains']]
+        self.assertIn('chat-xiaoying.hl.cn', child_domains)
+        self.assertIn('app.chat-xiaoying.hl.cn', child_domains)
+        self.assertIn('www.chat-xiaoying.hl.cn', child_domains)
+
+        # for-xiaoiyng.hl.cn 没有子域名，独立作为根域名
+        self.assertIn('for-xiaoiyng.hl.cn', root_names)
+
+    def test_virtual_root_three_segments_preserved(self):
+        """3 段虚拟根域名（如 web-apply-whatsapp.com.cn）仍应被正常推断"""
+        from XiaoYingAdmin.views.page_tree import _build_domain_tree
+        from XiaoYingAdmin.models.generated_page import GeneratedPage
+
+        # 4 段域名共享同一个 3 段父域名 → 虚拟根域名应被正常保留
+        pages_data = [
+            {'name': 'page1', 'domains': ['m.web-apply-whatsapp.com.cn']},
+            {'name': 'page2', 'domains': ['www.web-apply-whatsapp.com.cn']},
+        ]
+        pages = [GeneratedPage(name=d['name'], domains=d['domains']) for d in pages_data]
+        result = _build_domain_tree(pages)
+
+        root_names = [r['root'] for r in result]
+        self.assertIn('web-apply-whatsapp.com.cn', root_names,
+                      '3 段虚拟根域名应被正常推断保留')
+
+
 class TestSyncAndTreeEndToEnd(TestCase):
     """端到端测试：批量导入 → 同步 → 树形展示"""
 
