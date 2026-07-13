@@ -18,6 +18,10 @@ from XiaoYingAdmin.models.multi_page_config import MultiPageConfig
 from XiaoYingAdmin.models.seo_domain import SeoDomain
 from XiaoYingAdmin.models.domain_seo_record import DomainSeoRecord
 from XiaoYingAdmin.models.seo_test_workflow import SeoTestWorkflow, SeoTestWorkflowStep
+from XiaoYingAdmin.models.finance import (
+    Debt, FinanceBalance, FinanceTransaction, DailyExpense,
+    FriendCategory, EventType, Friend, FriendEvent,
+)
 
 __all__ = [
     'BaseModel',
@@ -42,4 +46,12 @@ __all__ = [
     'SeoDomain',
     'SeoTestWorkflow',
     'SeoTestWorkflowStep',
+    'Debt',
+    'FinanceBalance',
+    'FinanceTransaction',
+    'DailyExpense',
+    'FriendCategory',
+    'EventType',
+    'Friend',
+    'FriendEvent',
 ]

@@ -1,0 +1,742 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% load static %}
+
+{% block title %}好友管理 — {{ site_name }}{% endblock %}
+
+{% block head %}
+<style>
+.event-todo { color:#e67e22; }
+.event-done { color:#27ae60; }
+.friend-avatar {
+  display:inline-block;width:32px;height:32px;border-radius:50%;
+  background:#3498db;color:#fff;text-align:center;line-height:32px;
+  font-size:14px;font-weight:600;margin-right:8px;
+}
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+</style>
+{% endblock %}
+
+{% block body %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+  <div>
+    <i class="fas fa-user-friends" style="color:#3498db;font-size:20px;"></i>
+    <span style="font-size:16px;font-weight:600;color:#393D49;margin-left:6px;">好友管理</span>
+  </div>
+  <div>
+    <button class="layui-btn layui-btn-sm" onclick="switchMainTab('friend')" id="mainTabFriend">好友列表</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="switchMainTab('category')" id="mainTabCategory">分类管理</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="switchMainTab('eventType')" id="mainTabEventType">事件类型</button>
+  </div>
+</div>
+
+{# ===== 好友列表 ===== #}
+<div id="paneFriend" class="tab-pane active">
+  <div style="margin-bottom:10px;">
+    <select id="categoryFilter" style="width:160px;height:30px;border:1px solid #ddd;border-radius:4px;padding:0 8px;" onchange="currentFriendPage=1;loadFriends()">
+      <option value="">全部分类</option>
+    </select>
+    <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="showFriendForm()" style="float:right;">
+      <i class="fas fa-plus"></i> 新增好友
+    </button>
+  </div>
+  <div class="layui-card">
+    <div class="layui-card-body" style="padding:0;">
+      <table class="layui-table" style="margin:0;font-size:13px;">
+        <thead><tr>
+          <th>姓名</th><th style="width:120px;">分类</th><th>备注</th><th style="width:180px;">操作</th>
+        </tr></thead>
+        <tbody id="friendTableBody">
+          <tr id="friendEmptyRow"><td colspan="4" style="text-align:center;padding:40px 0;color:#ccc;">
+            <i class="fas fa-users" style="font-size:36px;display:block;margin-bottom:8px;"></i>
+            暂无好友
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div id="friendPaginationBar" style="margin-top:10px;text-align:center;"></div>
+
+  {# 好友事件列表 #}
+  <div style="margin-top:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-size:15px;font-weight:600;color:#393D49;">
+        <i class="fas fa-calendar-alt" style="color:#e67e22;"></i> 好友事件
+      </span>
+      <div>
+        <select id="eventFriendFilter" style="width:160px;height:30px;border:1px solid #ddd;border-radius:4px;padding:0 8px;" onchange="currentEventPage=1;loadEvents()">
+          <option value="">全部好友</option>
+        </select>
+        <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="showEventForm()">
+          <i class="fas fa-plus"></i> 新增事件
+        </button>
+      </div>
+    </div>
+    <div class="layui-card">
+      <div class="layui-card-body" style="padding:0;">
+        <table class="layui-table" style="margin:0;font-size:13px;">
+          <thead><tr>
+            <th style="width:80px;">好友</th><th style="width:90px;">类型</th><th>标题</th><th>描述</th>
+            <th style="width:100px;">事件日期</th><th style="width:70px;">状态</th><th style="width:140px;">操作</th>
+          </tr></thead>
+          <tbody id="eventTableBody">
+            <tr id="eventEmptyRow"><td colspan="7" style="text-align:center;padding:40px 0;color:#ccc;">
+              <i class="fas fa-calendar-alt" style="font-size:36px;display:block;margin-bottom:8px;"></i>
+              暂无事件
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div id="eventPaginationBar" style="margin-top:10px;text-align:center;"></div>
+  </div>
+</div>
+
+{# ===== 分类管理 ===== #}
+<div id="paneCategory" class="tab-pane">
+  <div style="margin-bottom:10px;text-align:right;">
+    <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="showCategoryForm()"><i class="fas fa-plus"></i> 新增分类</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="initPresetCategories()"><i class="fas fa-magic"></i> 生成预设分类</button>
+  </div>
+  <div class="layui-card">
+    <div class="layui-card-body" style="padding:0;">
+      <table class="layui-table" style="margin:0;font-size:13px;">
+        <thead><tr>
+          <th>分类名称</th><th style="width:80px;">排序</th><th style="width:80px;">预设</th><th style="width:100px;">操作</th>
+        </tr></thead>
+        <tbody id="categoryTableBody">
+          <tr><td colspan="4" style="text-align:center;padding:30px 0;color:#ccc;">加载中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ===== 事件类型管理 ===== #}
+<div id="paneEventType" class="tab-pane">
+  <div style="margin-bottom:10px;text-align:right;">
+    <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="showEventTypeForm()"><i class="fas fa-plus"></i> 新增类型</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="initPresetEventTypes()"><i class="fas fa-magic"></i> 生成预设类型</button>
+  </div>
+  <div class="layui-card">
+    <div class="layui-card-body" style="padding:0;">
+      <table class="layui-table" style="margin:0;font-size:13px;">
+        <thead><tr>
+          <th>类型名称</th><th style="width:80px;">预设</th><th style="width:100px;">操作</th>
+        </tr></thead>
+        <tbody id="eventTypeTableBody">
+          <tr><td colspan="3" style="text-align:center;padding:30px 0;color:#ccc;">加载中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+let layer, form;
+let currentFriendPage = 1;
+let currentEventPage = 1;
+layui.use(['layer', 'form'], function() {
+  layer = layui.layer;
+  form = layui.form;
+  loadFriends();
+  loadEvents();
+  loadCategories();
+  loadEventTypes();
+});
+
+function switchMainTab(tab) {
+  document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+  document.getElementById('pane' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  ['Friend','Category','EventType'].forEach(function(t) {
+    var btn = document.getElementById('mainTab' + t);
+    if (btn) btn.className = 'layui-btn layui-btn-sm' + (t.toLowerCase() === tab ? '' : ' layui-btn-primary');
+  });
+}
+
+// ===================================================================
+// 分类
+// ===================================================================
+function loadCategories() {
+  fetch('/xiaoying_admin/api/finance/friend/categories/', {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) return;
+    // 填充分类表格
+    var html = '';
+    res.list.forEach(function(c) {
+      html += '<tr>' +
+        '<td><strong>' + escHtml(c.name) + '</strong></td>' +
+        '<td>' + c.sort_order + '</td>' +
+        '<td>' + (c.is_preset ? '<span class="layui-badge layui-bg-green">预设</span>' : '<span class="layui-badge">自定义</span>') + '</td>' +
+        '<td>' +
+          '<button class="layui-btn layui-btn-xs" onclick="showCategoryForm(' + c.id + ')"><i class="fas fa-edit"></i></button> ' +
+          (c.is_preset ? '' : '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteCategory(' + c.id + ')"><i class="fas fa-trash"></i></button>') +
+        '</td></tr>';
+    });
+    document.getElementById('categoryTableBody').innerHTML = html;
+
+    // 填充分类下拉
+    var sel = document.getElementById('categoryFilter');
+    sel.innerHTML = '<option value="">全部分类</option>';
+    res.list.forEach(function(c) {
+      sel.innerHTML += '<option value="' + c.id + '">' + escHtml(c.name) + '</option>';
+    });
+  });
+}
+
+function showCategoryForm(id) {
+  // 简单创建表单
+  var html = [
+    '<div style="padding:18px 20px;">',
+    '<input type="hidden" id="catId" value="' + (id || '') + '">',
+    '<div class="layui-form-item"><label class="layui-form-label" style="width:70px;">名称</label><div class="layui-input-block" style="margin-left:90px;">',
+    '<input type="text" id="catName" class="layui-input" placeholder="分类名称" value="">',
+    '</div></div>',
+    '<div class="layui-form-item"><label class="layui-form-label" style="width:70px;">排序</label><div class="layui-input-block" style="margin-left:90px;">',
+    '<input type="number" id="catSort" class="layui-input" value="0">',
+    '</div></div>',
+    '<div style="text-align:center;margin-top:10px;">',
+    '<button class="layui-btn" onclick="submitCategory()"><i class="fas fa-save"></i> 保存</button>',
+    '</div></div>',
+  ].join('\n');
+
+  if (id) {
+    fetch('/xiaoying_admin/api/finance/friend/categories/', {credentials: 'same-origin'})
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (!res.ok) return;
+      var c = res.list.find(function(x) { return x.id === id; });
+      if (!c) return;
+      layer.open({
+        type: 1, title: '编辑分类', area: ['380px', '220px'],
+        shadeClose: true, content: html,
+        success: function() {
+          document.getElementById('catName').value = c.name;
+          document.getElementById('catSort').value = c.sort_order;
+        },
+      });
+    });
+  } else {
+    layer.open({type:1, title:'新增分类', area:['380px','220px'], shadeClose:true, content:html});
+  }
+}
+
+function submitCategory() {
+  var id = document.getElementById('catId').value;
+  var name = document.getElementById('catName').value.trim();
+  var sort_order = document.getElementById('catSort').value;
+  if (!name) { layer.msg('请输入分类名称', {icon:2}); return; }
+  fetch('/xiaoying_admin/api/finance/friend/categories/save/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id || null, name: name, sort_order: parseInt(sort_order) || 0}),
+    credentials: 'same-origin',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.ok) { layer.msg('保存成功', {icon:1}); layer.closeAll(); loadCategories(); }
+    else { layer.msg(res.error, {icon:2}); }
+  });
+}
+
+function deleteCategory(id) {
+  layer.confirm('确定删除此分类？关联好友将变为未分类', {icon:3, title:'确认', btn:['删除','取消']}, function() {
+    fetch('/xiaoying_admin/api/finance/friend/categories/delete/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: id}),
+      credentials: 'same-origin',
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.ok) { layer.msg('已删除', {icon:1}); loadCategories(); }
+      else { layer.msg(res.error, {icon:2}); }
+    });
+  });
+}
+
+function initPresetCategories() {
+  fetch('/xiaoying_admin/api/finance/friend/categories/presets/', {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    layer.msg(res.message, {icon: res.ok ? 1 : 2});
+    if (res.ok) loadCategories();
+  });
+}
+
+// ===================================================================
+// 事件类型
+// ===================================================================
+function loadEventTypes() {
+  fetch('/xiaoying_admin/api/finance/friend/event-types/', {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) return;
+    var html = '';
+    res.list.forEach(function(t) {
+      html += '<tr>' +
+        '<td><strong>' + escHtml(t.name) + '</strong></td>' +
+        '<td>' + (t.is_preset ? '<span class="layui-badge layui-bg-green">预设</span>' : '<span class="layui-badge">自定义</span>') + '</td>' +
+        '<td>' +
+          '<button class="layui-btn layui-btn-xs" onclick="showEventTypeForm(' + t.id + ')"><i class="fas fa-edit"></i></button> ' +
+          (t.is_preset ? '' : '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteEventType(' + t.id + ')"><i class="fas fa-trash"></i></button>') +
+        '</td></tr>';
+    });
+    document.getElementById('eventTypeTableBody').innerHTML = html;
+  });
+}
+
+function showEventTypeForm(id) {
+  var html = [
+    '<div style="padding:18px 20px;">',
+    '<input type="hidden" id="etId" value="' + (id || '') + '">',
+    '<div class="layui-form-item"><label class="layui-form-label" style="width:70px;">名称</label><div class="layui-input-block" style="margin-left:90px;">',
+    '<input type="text" id="etName" class="layui-input" placeholder="类型名称" value="">',
+    '</div></div>',
+    '<div style="text-align:center;margin-top:10px;">',
+    '<button class="layui-btn" onclick="submitEventType()"><i class="fas fa-save"></i> 保存</button>',
+    '</div></div>',
+  ].join('\n');
+
+  if (id) {
+    fetch('/xiaoying_admin/api/finance/friend/event-types/', {credentials: 'same-origin'})
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (!res.ok) return;
+      var t = res.list.find(function(x) { return x.id === id; });
+      if (!t) return;
+      layer.open({type:1, title:'编辑类型', area:['380px','180px'], shadeClose:true, content:html,
+        success: function() { document.getElementById('etName').value = t.name; }
+      });
+    });
+  } else {
+    layer.open({type:1, title:'新增类型', area:['380px','180px'], shadeClose:true, content:html});
+  }
+}
+
+function submitEventType() {
+  var id = document.getElementById('etId').value;
+  var name = document.getElementById('etName').value.trim();
+  if (!name) { layer.msg('请输入类型名称', {icon:2}); return; }
+  fetch('/xiaoying_admin/api/finance/friend/event-types/save/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id || null, name: name}),
+    credentials: 'same-origin',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.ok) { layer.msg('保存成功', {icon:1}); layer.closeAll(); loadEventTypes(); }
+    else { layer.msg(res.error, {icon:2}); }
+  });
+}
+
+function deleteEventType(id) {
+  layer.confirm('确定删除此事件类型？', {icon:3, title:'确认', btn:['删除','取消']}, function() {
+    fetch('/xiaoying_admin/api/finance/friend/event-types/delete/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: id}),
+      credentials: 'same-origin',
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.ok) { layer.msg('已删除', {icon:1}); loadEventTypes(); }
+      else { layer.msg(res.error, {icon:2}); }
+    });
+  });
+}
+
+function initPresetEventTypes() {
+  fetch('/xiaoying_admin/api/finance/friend/event-types/presets/', {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    layer.msg(res.message, {icon: res.ok ? 1 : 2});
+    if (res.ok) loadEventTypes();
+  });
+}
+
+// ===================================================================
+// 好友
+// ===================================================================
+function loadFriends() {
+  var catId = document.getElementById('categoryFilter').value;
+  var url = '/xiaoying_admin/api/finance/friends/list/?page=' + currentFriendPage + '&page_size=20';
+  if (catId) url += '&category_id=' + catId;
+
+  fetch(url, {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) return;
+    var html = '';
+    res.list.forEach(function(f) {
+      var initial = f.name.charAt(0);
+      html += '<tr>' +
+        '<td><span class="friend-avatar">' + initial + '</span><strong>' + escHtml(f.name) + '</strong></td>' +
+        '<td>' + escHtml(f.category_name) + '</td>' +
+        '<td style="font-size:12px;color:#999;">' + escHtml(f.remark || '-') + '</td>' +
+        '<td>' +
+          '<button class="layui-btn layui-btn-xs" onclick="showFriendForm(' + f.id + ')"><i class="fas fa-edit"></i></button> ' +
+          '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="currentEventPage=1;loadEvents(' + f.id + ')"><i class="fas fa-eye"></i></button> ' +
+          '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteFriend(' + f.id + ')"><i class="fas fa-trash"></i></button>' +
+        '</td></tr>';
+    });
+    document.getElementById('friendTableBody').innerHTML = html;
+    renderFriendPagination(res);
+  });
+}
+
+function showFriendForm(id) {
+  var html = [
+    '<form class="layui-form" style="padding:18px 20px 10px;">',
+    '<input type="hidden" name="id" value="' + (id || '') + '">',
+    '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">姓名</label><div class="layui-input-block" style="margin-left:110px;">',
+    '<input type="text" name="name" class="layui-input" placeholder="好友姓名">',
+    '</div></div>',
+    '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">分类</label><div class="layui-input-block" style="margin-left:110px;">',
+    '<select name="category_id"><option value="">未分类</option>',
+  ].join('\n');
+
+  // 加载分类下拉
+  fetch('/xiaoying_admin/api/finance/friend/categories/', {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) return;
+    res.list.forEach(function(c) {
+      html += '<option value="' + c.id + '">' + escHtml(c.name) + '</option>';
+    });
+    html += '</select></div></div>' +
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">备注</label><div class="layui-input-block" style="margin-left:110px;">' +
+      '<textarea name="remark" class="layui-textarea" placeholder="备注信息"></textarea>' +
+      '</div></div>' +
+      '<div class="layui-form-item" style="text-align:center;margin-bottom:0;"><div class="layui-input-block" style="margin-left:0;">' +
+      '<button type="button" class="layui-btn" onclick="submitFriend()"><i class="fas fa-save"></i> 保存</button>' +
+      '<button type="button" class="layui-btn layui-btn-primary" onclick="layer.closeAll()">取消</button>' +
+      '</div></div></form>';
+
+    if (id) {
+      // 编辑模式：加载好友数据
+      fetch('/xiaoying_admin/api/finance/friends/list/?page=1&page_size=999999', {credentials: 'same-origin'})
+      .then(function(r2) { return r2.json(); })
+      .then(function(res2) {
+        if (!res2.ok) return;
+        var f = res2.list.find(function(x) { return x.id === id; });
+        if (!f) return;
+        layer.open({
+          type: 1, title: '<i class="fas fa-user-edit"></i> 编辑好友', area: ['420px', '320px'],
+          shadeClose: true, content: html,
+          success: function() {
+            document.querySelector('[name="name"]').value = f.name;
+            document.querySelector('[name="category_id"]').value = f.category_id || '';
+            document.querySelector('[name="remark"]').value = f.remark || '';
+            layui.use('form', function(fm) { fm.render(); });
+          },
+        });
+      });
+    } else {
+      layer.open({
+        type: 1, title: '<i class="fas fa-user-plus"></i> 新增好友', area: ['420px', '320px'],
+        shadeClose: true, content: html,
+        success: function() { layui.use('form', function(fm) { fm.render(); }); },
+      });
+    }
+  });
+}
+
+function submitFriend() {
+  var form = document.querySelector('.layui-form');
+  var data = {};
+  ['id','name','category_id','remark'].forEach(function(k) {
+    var el = form.querySelector('[name="' + k + '"]');
+    if (el) data[k] = el.value;
+  });
+  if (!data.name) { layer.msg('请输入好友姓名', {icon:2}); return; }
+  fetch('/xiaoying_admin/api/finance/friends/save/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+    credentials: 'same-origin',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.ok) { layer.msg('保存成功', {icon:1}); layer.closeAll(); loadFriends(); }
+    else { layer.msg(res.error, {icon:2}); }
+  })
+  .catch(function(e) { layer.msg('请求失败', {icon:2}); });
+}
+
+function deleteFriend(id) {
+  layer.confirm('确定删除该好友？相关事件记录也会被删除。', {icon:3, title:'确认', btn:['删除','取消']}, function() {
+    fetch('/xiaoying_admin/api/finance/friends/delete/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: id}),
+      credentials: 'same-origin',
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.ok) { layer.msg('已删除', {icon:1}); loadFriends(); }
+      else { layer.msg(res.error, {icon:2}); }
+    });
+  });
+}
+
+// ===================================================================
+// 事件
+// ===================================================================
+function loadEvents(friendId) {
+  var url = '/xiaoying_admin/api/finance/friend/events/list/?page=' + currentEventPage + '&page_size=20';
+  if (friendId) url += '&friend_id=' + friendId;
+  if (document.getElementById('eventFriendFilter')) {
+    var filterVal = document.getElementById('eventFriendFilter').value;
+    if (filterVal && !friendId) url += '&friend_id=' + filterVal;
+  }
+
+  fetch(url, {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) return;
+    var html = '';
+    res.list.forEach(function(e) {
+      var statusIcon = e.status === 'done' ? 'fa-check-circle' : (e.status === 'todo' ? 'fa-hourglass-half' : 'fa-circle');
+      var statusColor = e.status === 'done' ? '#27ae60' : (e.status === 'todo' ? '#e67e22' : '#999');
+      html += '<tr>' +
+        '<td>' + escHtml(e.friend_name) + '</td>' +
+        '<td><span class="layui-badge layui-bg-blue">' + escHtml(e.event_type_name) + '</span></td>' +
+        '<td><strong>' + escHtml(e.title) + '</strong></td>' +
+        '<td style="font-size:12px;color:#999;max-width:150px;overflow:hidden;text-overflow:ellipsis;">' + escHtml(e.description || '-') + '</td>' +
+        '<td>' + (e.event_date || '-') + '</td>' +
+        '<td><i class="fas ' + statusIcon + '" style="color:' + statusColor + ';margin-right:4px;"></i>' + escHtml(e.status_label) + '</td>' +
+        '<td>' +
+          '<button class="layui-btn layui-btn-xs" onclick="toggleEventStatus(' + e.id + ')"><i class="fas fa-exchange-alt"></i></button> ' +
+          '<button class="layui-btn layui-btn-xs layui-btn-normal" onclick="showEventForm(' + e.id + ')"><i class="fas fa-edit"></i></button> ' +
+          '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteEvent(' + e.id + ')"><i class="fas fa-trash"></i></button>' +
+        '</td></tr>';
+    });
+    if (res.list.length === 0) {
+      html = '<tr><td colspan="7" style="text-align:center;padding:30px 0;color:#ccc;"><i class="fas fa-calendar-alt" style="font-size:30px;display:block;margin-bottom:8px;"></i>暂无事件</td></tr>';
+    }
+    document.getElementById('eventTableBody').innerHTML = html;
+    renderEventPagination(res);
+  });
+}
+
+function showEventForm(id) {
+  // 加载好友列表和事件类型列表
+  Promise.all([
+    fetch('/xiaoying_admin/api/finance/friends/list/?page=1&page_size=999999', {credentials: 'same-origin'}).then(function(r) { return r.json(); }),
+    fetch('/xiaoying_admin/api/finance/friend/event-types/', {credentials: 'same-origin'}).then(function(r) { return r.json(); }),
+  ])
+  .then(function(results) {
+    var friendsData = results[0];
+    var typesData = results[1];
+    var isEdit = !!id;
+    var html = [
+      '<form class="layui-form" style="padding:18px 20px 10px;">',
+      '<input type="hidden" name="id" value="' + (id || '') + '">',
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">好友</label><div class="layui-input-block" style="margin-left:110px;">',
+      '<select name="friend_id">',
+    ].join('\n');
+    (friendsData.list || []).forEach(function(f) {
+      html += '<option value="' + f.id + '">' + escHtml(f.name) + '</option>';
+    });
+    html += '</select></div></div>' +
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">事件类型</label><div class="layui-input-block" style="margin-left:110px;">' +
+      '<select name="event_type_id"><option value="">自定义</option>';
+    (typesData.list || []).forEach(function(t) {
+      html += '<option value="' + t.id + '">' + escHtml(t.name) + '</option>';
+    });
+    html += '</select></div></div>' +
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">自定义类型</label><div class="layui-input-block" style="margin-left:110px;">' +
+      '<input type="text" name="custom_type_name" class="layui-input" placeholder="预设类型不够用时填写">' +
+      '</div></div>' +
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">标题</label><div class="layui-input-block" style="margin-left:110px;">' +
+      '<input type="text" name="title" class="layui-input" placeholder="事件标题">' +
+      '</div></div>' +
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">描述</label><div class="layui-input-block" style="margin-left:110px;">' +
+      '<textarea name="description" class="layui-textarea" placeholder="事件详情"></textarea>' +
+      '</div></div>' +
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">事件日期</label><div class="layui-input-block" style="margin-left:110px;">' +
+      '<input type="date" name="event_date" class="layui-input">' +
+      '</div></div>' +
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">状态</label><div class="layui-input-block" style="margin-left:110px;">' +
+      '<select name="status"><option value="pending">未开始</option><option value="todo">进行中</option><option value="done">已完成</option></select>' +
+      '</div></div>' +
+      '<div class="layui-form-item" style="text-align:center;margin-bottom:0;"><div class="layui-input-block" style="margin-left:0;">' +
+      '<button type="button" class="layui-btn" onclick="submitEvent()"><i class="fas fa-save"></i> 保存</button>' +
+      '<button type="button" class="layui-btn layui-btn-primary" onclick="layer.closeAll()">取消</button>' +
+      '</div></div></form>';
+
+    if (isEdit) {
+      fetch('/xiaoying_admin/api/finance/friend/events/list/?page=1&page_size=999999', {credentials: 'same-origin'})
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (!res.ok) return;
+        var e = res.list.find(function(x) { return x.id === id; });
+        if (!e) return;
+        layer.open({
+          type: 1, title: '<i class="fas fa-edit"></i> 编辑事件', area: ['480px', '480px'],
+          shadeClose: true, content: html,
+          success: function() {
+            document.querySelector('[name="friend_id"]').value = e.friend_id;
+            document.querySelector('[name="event_type_id"]').value = e.event_type_id || '';
+            document.querySelector('[name="custom_type_name"]').value = e.custom_type_name || '';
+            document.querySelector('[name="title"]').value = e.title;
+            document.querySelector('[name="description"]').value = e.description || '';
+            document.querySelector('[name="event_date"]').value = e.event_date || '';
+            document.querySelector('[name="status"]').value = e.status;
+            layui.use('form', function(fm) { fm.render(); });
+          },
+        });
+      });
+    } else {
+      layer.open({
+        type: 1, title: '<i class="fas fa-plus"></i> 新增事件', area: ['480px', '480px'],
+        shadeClose: true, content: html,
+        success: function() { layui.use('form', function(fm) { fm.render(); }); },
+      });
+    }
+  });
+}
+
+function submitEvent() {
+  var form = document.querySelector('.layui-form');
+  var data = {};
+  ['id','friend_id','event_type_id','custom_type_name','title','description','event_date','status'].forEach(function(k) {
+    var el = form.querySelector('[name="' + k + '"]');
+    if (el) data[k] = el.value;
+  });
+  if (!data.friend_id) { layer.msg('请选择好友', {icon:2}); return; }
+  if (!data.title) { layer.msg('请输入事件标题', {icon:2}); return; }
+
+  fetch('/xiaoying_admin/api/finance/friend/events/save/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+    credentials: 'same-origin',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.ok) { layer.msg('保存成功', {icon:1}); layer.closeAll(); loadEvents(); }
+    else { layer.msg(res.error, {icon:2}); }
+  })
+  .catch(function(e) { layer.msg('请求失败', {icon:2}); });
+}
+
+function toggleEventStatus(id) {
+  fetch('/xiaoying_admin/api/finance/friend/events/toggle-status/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id}),
+    credentials: 'same-origin',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.ok) { layer.msg('已切换为「' + res.status_label + '」', {icon:1}); loadEvents(); }
+    else { layer.msg(res.error, {icon:2}); }
+  });
+}
+
+function deleteEvent(id) {
+  layer.confirm('确定删除该事件？', {icon:3, title:'确认', btn:['删除','取消']}, function() {
+    fetch('/xiaoying_admin/api/finance/friend/events/delete/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: id}),
+      credentials: 'same-origin',
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.ok) { layer.msg('已删除', {icon:1}); loadEvents(); }
+      else { layer.msg(res.error, {icon:2}); }
+    });
+  });
+}
+
+/* ─── 好友分页 ─── */
+function renderFriendPagination(res) {
+  var bar = document.getElementById('friendPaginationBar');
+  var page = res.page, totalPages = res.total_pages, total = res.total;
+  if (!total || totalPages <= 1) {
+    bar.innerHTML = total ? '<span style="font-size:13px;color:#999;">共 ' + total + ' 条</span>' : '';
+    return;
+  }
+  var html = '<div style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:13px;">';
+  var prevDisabled = page <= 1;
+  html += '<button class="layui-btn layui-btn-sm' + (prevDisabled ? ' layui-btn-disabled' : '') + '" ' +
+    (prevDisabled ? '' : 'onclick="loadFriendPage(' + (page - 1) + ')"') + '><i class="fas fa-chevron-left"></i></button>';
+  var maxVisible = 7;
+  var start = Math.max(1, page - Math.floor(maxVisible / 2));
+  var end = Math.min(totalPages, start + maxVisible - 1);
+  if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
+  if (start > 1) {
+    html += '<button class="layui-btn layui-btn-sm" onclick="loadFriendPage(1)">1</button>';
+    if (start > 2) html += '<span style="color:#999;padding:0 4px;">…</span>';
+  }
+  for (var i = start; i <= end; i++) {
+    html += '<button class="layui-btn layui-btn-sm' + (i === page ? ' layui-btn-normal' : '') + '" onclick="loadFriendPage(' + i + ')">' + i + '</button>';
+  }
+  if (end < totalPages) {
+    if (end < totalPages - 1) html += '<span style="color:#999;padding:0 4px;">…</span>';
+    html += '<button class="layui-btn layui-btn-sm" onclick="loadFriendPage(' + totalPages + ')">' + totalPages + '</button>';
+  }
+  var nextDisabled = page >= totalPages;
+  html += '<button class="layui-btn layui-btn-sm' + (nextDisabled ? ' layui-btn-disabled' : '') + '" ' +
+    (nextDisabled ? '' : 'onclick="loadFriendPage(' + (page + 1) + ')"') + '><i class="fas fa-chevron-right"></i></button>';
+  html += '<span style="color:#999;margin-left:10px;">共 ' + total + ' 条</span></div>';
+  bar.innerHTML = html;
+}
+
+function loadFriendPage(page) {
+  currentFriendPage = page;
+  loadFriends();
+}
+
+/* ─── 事件分页 ─── */
+function renderEventPagination(res) {
+  var bar = document.getElementById('eventPaginationBar');
+  var page = res.page, totalPages = res.total_pages, total = res.total;
+  if (!total || totalPages <= 1) {
+    bar.innerHTML = total ? '<span style="font-size:13px;color:#999;">共 ' + total + ' 条</span>' : '';
+    return;
+  }
+  var html = '<div style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:13px;">';
+  var prevDisabled = page <= 1;
+  html += '<button class="layui-btn layui-btn-sm' + (prevDisabled ? ' layui-btn-disabled' : '') + '" ' +
+    (prevDisabled ? '' : 'onclick="loadEventPage(' + (page - 1) + ')"') + '><i class="fas fa-chevron-left"></i></button>';
+  var maxVisible = 7;
+  var start = Math.max(1, page - Math.floor(maxVisible / 2));
+  var end = Math.min(totalPages, start + maxVisible - 1);
+  if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
+  if (start > 1) {
+    html += '<button class="layui-btn layui-btn-sm" onclick="loadEventPage(1)">1</button>';
+    if (start > 2) html += '<span style="color:#999;padding:0 4px;">…</span>';
+  }
+  for (var i = start; i <= end; i++) {
+    html += '<button class="layui-btn layui-btn-sm' + (i === page ? ' layui-btn-normal' : '') + '" onclick="loadEventPage(' + i + ')">' + i + '</button>';
+  }
+  if (end < totalPages) {
+    if (end < totalPages - 1) html += '<span style="color:#999;padding:0 4px;">…</span>';
+    html += '<button class="layui-btn layui-btn-sm" onclick="loadEventPage(' + totalPages + ')">' + totalPages + '</button>';
+  }
+  var nextDisabled = page >= totalPages;
+  html += '<button class="layui-btn layui-btn-sm' + (nextDisabled ? ' layui-btn-disabled' : '') + '" ' +
+    (nextDisabled ? '' : 'onclick="loadEventPage(' + (page + 1) + ')"') + '><i class="fas fa-chevron-right"></i></button>';
+  html += '<span style="color:#999;margin-left:10px;">共 ' + total + ' 条</span></div>';
+  bar.innerHTML = html;
+}
+
+function loadEventPage(page) {
+  currentEventPage = page;
+  loadEvents();
+}
+
+function escHtml(s) {
+  return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
+}
+</script>
+{% endblock %}

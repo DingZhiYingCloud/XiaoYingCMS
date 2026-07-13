@@ -1,0 +1,328 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% load static %}
+
+{% block title %}总金额管理 — {{ site_name }}{% endblock %}
+
+{% block head %}
+<style>
+.balance-card {
+  background:linear-gradient(135deg,#667eea,#764ba2);
+  color:#fff;border-radius:8px;padding:24px 30px;margin-bottom:16px;
+}
+.balance-card .amount { font-size:36px;font-weight:700; }
+.balance-card .label { font-size:13px;opacity:0.9;margin-bottom:4px; }
+.tx-income { color:#2ecc71; }
+.tx-expense { color:#e74c3c; }
+</style>
+{% endblock %}
+
+{% block body %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+  <div>
+    <i class="fas fa-wallet" style="color:#667eea;font-size:20px;"></i>
+    <span style="font-size:16px;font-weight:600;color:#393D49;margin-left:6px;">总金额</span>
+  </div>
+  <div>
+    <button class="layui-btn layui-btn-sm layui-btn-normal" id="btnInit" onclick="initBalance()" style="display:none;">
+      <i class="fas fa-coins"></i> 初始化总金额
+    </button>
+    <button class="layui-btn layui-btn-sm" id="btnTransaction" onclick="showTransactionForm()">
+      <i class="fas fa-exchange-alt"></i> 新增交易
+    </button>
+    <button class="layui-btn layui-btn-sm layui-btn-warm" id="btnAdjust" onclick="showAdjustForm()" style="display:none;">
+      <i class="fas fa-sliders-h"></i> 余额调整
+    </button>
+  </div>
+</div>
+
+{# 余额卡片 #}
+<div class="balance-card" id="balanceCard">
+  <div class="label"><i class="fas fa-coins"></i> 当前总余额</div>
+  <div class="amount" id="balanceAmount">¥0.00</div>
+  <div style="font-size:12px;opacity:0.7;margin-top:8px;">
+    初始金额: <span id="initialAmount">¥0.00</span>
+    &nbsp;|&nbsp; 创建时间: <span id="balanceCreateTime">-</span>
+  </div>
+</div>
+
+{# 交易记录 #}
+<div class="layui-card">
+  <div class="layui-card-header" style="border-bottom:1px solid #f0f0f0;">
+    <i class="fas fa-list"></i> 交易记录
+  </div>
+  <div class="layui-card-body" style="padding:0;">
+    <table class="layui-table" style="margin:0;font-size:13px;">
+      <thead>
+        <tr>
+          <th style="width:110px;">类型</th>
+          <th style="width:100px;">金额</th>
+          <th>描述</th>
+          <th style="width:110px;">关联月份</th>
+          <th style="width:100px;">余额快照</th>
+          <th style="width:140px;">时间</th>
+        </tr>
+      </thead>
+      <tbody id="txTableBody">
+        <tr id="txEmptyRow"><td colspan="6" style="text-align:center;padding:40px 0;color:#ccc;">
+          <i class="fas fa-receipt" style="font-size:36px;display:block;margin-bottom:8px;"></i>
+          暂无交易记录
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ─── 分页 ─── #}
+<div id="txPaginationBar" style="margin-top:14px;text-align:center;"></div>
+{% endblock %}
+
+{% block js %}
+<script>
+let layer, form;
+
+let currentTxPage = 1;
+
+layui.use(['layer', 'form'], function() {
+  layer = layui.layer;
+  form = layui.form;
+  loadBalance();
+  loadTransactions();
+});
+
+function loadBalance() {
+  fetch('/xiaoying_admin/api/finance/balance/info/', {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) return;
+    document.getElementById('balanceAmount').textContent = '¥' + res.balance;
+    document.getElementById('initialAmount').textContent = '¥' + res.initial_amount;
+    document.getElementById('balanceCreateTime').textContent = res.create_time;
+
+    var isInit = parseFloat(res.balance) === 0 && parseFloat(res.initial_amount) === 0;
+    document.getElementById('btnInit').style.display = isInit ? 'inline-block' : 'none';
+    document.getElementById('btnAdjust').style.display = isInit ? 'none' : 'inline-block';
+  });
+}
+
+function loadTransactions() {
+  fetch('/xiaoying_admin/api/finance/balance/transactions/?page=' + currentTxPage + '&page_size=20', {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) return;
+    var tbody = document.getElementById('txTableBody');
+    var html = '';
+    res.list.forEach(function(t) {
+      var isIncome = parseFloat(t.amount) >= 0;
+      html += '<tr>' +
+        '<td><span class="layui-badge ' + (isIncome ? 'layui-bg-green' : 'layui-bg-red') + '">' + escHtml(t.tx_type_label) + '</span></td>' +
+        '<td class="' + (isIncome ? 'tx-income' : 'tx-expense') + '"><strong>' + (isIncome ? '+' : '') + t.amount + '</strong></td>' +
+        '<td style="font-size:12px;">' + escHtml(t.description || '-') + '</td>' +
+        '<td style="font-size:12px;color:#999;">' + (t.related_month || '-') + '</td>' +
+        '<td style="font-size:12px;">' + (t.balance_snapshot ? '¥' + t.balance_snapshot : '-') + '</td>' +
+        '<td style="font-size:12px;color:#999;">' + t.create_time + '</td></tr>';
+    });
+    if (res.list.length === 0) {
+      html = '<tr><td colspan="6" style="text-align:center;padding:40px 0;color:#ccc;"><i class="fas fa-receipt" style="font-size:36px;display:block;margin-bottom:8px;"></i>暂无交易记录</td></tr>';
+    }
+    tbody.innerHTML = html;
+    renderTxPagination(res);
+  });
+}
+
+/* ─── 分页 ─── */
+function renderTxPagination(res) {
+  var bar = document.getElementById('txPaginationBar');
+  var page = res.page, totalPages = res.total_pages, total = res.total;
+  if (!total || totalPages <= 1) {
+    bar.innerHTML = total ? '<span style="font-size:13px;color:#999;">共 ' + total + ' 条记录</span>' : '';
+    return;
+  }
+  var html = '<div style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:13px;">';
+  var prevDisabled = page <= 1;
+  html += '<button class="layui-btn layui-btn-sm' + (prevDisabled ? ' layui-btn-disabled' : '') + '" ' +
+    (prevDisabled ? '' : 'onclick="loadTxPage(' + (page - 1) + ')"') + '><i class="fas fa-chevron-left"></i></button>';
+  var maxVisible = 7;
+  var start = Math.max(1, page - Math.floor(maxVisible / 2));
+  var end = Math.min(totalPages, start + maxVisible - 1);
+  if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
+  if (start > 1) {
+    html += '<button class="layui-btn layui-btn-sm" onclick="loadTxPage(1)">1</button>';
+    if (start > 2) html += '<span style="color:#999;padding:0 4px;">…</span>';
+  }
+  for (var i = start; i <= end; i++) {
+    html += '<button class="layui-btn layui-btn-sm' + (i === page ? ' layui-btn-normal' : '') + '" onclick="loadTxPage(' + i + ')">' + i + '</button>';
+  }
+  if (end < totalPages) {
+    if (end < totalPages - 1) html += '<span style="color:#999;padding:0 4px;">…</span>';
+    html += '<button class="layui-btn layui-btn-sm" onclick="loadTxPage(' + totalPages + ')">' + totalPages + '</button>';
+  }
+  var nextDisabled = page >= totalPages;
+  html += '<button class="layui-btn layui-btn-sm' + (nextDisabled ? ' layui-btn-disabled' : '') + '" ' +
+    (nextDisabled ? '' : 'onclick="loadTxPage(' + (page + 1) + ')"') + '><i class="fas fa-chevron-right"></i></button>';
+  html += '<span style="color:#999;margin-left:10px;">共 ' + total + ' 条</span></div>';
+  bar.innerHTML = html;
+}
+
+function loadTxPage(page) {
+  currentTxPage = page;
+  loadTransactions();
+}
+
+function initBalance() {
+  var html = [
+    '<div style="padding:18px 20px;">',
+    '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">初始金额</label><div class="layui-input-block" style="margin-left:110px;">',
+    '<input type="number" step="0.01" id="initAmount" class="layui-input" placeholder="请输入总金额初始值">',
+    '</div></div>',
+    '<div style="text-align:center;margin-top:10px;">',
+    '<button class="layui-btn" onclick="submitInit()"><i class="fas fa-check"></i> 确认初始化</button>',
+    '</div></div>',
+  ].join('\n');
+
+  layer.open({
+    type: 1,
+    title: '<i class="fas fa-coins"></i> 初始化总金额',
+    area: ['400px', '200px'],
+    shadeClose: false,
+    content: html,
+  });
+}
+
+function submitInit() {
+  var amount = document.getElementById('initAmount').value;
+  if (!amount || parseFloat(amount) <= 0) { layer.msg('请输入有效的金额', {icon:2}); return; }
+
+  fetch('/xiaoying_admin/api/finance/balance/init/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({amount: amount}),
+    credentials: 'same-origin',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.ok) { layer.msg('初始化成功', {icon:1}); layer.closeAll(); loadBalance(); loadTransactions(); }
+    else { layer.msg(res.error || '初始化失败', {icon:2}); }
+  })
+  .catch(function(e) { layer.msg('请求失败', {icon:2}); });
+}
+
+function showTransactionForm() {
+  var html = [
+    '<form class="layui-form" style="padding:18px 20px 10px;">',
+    '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">交易类型</label><div class="layui-input-block" style="margin-left:110px;">',
+    '<select name="tx_type">',
+    '<option value="monthly_allowance">生活费发放</option>',
+    '<option value="income">收入（充入总金额）</option>',
+    '<option value="server_renewal">服务器续费</option>',
+    '<option value="red_packet">红包支出</option>',
+    '<option value="reward">奖励支出</option>',
+    '<option value="expense">其他支出</option>',
+    '</select></div></div>',
+    '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">金额</label><div class="layui-input-block" style="margin-left:110px;">',
+    '<input type="number" step="0.01" name="amount" class="layui-input" placeholder="正数=收入，负数=支出">',
+    '<div style="font-size:11px;color:#999;margin-top:3px;">生活费发放、收入填正数；其他支出填正数（系统会自动处理）</div>',
+    '</div></div>',
+    '<div class="layui-form-item" id="monthGroup"><label class="layui-form-label" style="width:80px;">关联月份</label><div class="layui-input-block" style="margin-left:110px;">',
+    '<input type="month" name="related_month" class="layui-input" value="' + new Date().toISOString().slice(0,7) + '">',
+    '<div style="font-size:11px;color:#999;margin-top:3px;">生活费发放时填写对应月份</div>',
+    '</div></div>',
+    '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">描述</label><div class="layui-input-block" style="margin-left:110px;">',
+    '<textarea name="description" class="layui-textarea" placeholder="交易说明（可选）"></textarea>',
+    '</div></div>',
+    '<div class="layui-form-item" style="text-align:center;margin-bottom:0;"><div class="layui-input-block" style="margin-left:0;">',
+    '<button type="button" class="layui-btn" onclick="submitTransaction()"><i class="fas fa-save"></i> 提交</button>',
+    '<button type="button" class="layui-btn layui-btn-primary" onclick="layer.closeAll()">取消</button>',
+    '</div></div></form>',
+  ].join('\n');
+
+  layer.open({
+    type: 1,
+    title: '<i class="fas fa-exchange-alt"></i> 新增交易',
+    area: ['480px', '420px'],
+    shadeClose: true,
+    shade: 0.3,
+    content: html,
+    success: function() { layui.use('form', function(f) { f.render(); }); },
+  });
+}
+
+function submitTransaction() {
+  var form = document.querySelector('.layui-form');
+  var data = {};
+  ['tx_type','amount','related_month','description'].forEach(function(k) {
+    var el = form.querySelector('[name="' + k + '"]');
+    if (el) data[k] = el.value;
+  });
+
+  if (!data.amount || parseFloat(data.amount) <= 0) { layer.msg('请输入有效的金额', {icon:2}); return; }
+
+  fetch('/xiaoying_admin/api/finance/balance/transaction/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+    credentials: 'same-origin',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.ok) { layer.msg('交易成功', {icon:1}); layer.closeAll(); loadBalance(); loadTransactions(); }
+    else { layer.msg(res.error || '交易失败', {icon:2}); }
+  })
+  .catch(function(e) { layer.msg('请求失败: ' + e, {icon:2}); });
+}
+
+function showAdjustForm() {
+  fetch('/xiaoying_admin/api/finance/balance/info/', {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) return;
+    var html = [
+      '<div style="padding:18px 20px;">',
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">当前余额</label><div class="layui-input-block" style="margin-left:110px;">',
+      '<input type="text" class="layui-input" value="¥' + res.balance + '" disabled>',
+      '</div></div>',
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">新余额</label><div class="layui-input-block" style="margin-left:110px;">',
+      '<input type="number" step="0.01" id="newBalance" class="layui-input" placeholder="输入新的余额值">',
+      '</div></div>',
+      '<div class="layui-form-item"><label class="layui-form-label" style="width:80px;">原因</label><div class="layui-input-block" style="margin-left:110px;">',
+      '<input type="text" id="adjustReason" class="layui-input" placeholder="调整原因">',
+      '</div></div>',
+      '<div style="text-align:center;margin-top:10px;">',
+      '<button class="layui-btn layui-btn-warm" onclick="submitAdjust()"><i class="fas fa-check"></i> 确认调整</button>',
+      '</div></div>',
+    ].join('\n');
+
+    layer.open({
+      type: 1,
+      title: '<i class="fas fa-sliders-h"></i> 余额调整',
+      area: ['450px', '280px'],
+      shadeClose: true,
+      content: html,
+    });
+  });
+}
+
+function submitAdjust() {
+  var newBalance = document.getElementById('newBalance').value;
+  var reason = document.getElementById('adjustReason').value;
+  if (newBalance === '') { layer.msg('请输入新的余额', {icon:2}); return; }
+
+  fetch('/xiaoying_admin/api/finance/balance/adjust/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({new_balance: newBalance, reason: reason}),
+    credentials: 'same-origin',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.ok) { layer.msg('调整成功', {icon:1}); layer.closeAll(); loadBalance(); loadTransactions(); }
+    else { layer.msg(res.error || '调整失败', {icon:2}); }
+  })
+  .catch(function(e) { layer.msg('请求失败', {icon:2}); });
+}
+
+function escHtml(s) {
+  return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
+}
+</script>
+{% endblock %}

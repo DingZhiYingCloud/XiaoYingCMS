@@ -83,6 +83,27 @@ from XiaoYingAdmin.views.multi_page import (
     api_multi_page_enable, api_multi_page_disable,
     multi_page_config_view, api_multi_page_config_save,
 )
+from XiaoYingAdmin.views.finance.debt import (
+    debt_view,
+    debt_api_list, debt_api_save, debt_api_delete, debt_api_reminders,
+)
+from XiaoYingAdmin.views.finance.balance import (
+    balance_view,
+    balance_api_info, balance_api_initial, balance_api_transaction,
+    balance_api_transactions, balance_api_adjust,
+)
+from XiaoYingAdmin.views.finance.expense import (
+    expense_view,
+    expense_api_list, expense_api_save, expense_api_upload,
+    expense_api_delete, expense_api_stats,
+)
+from XiaoYingAdmin.views.finance.friend import (
+    friend_view,
+    category_api_list, category_api_save, category_api_delete, category_api_presets,
+    event_type_api_list, event_type_api_save, event_type_api_delete, event_type_api_presets,
+    friend_api_list, friend_api_save, friend_api_delete,
+    event_api_list, event_api_save, event_api_delete, event_api_toggle_status,
+)
 
 # 域名前缀: /xiaoying_admin/
 urlpatterns = [
@@ -257,4 +278,55 @@ urlpatterns = [
     # 多页面 AI 配置
     path('multi-page/config/', multi_page_config_view, name='multi_page_config'),
     path('api/multi-page/config/save/', api_multi_page_config_save, name='api_multi_page_config_save'),
+
+    # =========================================================================
+    # 个人财务管理
+    # =========================================================================
+
+    # 债务管理
+    path('finance/debt/', debt_view, name='finance_debt'),
+    path('api/finance/debt/list/', debt_api_list, name='finance_debt_api_list'),
+    path('api/finance/debt/save/', debt_api_save, name='finance_debt_api_save'),
+    path('api/finance/debt/delete/', debt_api_delete, name='finance_debt_api_delete'),
+    path('api/finance/debt/reminders/', debt_api_reminders, name='finance_debt_api_reminders'),
+
+    # 总金额
+    path('finance/balance/', balance_view, name='finance_balance'),
+    path('api/finance/balance/info/', balance_api_info, name='finance_balance_api_info'),
+    path('api/finance/balance/init/', balance_api_initial, name='finance_balance_api_init'),
+    path('api/finance/balance/transaction/', balance_api_transaction, name='finance_balance_api_transaction'),
+    path('api/finance/balance/transactions/', balance_api_transactions, name='finance_balance_api_transactions'),
+    path('api/finance/balance/adjust/', balance_api_adjust, name='finance_balance_api_adjust'),
+
+    # 日常消费
+    path('finance/expense/', expense_view, name='finance_expense'),
+    path('api/finance/expense/list/', expense_api_list, name='finance_expense_api_list'),
+    path('api/finance/expense/save/', expense_api_save, name='finance_expense_api_save'),
+    path('api/finance/expense/upload/', expense_api_upload, name='finance_expense_api_upload'),
+    path('api/finance/expense/delete/', expense_api_delete, name='finance_expense_api_delete'),
+    path('api/finance/expense/stats/', expense_api_stats, name='finance_expense_api_stats'),
+
+    # 好友管理
+    path('finance/friends/', friend_view, name='finance_friends'),
+    path('api/finance/friends/list/', friend_api_list, name='finance_friends_api_list'),
+    path('api/finance/friends/save/', friend_api_save, name='finance_friends_api_save'),
+    path('api/finance/friends/delete/', friend_api_delete, name='finance_friends_api_delete'),
+
+    # 好友分类
+    path('api/finance/friend/categories/', category_api_list, name='finance_cat_api_list'),
+    path('api/finance/friend/categories/save/', category_api_save, name='finance_cat_api_save'),
+    path('api/finance/friend/categories/delete/', category_api_delete, name='finance_cat_api_delete'),
+    path('api/finance/friend/categories/presets/', category_api_presets, name='finance_cat_api_presets'),
+
+    # 事件类型
+    path('api/finance/friend/event-types/', event_type_api_list, name='finance_et_api_list'),
+    path('api/finance/friend/event-types/save/', event_type_api_save, name='finance_et_api_save'),
+    path('api/finance/friend/event-types/delete/', event_type_api_delete, name='finance_et_api_delete'),
+    path('api/finance/friend/event-types/presets/', event_type_api_presets, name='finance_et_api_presets'),
+
+    # 好友事件
+    path('api/finance/friend/events/list/', event_api_list, name='finance_evt_api_list'),
+    path('api/finance/friend/events/save/', event_api_save, name='finance_evt_api_save'),
+    path('api/finance/friend/events/delete/', event_api_delete, name='finance_evt_api_delete'),
+    path('api/finance/friend/events/toggle-status/', event_api_toggle_status, name='finance_evt_api_toggle'),
 ]

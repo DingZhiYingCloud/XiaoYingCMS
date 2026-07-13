@@ -1,0 +1,817 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% load static %}
+
+{% block title %}日常消费 — {{ site_name }}{% endblock %}
+
+{% block head %}
+<style>
+/* ── 全局变量 ── */
+:root {
+  --green: #10b981;
+  --green-bg: #ecfdf5;
+  --blue: #3b82f6;
+  --blue-bg: #eff6ff;
+  --orange: #f59e0b;
+  --orange-bg: #fffbeb;
+  --gray: #6b7280;
+  --gray-bg: #f9fafb;
+  --border: #e5e7eb;
+  --radius: 10px;
+}
+
+/* ── 表单弹窗 ── */
+.finance-form { padding:6px 0 0 0; }
+.finance-form .form-row {
+  display:flex;flex-direction:column;margin-bottom:14px;padding:0 24px;
+}
+.finance-form .form-label {
+  font-size:12px;font-weight:600;color:#374151;
+  margin-bottom:5px;letter-spacing:0.02em;
+}
+.finance-form .form-label i { margin-right:5px;color:var(--green);font-size:12px; }
+.finance-form .form-input {
+  height:40px;padding:0 12px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:14px;color:#111827;background:#fff;
+  outline:none;transition:all 0.2s;width:100%;box-sizing:border-box;
+}
+.finance-form .form-input:focus {
+  border-color:var(--green);box-shadow:0 0 0 3px rgba(16,185,129,0.1);
+}
+.finance-form .form-input::placeholder { color:#b0b7c3; }
+.finance-form .form-textarea {
+  height:72px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:14px;color:#111827;background:#fff;outline:none;
+  transition:all 0.2s;width:100%;box-sizing:border-box;resize:none;
+  font-family:inherit;
+}
+.finance-form .form-textarea:focus {
+  border-color:var(--green);box-shadow:0 0 0 3px rgba(16,185,129,0.1);
+}
+.finance-form .form-textarea::placeholder { color:#b0b7c3; }
+
+/* ── 日期三列选择器 ── */
+.date-picker-group {
+  display:flex;gap:8px;width:100%;
+}
+.date-picker-group select {
+  flex:1;height:40px;padding:0 8px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:14px;color:#111827;background:#fff;
+  outline:none;transition:all 0.2s;cursor:pointer;
+  -webkit-appearance:none;-moz-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ca3af' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+  padding-right:28px;
+}
+.date-picker-group select:focus {
+  border-color:var(--green);box-shadow:0 0 0 3px rgba(16,185,129,0.1);
+}
+.date-picker-group select:hover { border-color:#d1d5db; }
+
+/* ── 时间选择器 ── */
+.time-input-wrap { position:relative; }
+.time-input-wrap i {
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:#9ca3af;font-size:14px;pointer-events:none;
+}
+.time-input-wrap input {
+  height:40px;padding:0 12px 0 34px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:14px;color:#111827;background:#fff;outline:none;
+  transition:all 0.2s;width:100%;box-sizing:border-box;cursor:pointer;
+}
+.time-input-wrap input:focus { border-color:var(--green);box-shadow:0 0 0 3px rgba(16,185,129,0.1); }
+
+/* ── 文件上传 ── */
+.file-upload-zone {
+  border:1.5px dashed var(--border);border-radius:8px;padding:12px 14px;
+  text-align:center;cursor:pointer;transition:all 0.2s;background:var(--gray-bg);
+}
+.file-upload-zone:hover { border-color:var(--green);background:var(--green-bg); }
+.file-upload-zone i { font-size:18px;color:#9ca3af;display:block;margin-bottom:4px; }
+.file-upload-zone span { font-size:12px;color:var(--gray); }
+.file-upload-zone.has-file { border-color:var(--green);border-style:solid;background:var(--green-bg); }
+.file-upload-zone input[type="file"] { display:none; }
+
+/* ── 按钮组 ── */
+.form-actions {
+  display:flex;gap:8px;justify-content:center;
+  padding:14px 24px 18px;border-top:1px solid var(--border);
+  margin-top:4px;
+}
+.form-actions .btn-submit {
+  height:38px;padding:0 28px;border:none;border-radius:8px;
+  background:linear-gradient(135deg,#10b981,#059669);color:#fff;
+  font-size:14px;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;transition:all 0.2s;
+}
+.form-actions .btn-submit:hover { transform:translateY(-1px);box-shadow:0 4px 14px rgba(16,185,129,0.4); }
+.form-actions .btn-cancel {
+  height:38px;padding:0 24px;border:1.5px solid var(--border);border-radius:8px;
+  background:#fff;color:var(--gray);font-size:14px;cursor:pointer;
+  transition:all 0.2s;display:inline-flex;align-items:center;gap:6px;
+}
+.form-actions .btn-cancel:hover { border-color:#d1d5db;color:#374151;background:var(--gray-bg); }
+
+/* ── 页面头部 ── */
+.page-header {
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;
+}
+.page-header-left { display:flex;align-items:center;gap:10px; }
+.page-header-left .icon-wrap {
+  width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,#10b981,#059669);
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;
+}
+.page-header-left h1 { font-size:17px;font-weight:600;color:#111827;margin:0; }
+.page-header-left .sub { font-size:12px;color:var(--gray);margin-left:6px; }
+
+/* ── 筛选栏 ── */
+.filter-bar {
+  background:#fff;border-radius:var(--radius);padding:14px 18px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  border:1px solid var(--border);transition:box-shadow 0.2s;
+}
+.filter-bar:focus-within { box-shadow:0 2px 8px rgba(59,130,246,0.12); }
+
+.filter-bar .divider {
+  width:1px;height:28px;background:var(--border);flex-shrink:0;
+}
+
+/* ── 日期输入框 ── */
+.date-input-wrap { position:relative;display:inline-flex;align-items:center; }
+.date-input-wrap i {
+  position:absolute;left:10px;color:#9ca3af;font-size:13px;pointer-events:none;
+}
+.date-input-wrap input {
+  height:34px;padding:0 10px 0 30px;border:1px solid var(--border);border-radius:8px;
+  font-size:13px;color:#374151;background:var(--gray-bg);width:148px;
+  outline:none;transition:all 0.2s;cursor:pointer;
+}
+.date-input-wrap input:focus { border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+.date-input-wrap input::placeholder { color:#b0b7c3; }
+
+.date-range-connector { color:#9ca3af;font-size:13px;font-weight:500;padding:0 3px;user-select:none; }
+
+/* ── 快捷按钮 ── */
+.quick-chips { display:flex;gap:5px;flex-wrap:wrap; }
+.quick-chip {
+  height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--border);
+  background:#fff;font-size:12px;color:var(--gray);cursor:pointer;
+  display:inline-flex;align-items:center;gap:4px;transition:all 0.2s;white-space:nowrap;
+}
+.quick-chip:hover { border-color:var(--blue);color:var(--blue);background:var(--blue-bg); }
+.quick-chip.active {
+  border-color:var(--blue);background:var(--blue);color:#fff;font-weight:500;
+  box-shadow:0 2px 6px rgba(59,130,246,0.3);
+}
+
+/* ── 操作按钮 ── */
+.btn-primary-sm {
+  height:34px;padding:0 16px;border-radius:8px;border:none;
+  background:linear-gradient(135deg,#10b981,#059669);color:#fff;
+  font-size:13px;font-weight:500;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;
+  white-space:nowrap;
+}
+.btn-primary-sm:hover { transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,185,129,0.35); }
+.btn-ghost-sm {
+  height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--border);
+  background:#fff;color:var(--gray);font-size:13px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:5px;transition:all 0.2s;white-space:nowrap;
+}
+.btn-ghost-sm:hover { border-color:#d1d5db;color:#374151;background:var(--gray-bg); }
+
+/* ── 活跃筛选标签 ── */
+.active-filter-tag {
+  display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;
+  border-radius:6px;background:var(--green-bg);border:1px solid #a7f3d0;
+  font-size:12px;color:#047857;font-weight:500;margin-right:6px;margin-bottom:4px;
+  animation:fadeInUp 0.25s ease;
+}
+.active-filter-tag i { cursor:pointer;color:var(--green);font-size:11px; }
+.active-filter-tag i:hover { color:#dc2626; }
+
+@keyframes fadeInUp {
+  from { opacity:0;transform:translateY(6px); }
+  to { opacity:1;transform:translateY(0); }
+}
+
+/* ── 统计卡片 ── */
+.stats-area { display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap; }
+.stat-card {
+  flex:1;min-width:140px;padding:14px 18px;border-radius:var(--radius);
+  border:1px solid var(--border);background:#fff;transition:all 0.3s;
+}
+.stat-card:hover { box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+.stat-card .lbl { font-size:12px;color:var(--gray);margin-bottom:4px; }
+.stat-card .num { font-size:22px;font-weight:700; }
+.stat-card .num.green { color:var(--green); }
+.stat-card .num.blue { color:var(--blue); }
+.stat-card .num.orange { color:var(--orange); }
+
+/* ── 表格 ── */
+.expense-table th {
+  background:#f8fafc !important;font-weight:600;font-size:12px;color:var(--gray);
+  letter-spacing:0.03em;
+}
+.expense-table td { vertical-align:middle; }
+.expense-media {
+  width:56px;height:42px;border-radius:6px;object-fit:cover;cursor:pointer;
+  transition:transform 0.2s;border:1px solid var(--border);
+}
+.expense-media:hover { transform:scale(1.15);box-shadow:0 4px 12px rgba(0,0,0,0.15); }
+
+.amount-cell { font-weight:700;font-size:14px;color:#dc2626;font-feature-settings:"tnum"; }
+
+/* ── 空状态 ── */
+.empty-state { text-align:center;padding:50px 0;color:#d1d5db; }
+.empty-state i { font-size:44px;display:block;margin-bottom:12px; }
+.empty-state p { font-size:14px;margin:0; }
+</style>
+{% endblock %}
+
+{% block body %}
+
+{# ─── 页面头部 ─── #}
+<div class="page-header">
+  <div class="page-header-left">
+    <div class="icon-wrap"><i class="fas fa-receipt"></i></div>
+    <div>
+      <h1>日常消费</h1>
+      <span class="sub">记录每一天的每一笔花销</span>
+    </div>
+  </div>
+  <button class="btn-primary-sm" onclick="showForm()">
+    <i class="fas fa-plus"></i> 记一笔
+  </button>
+</div>
+
+{# ─── 筛选栏 ─── #}
+<div class="filter-bar" id="filterBar">
+  {# 快捷选择 #}
+  <div class="quick-chips">
+    <span class="quick-chip" data-range="today" onclick="applyQuickRange('today')"><i class="fas fa-calendar-day"></i> 今天</span>
+    <span class="quick-chip" data-range="3d" onclick="applyQuickRange('3d')"><i class="fas fa-calendar-week"></i> 近3天</span>
+    <span class="quick-chip" data-range="7d" onclick="applyQuickRange('7d')"><i class="fas fa-calendar-week"></i> 近7天</span>
+    <span class="quick-chip" data-range="this-month" onclick="applyQuickRange('this-month')"><i class="fas fa-calendar-alt"></i> 本月</span>
+    <span class="quick-chip" data-range="last-month" onclick="applyQuickRange('last-month')"><i class="fas fa-calendar-alt"></i> 上月</span>
+  </div>
+
+  <div class="divider"></div>
+
+  {# 日期范围 #}
+  <div class="date-input-wrap">
+    <i class="fas fa-calendar"></i>
+    <input type="date" id="dateFromFilter" onchange="onDateChange()" placeholder="起始日期">
+  </div>
+  <span class="date-range-connector">→</span>
+  <div class="date-input-wrap">
+    <i class="fas fa-calendar"></i>
+    <input type="date" id="dateToFilter" onchange="onDateChange()" placeholder="结束日期">
+  </div>
+
+  <div class="divider"></div>
+
+  {# 清除筛选 #}
+  <button class="btn-ghost-sm" id="clearFilterBtn" onclick="clearAllFilters()" style="display:none;">
+    <i class="fas fa-times"></i> 清除
+  </button>
+</div>
+
+{# ─── 活跃筛选标签 ─── #}
+<div id="activeFilterTags" style="margin-bottom:10px;min-height:0;"></div>
+
+{# ─── 统计卡片 ─── #}
+<div class="stats-area">
+  <div class="stat-card">
+    <div class="lbl" id="statsLabel"><i class="fas fa-chart-line" style="margin-right:4px;"></i> 消费总额</div>
+    <div class="num green" id="totalAmount">¥0.00</div>
+  </div>
+  <div class="stat-card">
+    <div class="lbl"><i class="fas fa-shopping-bag" style="margin-right:4px;"></i> 消费笔数</div>
+    <div class="num blue" id="totalCount">0</div>
+  </div>
+  <div class="stat-card">
+    <div class="lbl"><i class="fas fa-calculator" style="margin-right:4px;"></i> 日均消费</div>
+    <div class="num orange" id="dailyAvg">¥0.00</div>
+  </div>
+</div>
+
+{# ─── 列表 ─── #}
+<div class="layui-card" style="border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+  <div class="layui-card-body" style="padding:0;">
+    <table class="layui-table expense-table" style="margin:0;font-size:13px;">
+      <thead>
+        <tr>
+          <th style="width:100px;">日期</th>
+          <th style="width:60px;">时间</th>
+          <th style="width:120px;">标题</th>
+          <th>描述</th>
+          <th style="width:90px;">金额</th>
+          <th style="width:72px;">凭证</th>
+          <th style="width:80px;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="expenseTableBody">
+        <tr><td colspan="7">
+          <div class="empty-state">
+            <i class="fas fa-receipt"></i>
+            <p>暂无消费记录</p>
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ─── 分页 ─── #}
+<div id="paginationBar" style="margin-top:14px;text-align:center;"></div>
+{% endblock %}
+
+{% block js %}
+<script>
+let layer, form;
+let lastActiveChip = null;
+
+layui.use(['layer', 'form'], function() {
+  layer = layui.layer;
+  form = layui.form;
+  // 默认选中本月
+  applyQuickRange('this-month');
+});
+
+/* ─── 快捷范围 ─── */
+function applyQuickRange(range) {
+  var now = new Date();
+  var y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+  var pad = function(n) { return String(n).padStart(2,'0'); };
+  var todayStr = y+'-'+pad(m+1)+'-'+pad(d);
+  var from = '', to = todayStr;
+
+  switch (range) {
+    case 'today':
+      from = todayStr;
+      break;
+    case '3d':
+      var t = new Date(now); t.setDate(d-2); from = t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate());
+      break;
+    case '7d':
+      var t = new Date(now); t.setDate(d-6); from = t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate());
+      break;
+    case 'this-month':
+      from = y+'-'+pad(m+1)+'-01';
+      break;
+    case 'last-month':
+      var lm = m === 0 ? 11 : m-1;
+      var ly = m === 0 ? y-1 : y;
+      from = ly+'-'+pad(lm+1)+'-01';
+      to = ly+'-'+pad(lm+1)+'-'+pad(new Date(ly, lm+1, 0).getDate());
+      break;
+  }
+
+  document.getElementById('dateFromFilter').value = from;
+  document.getElementById('dateToFilter').value = to;
+
+  // 更新活跃 chip 样式
+  document.querySelectorAll('.quick-chip').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.range === range);
+  });
+  lastActiveChip = range;
+
+  loadList();
+}
+
+/* ─── 手动改日期时清除chip高亮 ─── */
+function onDateChange() {
+  if (lastActiveChip) {
+    document.querySelectorAll('.quick-chip').forEach(function(el) { el.classList.remove('active'); });
+    lastActiveChip = null;
+  }
+  loadList();
+}
+
+/* ─── 清除全部筛选 ─── */
+function clearAllFilters() {
+  document.getElementById('dateFromFilter').value = '';
+  document.getElementById('dateToFilter').value = '';
+  document.querySelectorAll('.quick-chip').forEach(function(el) { el.classList.remove('active'); });
+  lastActiveChip = null;
+  document.getElementById('clearFilterBtn').style.display = 'none';
+  document.getElementById('activeFilterTags').innerHTML = '';
+  loadList();
+}
+
+/* ─── 构建查询字符串 ─── */
+function buildQueryString() {
+  var df = document.getElementById('dateFromFilter').value;
+  var dt = document.getElementById('dateToFilter').value;
+  var parts = [];
+  if (df) parts.push('date_from='+df);
+  if (dt) parts.push('date_to='+dt);
+  return parts.join('&');
+}
+
+/* ─── 加载列表 ─── */
+function loadList() {
+  var qs = buildQueryString();
+  var url = '/xiaoying_admin/api/finance/expense/list/?' + qs + '&page=1&page_size=20';
+
+  fetch(url, {credentials:'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) return;
+
+    // 渲染表格
+    var tbody = document.getElementById('expenseTableBody');
+    if (!res.list.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-receipt"></i><p>暂无消费记录</p></div></td></tr>';
+    } else {
+      var html = '';
+      res.list.forEach(function(e) {
+        var mediaHtml = '';
+        if (e.media_file) {
+          var isVideo = e.media_file.match(/\.(mp4|webm|ogg)$/i);
+          if (isVideo) {
+            mediaHtml = '<video src="'+e.media_file+'" class="expense-media" onclick="previewMedia(\''+e.media_file+'\',\'video\')"></video>';
+          } else {
+            mediaHtml = '<img src="'+e.media_file+'" class="expense-media" onclick="previewMedia(\''+e.media_file+'\',\'image\')">';
+          }
+        }
+        html += '<tr>' +
+          '<td style="font-size:13px;">'+e.expense_date+'</td>' +
+          '<td style="font-size:11px;color:#9ca3af;">'+(e.expense_time||'-')+'</td>' +
+          '<td><strong>'+escHtml(e.title)+'</strong></td>' +
+          '<td style="font-size:12px;color:var(--gray);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(e.description ? escHtml(e.description) : '<span style="color:#d1d5db;">-</span>')+'</td>' +
+          '<td class="amount-cell">¥'+e.amount+'</td>' +
+          '<td style="text-align:center;">'+(mediaHtml||'<span style="color:#d1d5db;">-</span>')+'</td>' +
+          '<td>' +
+            '<button class="layui-btn layui-btn-xs layui-btn-normal" onclick="showForm('+e.id+')" style="border-radius:6px;"><i class="fas fa-edit"></i></button> ' +
+            '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteExpense('+e.id+')" style="border-radius:6px;"><i class="fas fa-trash"></i></button>' +
+          '</td></tr>';
+      });
+      tbody.innerHTML = html;
+    }
+
+    // 统计（基于全部筛选结果）
+    var totalAmount = parseFloat(res.total_amount) || 0;
+    var totalCount = res.total || 0;
+    document.getElementById('totalAmount').textContent = '¥'+totalAmount.toFixed(2);
+    document.getElementById('totalCount').textContent = totalCount;
+
+    // 日均消费
+    var df = document.getElementById('dateFromFilter').value;
+    var dt = document.getElementById('dateToFilter').value;
+    var days = 1;
+    if (df && dt) {
+      days = Math.max(1, Math.floor((new Date(dt) - new Date(df)) / 86400000) + 1);
+    } else if (df) {
+      days = 1;
+    } else {
+      days = totalCount || 1;
+    }
+    document.getElementById('dailyAvg').textContent = totalCount > 0 ? '¥'+(totalAmount/Math.min(days,totalCount)).toFixed(2) : '¥0.00';
+
+    // 标签文本
+    updateFilterTags();
+    updateStatsLabel();
+
+    // 分页
+    renderPagination(res.page, res.total_pages, res.total);
+
+    // 清除按钮
+    var hasFilter = !!df || !!dt;
+    document.getElementById('clearFilterBtn').style.display = hasFilter ? 'inline-flex' : 'none';
+  });
+}
+
+/* ─── 更新筛选标签 ─── */
+function updateFilterTags() {
+  var df = document.getElementById('dateFromFilter').value;
+  var dt = document.getElementById('dateToFilter').value;
+  var container = document.getElementById('activeFilterTags');
+  if (!df && !dt) { container.innerHTML = ''; return; }
+
+  var labels = [];
+  if (df && dt) labels.push(df+' ~ '+dt);
+  else if (df) labels.push('从 '+df+' 起');
+  else if (dt) labels.push('截至 '+dt);
+
+  var html = labels.map(function(l) {
+    return '<span class="active-filter-tag"><i class="fas fa-filter"></i> '+l+' <i class="fas fa-times" onclick="clearAllFilters()"></i></span>';
+  }).join('');
+  container.innerHTML = html;
+}
+
+/* ─── 更新统计标签 ─── */
+function updateStatsLabel() {
+  var df = document.getElementById('dateFromFilter').value;
+  var dt = document.getElementById('dateToFilter').value;
+  var label = '';
+  if (df && dt) label = '<i class="fas fa-calendar-range"></i> '+df+' ~ '+dt+' 消费';
+  else if (df) label = '<i class="fas fa-calendar-day"></i> 从 '+df+' 起消费';
+  else if (dt) label = '<i class="fas fa-calendar-day"></i> 截至 '+dt+' 消费';
+  else label = '<i class="fas fa-chart-line"></i> 全部消费';
+  document.getElementById('statsLabel').innerHTML = label;
+}
+
+/* ─── 表单（记一笔/编辑） ─── */
+function showForm(id) {
+  var isEdit = !!id;
+  var defaults = {id:'', expense_date:new Date().toISOString().slice(0,10), expense_time:'', title:'', description:'', amount:''};
+
+  if (isEdit) {
+    fetch('/xiaoying_admin/api/finance/expense/list/?'+buildQueryString(), {credentials:'same-origin'})
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (!res.ok) return;
+      var d = res.list.find(function(x) { return x.id === id; });
+      if (d) { defaults = d; }
+      openFormDialog(isEdit, defaults);
+    });
+    return;
+  }
+  openFormDialog(isEdit, defaults);
+}
+
+function openFormDialog(isEdit, defaults) {
+  // 解析日期
+  var dateParts = (defaults.expense_date || new Date().toISOString().slice(0,10)).split('-');
+  var year = dateParts[0] || new Date().getFullYear();
+  var month = dateParts[1] || String(new Date().getMonth()+1).padStart(2,'0');
+  var day = dateParts[2] || String(new Date().getDate()).padStart(2,'0');
+
+  // 生成 年/月/日 下拉
+  var yearOpts = '', monthOpts = '', dayOpts = '';
+  var cy = new Date().getFullYear();
+  for (var y = cy - 5; y <= cy + 2; y++) {
+    yearOpts += '<option value="'+y+'"'+(+year===y?' selected':'')+'>'+y+' 年</option>';
+  }
+  for (var m = 1; m <= 12; m++) {
+    var mv = String(m).padStart(2,'0');
+    monthOpts += '<option value="'+mv+'"'+(+month===m?' selected':'')+'>'+mv+' 月</option>';
+  }
+  var daysInMonth = new Date(year, month, 0).getDate();
+  for (var d = 1; d <= daysInMonth; d++) {
+    var dv = String(d).padStart(2,'0');
+    dayOpts += '<option value="'+dv+'"'+(+day===d?' selected':'')+'>'+dv+' 日</option>';
+  }
+
+  var fileLabelHtml = '';
+  if (isEdit && defaults.media_file) {
+    fileLabelHtml = '<i class="fas fa-check-circle" style="color:var(--green);"></i> <span style="color:var(--green);">已上传凭证</span> ' +
+      '<a href="'+defaults.media_file+'" target="_blank" style="font-size:11px;color:var(--blue);text-decoration:underline;">查看</a>';
+  }
+
+  var htmlStr = [
+    '<form class="finance-form" onsubmit="return false;">',
+    '<input type="hidden" name="id" value="'+(isEdit?defaults.id:'')+'">',
+    '<input type="hidden" name="expense_date" id="hiddenExpenseDate" value="'+defaults.expense_date+'">',
+    '<div class="form-row"><label class="form-label"><i class="fas fa-calendar-day"></i>日期</label>',
+    '<div class="date-picker-group">',
+    '<select id="selYear" onchange="updateDatePicker()">'+yearOpts+'</select>',
+    '<select id="selMonth" onchange="updateDatePicker()">'+monthOpts+'</select>',
+    '<select id="selDay">'+dayOpts+'</select></div></div>',
+    '<div class="form-row"><label class="form-label"><i class="fas fa-clock"></i>时间 <span style="font-weight:400;color:var(--gray);font-size:11px;">（可选）</span></label>',
+    '<div class="time-input-wrap"><i class="far fa-clock"></i>',
+    '<input type="time" name="expense_time" value="'+(defaults.expense_time||'')+'" placeholder="选择时间"></div></div>',
+    '<div class="form-row"><label class="form-label"><i class="fas fa-tag"></i>标题</label>',
+    '<input type="text" name="title" class="form-input" placeholder="买了什么？" value="'+escHtml(defaults.title)+'"></div>',
+    '<div class="form-row"><label class="form-label"><i class="fas fa-align-left"></i>描述 <span style="font-weight:400;color:var(--gray);font-size:11px;">（可选）</span></label>',
+    '<textarea name="description" class="form-textarea" placeholder="详细说明">'+escHtml(defaults.description)+'</textarea></div>',
+    '<div class="form-row"><label class="form-label"><i class="fas fa-yen-sign"></i>金额</label>',
+    '<input type="number" step="0.01" name="amount" class="form-input" placeholder="0.00" value="'+defaults.amount+'"></div>',
+    '<div class="form-row"><label class="form-label"><i class="fas fa-image"></i>图片/视频 <span style="font-weight:400;color:var(--gray);font-size:11px;">（可选）</span></label>',
+    '<div class="file-upload-zone" id="uploadZone" onclick="document.getElementById(\'fileInput\').click()">',
+    '<div id="uploadPreview">'+(fileLabelHtml || '<i class="fas fa-cloud-upload-alt"></i><span>点击上传图片或视频</span>')+'</div>',
+    '<input type="file" id="fileInput" name="media_file" accept="image/*,video/*" onchange="onFileSelect(this)">',
+    '</div></div>',
+    '<div class="form-actions">',
+    '<button type="button" class="btn-submit" onclick="submitForm()"><i class="fas fa-check"></i> '+(isEdit?'更新':'记一笔')+'</button>',
+    '<button type="button" class="btn-cancel" onclick="layui.layer.closeAll()"><i class="fas fa-times"></i> 取消</button></div></form>',
+  ].join('');
+
+  layer.open({
+    type: 1,
+    title: '<div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;">' +
+      '<span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;"><i class="fas fa-receipt"></i></span> ' +
+      (isEdit?'编辑消费':'记一笔') + '</div>',
+    area: ['440px', 'auto'],
+    shadeClose: true,
+    shade: 0.3,
+    anim: 2,
+    content: htmlStr,
+    success: function() {
+      setTimeout(function() { syncHiddenDate(); }, 50);
+    },
+  });
+}
+
+/* ─── 日期三联动 ─── */
+function updateDatePicker() {
+  var y = parseInt(document.getElementById('selYear').value);
+  var m = parseInt(document.getElementById('selMonth').value);
+  var selDay = document.getElementById('selDay');
+  var currentDay = parseInt(selDay.value);
+  var daysInMonth = new Date(y, m, 0).getDate();
+
+  var opts = '';
+  for (var d = 1; d <= daysInMonth; d++) {
+    var dv = String(d).padStart(2,'0');
+    opts += '<option value="'+dv+'"'+(d===currentDay || d===Math.min(currentDay, daysInMonth)?' selected':'')+'>'+dv+' 日</option>';
+  }
+  selDay.innerHTML = opts;
+  syncHiddenDate();
+}
+
+function syncHiddenDate() {
+  var y = document.getElementById('selYear').value;
+  var m = document.getElementById('selMonth').value;
+  var d = document.getElementById('selDay').value;
+  document.getElementById('hiddenExpenseDate').value = y+'-'+m+'-'+d;
+}
+
+/* ─── 文件选择预览 ─── */
+function onFileSelect(input) {
+  var zone = document.getElementById('uploadZone');
+  var preview = document.getElementById('uploadPreview');
+  if (input.files && input.files[0]) {
+    var name = input.files[0].name;
+    var isVideo = name.match(/\.(mp4|webm|ogg|mov)$/i);
+    var icon = isVideo ? 'fa-video' : 'fa-image';
+    preview.innerHTML = '<i class="fas '+icon+'" style="color:var(--green);font-size:16px;"></i> <span style="color:var(--green);font-weight:500;">'+escHtml(name)+'</span>';
+    zone.classList.add('has-file');
+  } else {
+    preview.innerHTML = '<i class="fas fa-cloud-upload-alt"></i><span>点击上传图片或视频</span>';
+    zone.classList.remove('has-file');
+  }
+}
+
+function submitForm() {
+  var f = document.querySelector('.finance-form');
+  var data = {
+    id: f.querySelector('[name="id"]').value,
+    expense_date: f.querySelector('[name="expense_date"]').value,
+    expense_time: f.querySelector('[name="expense_time"]').value,
+    title: f.querySelector('[name="title"]').value,
+    description: f.querySelector('[name="description"]').value,
+    amount: f.querySelector('[name="amount"]').value,
+  };
+
+  if (!data.title) { layer.msg('请输入消费标题', {icon:2}); return; }
+  if (!data.amount) { layer.msg('请输入金额', {icon:2}); return; }
+
+  fetch('/xiaoying_admin/api/finance/expense/save/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+    credentials: 'same-origin',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) { layer.msg(res.error||'保存失败', {icon:2}); return; }
+
+    var fileInput = document.getElementById('fileInput');
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      var fd = new FormData();
+      fd.append('id', res.id);
+      fd.append('media_file', fileInput.files[0]);
+      fetch('/xiaoying_admin/api/finance/expense/upload/', {
+        method: 'POST', body: fd, credentials: 'same-origin',
+      })
+      .then(function(r2) { return r2.json(); })
+      .then(function(res2) {
+        layer.msg(res2.ok ? '记录成功' : '保存成功，但文件上传失败: '+(res2.error||''), {icon:res2.ok?1:2});
+        layer.closeAll(); loadList();
+      });
+    } else {
+      layer.msg('记录成功', {icon:1});
+      layer.closeAll(); loadList();
+    }
+  })
+  .catch(function(e) { layer.msg('请求失败: '+e, {icon:2}); });
+}
+
+function deleteExpense(id) {
+  layer.confirm('确定删除这条消费记录吗？', {
+    icon: 3, title: '确认删除', btn: ['删除', '取消'],
+  }, function() {
+    fetch('/xiaoying_admin/api/finance/expense/delete/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: id}),
+      credentials: 'same-origin',
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.ok) { layer.msg('已删除', {icon:1}); loadList(); }
+      else { layer.msg(res.error||'删除失败', {icon:2}); }
+    });
+  });
+}
+
+function previewMedia(url, type) {
+  var content = type === 'video'
+    ? '<video src="'+url+'" controls style="max-width:100%;max-height:80vh;"></video>'
+    : '<img src="'+url+'" style="max-width:100%;max-height:80vh;">';
+  layer.open({
+    type: 1, title: '预览', area: ['auto', 'auto'],
+    shadeClose: true,
+    content: '<div style="padding:10px;text-align:center;">'+content+'</div>',
+  });
+}
+
+/* ─── 分页 ─── */
+var currentPage = 1;
+
+function renderPagination(page, totalPages, total) {
+  currentPage = page || 1;
+  var bar = document.getElementById('paginationBar');
+  if (!total || totalPages <= 1) {
+    bar.innerHTML = total ? '<span style="font-size:13px;color:#999;">共 ' + total + ' 条记录</span>' : '';
+    return;
+  }
+  var html = '<div style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:13px;">';
+
+  // 上一页
+  var prevDisabled = page <= 1;
+  html += '<button class="layui-btn layui-btn-sm' + (prevDisabled ? ' layui-btn-disabled' : '') + '" ' +
+    (prevDisabled ? '' : 'onclick="loadPage(' + (page - 1) + ')"') + '><i class="fas fa-chevron-left"></i></button>';
+
+  // 页码
+  var maxVisible = 7;
+  var start = Math.max(1, page - Math.floor(maxVisible / 2));
+  var end = Math.min(totalPages, start + maxVisible - 1);
+  if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
+
+  if (start > 1) {
+    html += '<button class="layui-btn layui-btn-sm" onclick="loadPage(1)">1</button>';
+    if (start > 2) html += '<span style="color:#999;padding:0 4px;">…</span>';
+  }
+  for (var i = start; i <= end; i++) {
+    html += '<button class="layui-btn layui-btn-sm' + (i === page ? ' layui-btn-normal' : '') + '" onclick="loadPage(' + i + ')">' + i + '</button>';
+  }
+  if (end < totalPages) {
+    if (end < totalPages - 1) html += '<span style="color:#999;padding:0 4px;">…</span>';
+    html += '<button class="layui-btn layui-btn-sm" onclick="loadPage(' + totalPages + ')">' + totalPages + '</button>';
+  }
+
+  // 下一页
+  var nextDisabled = page >= totalPages;
+  html += '<button class="layui-btn layui-btn-sm' + (nextDisabled ? ' layui-btn-disabled' : '') + '" ' +
+    (nextDisabled ? '' : 'onclick="loadPage(' + (page + 1) + ')"') + '><i class="fas fa-chevron-right"></i></button>';
+
+  html += '<span style="color:#999;margin-left:10px;">共 ' + total + ' 条</span></div>';
+  bar.innerHTML = html;
+}
+
+function loadPage(page) {
+  // 保留当前筛选参数，只换页
+  var qs = buildQueryString();
+  var url = '/xiaoying_admin/api/finance/expense/list/?' + qs + '&page=' + page + '&page_size=20';
+  // 复用 loadList 逻辑 —— 直接 fetch 并渲染
+  fetch(url, {credentials:'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) return;
+    renderPageData(res);
+  });
+}
+
+function renderPageData(res) {
+  var tbody = document.getElementById('expenseTableBody');
+  if (!res.list.length) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-receipt"></i><p>暂无消费记录</p></div></td></tr>';
+  } else {
+    var html = '';
+    res.list.forEach(function(e) {
+      var mediaHtml = '';
+      if (e.media_file) {
+        var isVideo = e.media_file.match(/\.(mp4|webm|ogg)$/i);
+        if (isVideo) {
+          mediaHtml = '<video src="'+e.media_file+'" class="expense-media" onclick="previewMedia(\''+e.media_file+'\',\'video\')"></video>';
+        } else {
+          mediaHtml = '<img src="'+e.media_file+'" class="expense-media" onclick="previewMedia(\''+e.media_file+'\',\'image\')">';
+        }
+      }
+      html += '<tr>' +
+        '<td style="font-size:13px;">'+e.expense_date+'</td>' +
+        '<td style="font-size:11px;color:#9ca3af;">'+(e.expense_time||'-')+'</td>' +
+        '<td><strong>'+escHtml(e.title)+'</strong></td>' +
+        '<td style="font-size:12px;color:var(--gray);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(e.description ? escHtml(e.description) : '<span style="color:#d1d5db;">-</span>')+'</td>' +
+        '<td class="amount-cell">¥'+e.amount+'</td>' +
+        '<td style="text-align:center;">'+(mediaHtml||'<span style="color:#d1d5db;">-</span>')+'</td>' +
+        '<td>' +
+          '<button class="layui-btn layui-btn-xs layui-btn-normal" onclick="showForm('+e.id+')" style="border-radius:6px;"><i class="fas fa-edit"></i></button> ' +
+          '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteExpense('+e.id+')" style="border-radius:6px;"><i class="fas fa-trash"></i></button>' +
+        '</td></tr>';
+    });
+    tbody.innerHTML = html;
+  }
+  renderPagination(res.page, res.total_pages, res.total);
+}
+
+function escHtml(s) {
+  return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
+}
+</script>
+{% endblock %}

@@ -175,5 +175,36 @@
         "children": []
       }
     ]
+  },
+  {
+    "name": "个人财务",
+    "icon": "",
+    "url": "",
+    "children": [
+      {
+        "name": "总金额",
+        "icon": "",
+        "url": "/xiaoying_admin/finance/balance/",
+        "children": []
+      },
+      {
+        "name": "债务管理",
+        "icon": "",
+        "url": "/xiaoying_admin/finance/debt/",
+        "children": []
+      },
+      {
+        "name": "日常消费",
+        "icon": "",
+        "url": "/xiaoying_admin/finance/expense/",
+        "children": []
+      },
+      {
+        "name": "好友管理",
+        "icon": "",
+        "url": "/xiaoying_admin/finance/friends/",
+        "children": []
+      }
+    ]
   }
 ]
