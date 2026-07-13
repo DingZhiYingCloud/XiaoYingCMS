@@ -1,0 +1,503 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% load static %}
+
+{% block title %}{{ workflow.name }} — SEO测试流程 — {{ site_name }}{% endblock %}
+
+{% block head %}
+<style>
+/* ===== 页面头部 ===== */
+.twf-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.twf-header h2 { margin:0; font-size:18px; }
+.twf-header .back-link {
+    font-size:13px; color:#5FB878; text-decoration:none;
+    display:inline-flex; align-items:center; gap:4px;
+}
+.twf-header .back-link:hover { text-decoration:underline; }
+
+/* ===== 信息卡片 ===== */
+.twf-info-card {
+    background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    padding: 16px 20px; margin-bottom: 16px;
+}
+.twf-info-card .row {
+    display: flex; gap: 24px; flex-wrap: wrap; font-size: 13px;
+}
+.twf-info-card .row .item { display:flex; align-items:center; gap:6px; color:#666; }
+.twf-info-card .row .item i { width:16px; text-align:center; color:#5FB878; }
+
+/* ===== 域名标签 ===== */
+.domain-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.domain-tag {
+    display:inline-block; padding:2px 10px; background:#f0f9f0;
+    border:1px solid #d4edda; border-radius:12px; font-size:12px; color:#2d6a4f;
+}
+
+/* ===== 步骤时间线 ===== */
+.steps-card {
+    background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    padding: 20px; min-height: 200px;
+}
+.steps-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+}
+.steps-toolbar h3 { margin:0; font-size:15px; }
+
+/* ===== 步骤行 ===== */
+.step-row {
+    display: flex; align-items: stretch; gap: 14px;
+    padding: 12px 0; border-bottom: 1px solid #f3f3f3;
+    transition: background 0.12s; position: relative;
+}
+.step-row:last-child { border-bottom: none; }
+.step-row.in_progress { background: #fafff8; margin:0 -12px; padding:12px; border-radius:6px; }
+.step-row.completed { opacity: 0.75; }
+.step-row.overdue { background: #fff5f5; margin:0 -12px; padding:12px; border-radius:6px; }
+.step-row.overdue .step-number.in_progress { box-shadow: 0 0 0 3px rgba(255,77,79,0.2); border-color: #ff4d4f; background: #ff4d4f; }
+
+/* ===== 步骤序号指示器 ===== */
+.step-indicator {
+    width: 36px; display: flex; flex-direction: column;
+    align-items: center; flex-shrink: 0; padding-top: 2px;
+}
+.step-number {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; flex-shrink: 0;
+    transition: all 0.25s;
+}
+.step-number.pending {
+    background: #f0f0f0; color: #bbb; border: 2px solid #e0e0e0;
+}
+.step-number.in_progress {
+    background: #5FB878; color: #fff; border: 2px solid #5FB878;
+    box-shadow: 0 0 0 3px rgba(95,184,120,0.2);
+}
+.step-number.completed {
+    background: #5FB878; color: #fff; border: 2px solid #5FB878;
+}
+.step-line {
+    width: 2px; flex: 1; min-height: 20px;
+    background: #e8e8e8; margin-top: 4px;
+}
+.step-line.completed { background: #5FB878; }
+.step-line.pending { background: #e8e8e8; }
+.step-row:last-child .step-line { display: none; }
+
+/* ===== 步骤内容 ===== */
+.step-content { flex: 1; min-width: 0; }
+.step-name { font-size: 14px; font-weight: 600; color: #333; }
+.step-desc { font-size: 12px; color: #888; margin-top: 4px;
+    white-space: pre-wrap; line-height: 1.6; }
+.step-meta { font-size: 11px; color: #aaa; margin-top: 4px; display: flex; gap: 12px; flex-wrap: wrap; }
+.step-meta span { display: inline-flex; align-items: center; gap: 3px; }
+.step-meta .urgent { color: #ff4d4f; font-weight: 600; }
+
+/* ===== 步骤操作 ===== */
+.step-actions {
+    flex-shrink: 0; display: flex; flex-direction: column; gap: 4px;
+    padding-top: 2px;
+}
+
+/* ===== 空状态 ===== */
+.empty-state {
+    text-align: center; padding: 60px 20px; color: #bbb;
+}
+.empty-state i { font-size: 40px; margin-bottom: 10px; display: block; }
+.empty-state p { font-size: 13px; }
+
+/* ===== 完成动画 ===== */
+@keyframes stepComplete {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+.step-number.just-completed { animation: stepComplete 0.4s ease; }
+
+/* ===== 结果标记 ===== */
+.badge-result {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:2px 12px; border-radius:10px; font-size:12px; font-weight:600;
+}
+.badge-result.success { background:#e8f5e9; color:#2e7d32; }
+.badge-result.failed { background:#fbe9e7; color:#c62828; }
+.badge-result.pending { background:#fff8e1; color:#f57f17; }
+.btn-result {
+    border:none; padding:6px 18px; border-radius:4px; font-size:13px;
+    cursor:pointer; font-weight:600; transition:all 0.15s;
+}
+.btn-result:hover { transform:translateY(-1px); box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+.btn-result.success { background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; }
+.btn-result.failed { background:#fbe9e7; color:#c62828; border:1px solid #ef9a9a; }
+.result-label { font-size:13px; font-weight:500; color:#555; margin-right:8px; }
+</style>
+{% endblock %}
+
+{% block body %}
+<!-- ===== 页面头部 ===== -->
+<div class="twf-header">
+    <a class="back-link" href="{% url 'test_workflow_list' %}"><i class="fas fa-arrow-left"></i> 返回列表</a>
+    <h2>{{ workflow.name }}</h2>
+</div>
+
+<!-- ===== 信息卡片 ===== -->
+<div class="twf-info-card">
+    <div class="row">
+        <span class="item"><i class="fas fa-globe"></i> <strong id="domainCount">0</strong> 个域名</span>
+        <span class="item"><i class="fas fa-list-ol"></i> <strong id="stepProgress">0/0</strong> 步骤</span>
+        <span class="item"><i class="fas fa-calendar-alt"></i> 截止: <strong id="dueInfo">-</strong></span>
+        <span class="item" id="statusBadge"><i class="fas fa-circle"></i> 加载中…</span>
+        <span class="item" id="resultBadge" style="display:none;"></span>
+    </div>
+    <div id="resultActions" style="margin-top:10px;display:none;"></div>
+    {% if workflow.description %}
+    <div style="margin-top:8px;font-size:13px;color:#888;">{{ workflow.description }}</div>
+    {% endif %}
+    <div class="domain-tags" id="domainTags"></div>
+</div>
+
+<!-- ===== 步骤时间线 ===== -->
+<div class="steps-card">
+    <div class="steps-toolbar">
+        <h3><i class="fas fa-tasks"></i> 测试步骤</h3>
+        <button class="layui-btn layui-btn-sm" id="btnAddStep">
+            <i class="fas fa-plus"></i> 新增步骤
+        </button>
+    </div>
+    <div id="stepList"></div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+layui.use(['layer'], function(){
+    var layer = layui.layer;
+    var workflowId = {{ workflow.id }};
+    var $stepList = document.getElementById('stepList');
+    var $domainCount = document.getElementById('domainCount');
+    var $stepProgress = document.getElementById('stepProgress');
+    var $dueInfo = document.getElementById('dueInfo');
+    var $statusBadge = document.getElementById('statusBadge');
+    var $resultBadge = document.getElementById('resultBadge');
+    var $resultActions = document.getElementById('resultActions');
+    var $domainTags = document.getElementById('domainTags');
+
+    /* ===== 工具：格式化日期 ===== */
+    function fmtDate(isoStr){
+        if(!isoStr) return '';
+        var d = new Date(isoStr);
+        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    function isOverdue(isoStr){
+        if(!isoStr) return false;
+        var due = new Date(isoStr);
+        var today = new Date();
+        today.setHours(0,0,0,0);
+        return due < today;
+    }
+
+    /* ===== 加载详情 ===== */
+    function loadDetail(){
+        fetch('{% url "api_test_workflow_detail" 0 %}'.replace('/0/', '/' + workflowId + '/'))
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if(res.code !== 0 || !res.data) return;
+                renderDetail(res.data);
+            });
+    }
+
+    /* ===== 渲染 ===== */
+    function renderDetail(data){
+        // 域名
+        var domains = data.domains || [];
+        $domainCount.textContent = domains.length;
+        if(domains.length){
+            $domainTags.innerHTML = domains.map(function(d){
+                return '<span class="domain-tag">' + escHtml(d.domain) + '</span>';
+            }).join('');
+        } else {
+            $domainTags.innerHTML = '<span style="font-size:12px;color:#bbb;">未关联域名</span>';
+        }
+
+        // 进度 & 截止信息
+        var steps = data.steps || [];
+        var completed = steps.filter(function(s){ return s.status === 'completed'; }).length;
+        var total = steps.length;
+        $stepProgress.textContent = completed + '/' + total;
+
+        // 截止日期显示
+        if(data.current_due_date){
+            var due = fmtDate(data.current_due_date);
+            var overdue = isOverdue(data.current_due_date);
+            $dueInfo.innerHTML = overdue
+                ? '<span style="color:#ff4d4f;">' + due + ' (已超期!)</span>'
+                : '<span style="color:#5FB878;">' + due + '</span>';
+        } else {
+            $dueInfo.textContent = data.is_completed ? '已完成' : (total ? '待设置' : '-');
+        }
+
+        // 状态
+        if(data.is_completed){
+            $statusBadge.innerHTML = '<i class="fas fa-check-circle" style="color:#5FB878;"></i> 已完成';
+        } else if(total === 0){
+            $statusBadge.innerHTML = '<i class="fas fa-hourglass-start" style="color:#fa8c16;"></i> 暂无步骤';
+        } else {
+            $statusBadge.innerHTML = '<i class="fas fa-spinner" style="color:#1890ff;"></i> 进行中';
+        }
+
+        // 测试结果标记
+        if(data.result && data.result !== 'pending'){
+            var resultLabel = data.result_label || (data.result === 'success' ? '成功' : '失败');
+            var icon = data.result === 'success' ? 'fa-check-circle' : 'fa-times-circle';
+            $resultBadge.style.display = '';
+            $resultBadge.innerHTML = '<span class="badge-result ' + data.result + '"><i class="fas ' + icon + '"></i> ' + resultLabel + '</span>';
+        } else {
+            $resultBadge.style.display = 'none';
+        }
+
+        // 测试结果操作按钮（仅已完成且未标记时显示）
+        if(data.is_completed && (!data.result || data.result === 'pending')){
+            $resultActions.style.display = '';
+            $resultActions.innerHTML =
+                '<span class="result-label">标记测试结果:</span>' +
+                '<button class="btn-result success" onclick="setResult(\'success\')"><i class="fas fa-check-circle"></i> 测试成功</button> ' +
+                '<button class="btn-result failed" onclick="setResult(\'failed\')"><i class="fas fa-times-circle"></i> 测试失败</button>';
+        } else {
+            $resultActions.style.display = 'none';
+        }
+
+        // 步骤
+        renderSteps(steps);
+    }
+
+    /* ===== 渲染步骤 ===== */
+    function renderSteps(steps){
+        if(!steps || steps.length === 0){
+            $stepList.innerHTML =
+                '<div class="empty-state">' +
+                '  <i class="fas fa-tasks"></i>' +
+                '  <p>还没有步骤，点击「新增步骤」添加第一步</p>' +
+                '</div>';
+            return;
+        }
+        var html = '';
+        steps.forEach(function(s, idx){
+            var status = s.status;
+
+            // 判断是否超期
+            var overdue = (status === 'in_progress' && isOverdue(s.due_date));
+            var rowCls = overdue ? 'step-row overdue' : 'step-row ' + status;
+
+            // 指示器
+            var numHtml = '';
+            if(status === 'completed'){
+                numHtml = '<div class="step-number completed"><i class="fas fa-check" style="font-size:14px;"></i></div>';
+            } else if(status === 'in_progress'){
+                numHtml = '<div class="step-number in_progress">' + s.step_order + '</div>';
+            } else {
+                numHtml = '<div class="step-number pending">' + s.step_order + '</div>';
+            }
+
+            // 连线颜色
+            var lineCls = status === 'completed' ? 'step-line completed' : 'step-line pending';
+
+            // 元信息
+            var metaHtml = '';
+            if(s.duration_days){
+                metaHtml += '<span><i class="far fa-calendar-alt"></i> 需 ' + s.duration_days + ' 天</span>';
+            }
+            if(s.started_at){
+                metaHtml += '<span><i class="far fa-play-circle"></i> ' + fmtDate(s.started_at) + '</span>';
+            }
+            if(s.due_date && status === 'in_progress'){
+                var dueFmt = fmtDate(s.due_date);
+                if(overdue){
+                    metaHtml += '<span class="urgent"><i class="fas fa-exclamation-circle"></i> 已超期: ' + dueFmt + '</span>';
+                } else {
+                    metaHtml += '<span><i class="far fa-clock"></i> 截止: ' + dueFmt + '</span>';
+                }
+            }
+            if(s.completed_at){
+                metaHtml += '<span><i class="far fa-check-circle"></i> ' + fmtDate(s.completed_at) + ' 完成</span>';
+            }
+            if(metaHtml){
+                metaHtml = '<div class="step-meta">' + metaHtml + '</div>';
+            }
+
+            // 操作按钮
+            var actionsHtml = '';
+            if(status === 'in_progress'){
+                actionsHtml +=
+                    '<button class="layui-btn layui-btn-xs layui-btn-primary" onclick="doComplete(' + s.id + ')" style="background:#5FB878;color:#fff;border-color:#5FB878;">' +
+                    '  <i class="fas fa-check"></i> 完成</button>';
+            }
+            actionsHtml +=
+                '<button class="layui-btn layui-btn-xs layui-btn-warm" onclick="editStep(' + s.id + ')"><i class="fas fa-edit"></i></button>' +
+                '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteStep(' + s.id + ')"><i class="fas fa-trash"></i></button>';
+
+            html +=
+                '<div class="' + rowCls + '">' +
+                '  <div class="step-indicator">' +
+                '    ' + numHtml +
+                '    <div class="' + lineCls + '"></div>' +
+                '  </div>' +
+                '  <div class="step-content">' +
+                '    <div class="step-name">' + escHtml(s.name) + '</div>' +
+                (s.description ? '<div class="step-desc">' + escHtml(s.description) + '</div>' : '') +
+                metaHtml +
+                '  </div>' +
+                '  <div class="step-actions">' + actionsHtml + '</div>' +
+                '</div>';
+        });
+        $stepList.innerHTML = html;
+    }
+
+    /* ===== 完成步骤 ===== */
+    window.doComplete = function(stepId){
+        layer.confirm('确定将此步骤标记为已完成？下一步将自动变为「进行中」。如果这是最后一步，整个流程将被标记为完成。', {
+            title: '确认完成', btn: ['确定', '取消']
+        }, function(idx){
+            fetch('{% url "api_test_workflow_step_complete" 0 0 %}'
+                .replace('/0/', '/' + workflowId + '/')
+                .replace('/0/', '/' + stepId + '/'), { method:'POST' })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if(res.code === 0){
+                        layer.msg('步骤已完成 🎉', {icon:1});
+                        loadDetail();
+                    } else { layer.msg(res.message||'操作失败', {icon:2}); }
+                });
+            layer.close(idx);
+        });
+    };
+
+    /* ===== 设置测试结果 ===== */
+    window.setResult = function(result){
+        var label = result === 'success' ? '成功' : '失败';
+        layer.confirm('确定将测试结果标记为「' + label + '」？', {
+            title: '确认结果', btn: ['确定', '取消']
+        }, function(idx){
+            fetch('{% url "api_test_workflow_set_result" 0 %}'.replace('/0/', '/' + workflowId + '/'), {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({result: result})
+            }).then(function(r){ return r.json(); }).then(function(res){
+                if(res.code === 0){
+                    layer.msg('已标记为' + label, {icon:1});
+                    loadDetail();
+                } else { layer.msg(res.message||'操作失败', {icon:2}); }
+            });
+            layer.close(idx);
+        });
+    };
+
+    /* ===== 删除步骤 ===== */
+    window.deleteStep = function(stepId){
+        layer.confirm('确定删除此步骤？', {
+            title: '确认删除', btn: ['确定', '取消']
+        }, function(idx){
+            fetch('{% url "api_test_workflow_step_delete" 0 0 %}'
+                .replace('/0/', '/' + workflowId + '/')
+                .replace('/0/', '/' + stepId + '/'), { method:'POST' })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if(res.code === 0){
+                        layer.msg('已删除', {icon:1});
+                        loadDetail();
+                    } else { layer.msg(res.message||'删除失败', {icon:2}); }
+                });
+            layer.close(idx);
+        });
+    };
+
+    /* ===== 编辑步骤 ===== */
+    window.editStep = function(stepId){
+        var data = window._currentSteps || [];
+        var step = data.find(function(s){ return s.id === stepId; });
+        openStepForm(step);
+    };
+
+    /* ===== 新增步骤按钮 ===== */
+    document.getElementById('btnAddStep').addEventListener('click', function(){
+        openStepForm(null);
+    });
+
+    /* ===== 步骤表单弹窗 ===== */
+    function openStepForm(step){
+        var isEdit = !!step;
+        var title = isEdit ? '编辑步骤' : '新增步骤';
+        var name = isEdit ? escHtml(step.name) : '';
+        var desc = isEdit ? escHtml(step.description) : '';
+        var days = isEdit ? step.duration_days : 1;
+
+        layer.open({
+            type: 1,
+            title: title,
+            area: ['500px', '370px'],
+            shadeClose: true,
+            content:
+                '<div style="padding:20px 24px 10px;">' +
+                '  <div class="layui-form-item">' +
+                '    <label style="display:block;margin-bottom:4px;font-size:13px;font-weight:500;">步骤名称 <span style="color:red;">*</span></label>' +
+                '    <input id="stepNameInput" class="layui-input" value="' + name + '" placeholder="如「上传蜘蛛池」" />' +
+                '  </div>' +
+                '  <div class="layui-form-item" style="margin-top:12px;">' +
+                '    <label style="display:block;margin-bottom:4px;font-size:13px;font-weight:500;">操作描述</label>' +
+                '    <textarea id="stepDescInput" class="layui-textarea" style="height:60px;" placeholder="详细说明这一步需要做什么">' + desc + '</textarea>' +
+                '  </div>' +
+                '  <div class="layui-form-item" style="margin-top:12px;">' +
+                '    <label style="display:block;margin-bottom:4px;font-size:13px;font-weight:500;">需要天数</label>' +
+                '    <input id="stepDaysInput" type="number" class="layui-input" value="' + days + '" min="1" style="width:120px;" placeholder="天数" />' +
+                '    <div style="font-size:11px;color:#aaa;margin-top:4px;">从步骤变为「进行中」开始计算截止日期</div>' +
+                '  </div>' +
+                '</div>',
+            btn: ['保存', '取消'],
+            yes: function(idx){
+                var nameVal = document.getElementById('stepNameInput').value.trim();
+                if(!nameVal){ layer.msg('请填写步骤名称', {icon:5}); return; }
+                var descVal = document.getElementById('stepDescInput').value.trim();
+                var daysVal = parseInt(document.getElementById('stepDaysInput').value) || 1;
+                var url, body;
+                if(isEdit){
+                    url = '{% url "api_test_workflow_step_update" 0 0 %}'
+                        .replace('/0/', '/' + workflowId + '/')
+                        .replace('/0/', '/' + step.id + '/');
+                    body = JSON.stringify({name:nameVal, description:descVal, duration_days:daysVal});
+                } else {
+                    url = '{% url "api_test_workflow_step_create" 0 %}'.replace('/0/', '/' + workflowId + '/');
+                    body = JSON.stringify({name:nameVal, description:descVal, duration_days:daysVal});
+                }
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: body,
+                }).then(function(r){ return r.json(); }).then(function(res){
+                    if(res.code === 0){
+                        layer.msg('保存成功', {icon:1});
+                        layer.close(idx);
+                        loadDetail();
+                    } else { layer.msg(res.message||'保存失败', {icon:2}); }
+                });
+            }
+        });
+    }
+
+    /* ===== 加载（带缓存步骤数据） ===== */
+    loadDetail = function(){
+        fetch('{% url "api_test_workflow_detail" 0 %}'.replace('/0/', '/' + workflowId + '/'))
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if(res.code !== 0 || !res.data) return;
+                window._currentSteps = res.data.steps || [];
+                renderDetail(res.data);
+            });
+    };
+
+    /* ===== 初始加载 ===== */
+    loadDetail();
+});
+</script>
+{% endblock %}

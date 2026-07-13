@@ -1,0 +1,409 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% load static %}
+
+{% block title %}SEO测试流程 — {{ site_name }}{% endblock %}
+
+{% block head %}
+<style>
+.twf-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 15px; gap: 10px; flex-wrap: wrap;
+}
+.twf-search {
+    width: 260px; height: 30px; border: 1px solid #d2d2d2;
+    border-radius: 4px; padding: 0 10px; font-size: 13px;
+    outline: none; transition: border-color 0.2s;
+}
+.twf-search:focus { border-color: #5FB878; }
+
+.twf-card {
+    background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    padding: 16px 20px; margin-bottom: 12px; cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.15s; display: flex;
+    align-items: center; gap: 16px;
+}
+.twf-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.08); transform: translateY(-1px); }
+.twf-card.completed { opacity: 0.7; }
+.twf-card.completed .twf-name { text-decoration: line-through; }
+.twf-card.urgent { border-left: 3px solid #ff4d4f; background: #fffcfc; }
+
+.twf-icon {
+    width: 40px; height: 40px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+}
+.twf-icon.active { background: #e8f5e9; color: #5FB878; }
+.twf-icon.done { background: #f0f0f0; color: #999; }
+.twf-icon.urgent-icon { background: #fff0f0; color: #ff4d4f; }
+
+.twf-body { flex: 1; min-width: 0; }
+.twf-name { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 4px; }
+.twf-meta { font-size: 12px; color: #999; display: flex; gap: 16px; flex-wrap: wrap; }
+.twf-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.twf-meta .overdue { color: #ff4d4f; font-weight: 600; }
+.twf-meta .due-soon { color: #fa8c16; font-weight: 600; }
+.twf-desc { font-size: 12px; color: #999; margin-top: 4px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 400px; }
+
+.twf-progress {
+    width: 120px; flex-shrink: 0; text-align: center;
+}
+.twf-progress .pct { font-size: 18px; font-weight: 700; color: #5FB878; }
+.twf-progress .pct.done { color: #999; }
+.twf-progress .label { font-size: 11px; color: #aaa; }
+
+.twf-actions { flex-shrink: 0; display: flex; gap: 6px; }
+
+.empty-state {
+    text-align: center; padding: 80px 20px; color: #bbb;
+}
+.empty-state i { font-size: 48px; margin-bottom: 12px; display: block; }
+.empty-state p { font-size: 14px; }
+
+/* ===== 创建弹窗 ===== */
+.domain-list-wrap {
+    max-height: 200px; overflow-y: auto; border: 1px solid #e8e8e8;
+    border-radius: 4px; padding: 4px; margin-top: 4px;
+}
+.domain-list-wrap label {
+    display: block; padding: 4px 8px; font-size: 13px; cursor: pointer;
+    border-radius: 3px; transition: background 0.12s;
+}
+.domain-list-wrap label:hover { background: #f5f8f5; }
+.domain-list-wrap input { margin-right: 6px; }
+.domain-filter-input {
+    width: 100%; height: 28px; border: 1px solid #d2d2d2;
+    border-radius: 4px; padding: 0 8px; font-size: 12px;
+    outline: none; margin-bottom: 4px; box-sizing: border-box;
+}
+.domain-filter-input:focus { border-color: #5FB878; }
+
+.btn-sort {
+    border: 1px solid #d2d2d2; background: #fff; border-radius: 4px;
+    padding: 0 12px; height: 30px; font-size: 13px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: all 0.15s; white-space: nowrap;
+}
+.btn-sort:hover { border-color: #5FB878; color: #5FB878; }
+.btn-sort.active { background: #5FB878; color: #fff; border-color: #5FB878; }
+
+/* ===== 状态筛选标签 ===== */
+.status-tabs {
+    display: flex; gap: 0; margin-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+.status-tab {
+    padding: 8px 18px; font-size: 13px; cursor: pointer; color: #888;
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+    transition: all 0.15s; user-select: none; background: none; border-top:none;
+    border-left:none; border-right:none;
+}
+.status-tab:hover { color: #5FB878; }
+.status-tab.active { color: #5FB878; font-weight: 600; border-bottom-color: #5FB878; }
+.status-tab .count { font-size: 11px; color: #bbb; margin-left: 4px; }
+.status-tab.active .count { color: #5FB878; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="twf-toolbar">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <h2 style="margin:0;font-size:18px;">SEO测试流程</h2>
+        <button class="layui-btn layui-btn-sm" id="btnCreate">
+            <i class="fas fa-plus"></i> 新建流程
+        </button>
+        <button class="btn-sort" id="btnSort">
+            <i class="fas fa-clock"></i> 按截止时间排序
+        </button>
+    </div>
+    <input class="twf-search" id="searchInput" placeholder="搜索测试流程…" />
+</div>
+
+<div class="status-tabs">
+    <button class="status-tab active" data-status="">全部</button>
+    <button class="status-tab" data-status="pending">进行中</button>
+    <button class="status-tab" data-status="success">成功</button>
+    <button class="status-tab" data-status="failed">失败</button>
+</div>
+
+<div id="workflowList"></div>
+{% endblock %}
+
+{% block js %}
+<script>
+layui.use(['layer'], function(){
+    var layer = layui.layer;
+    var $list = document.getElementById('workflowList');
+    var $search = document.getElementById('searchInput');
+    var $btnSort = document.getElementById('btnSort');
+    var currentSort = '';
+    var currentStatus = '';
+    var allData = [];
+
+    /* ===== 工具：格式化日期 ===== */
+    function fmtDate(isoStr){
+        if(!isoStr) return '';
+        var d = new Date(isoStr);
+        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    function isOverdue(isoStr){
+        if(!isoStr) return false;
+        return new Date(isoStr) < new Date(new Date().toDateString());
+    }
+    function isDueSoon(isoStr, days){
+        if(!isoStr) return false;
+        var due = new Date(isoStr);
+        var t = new Date();
+        t.setHours(0,0,0,0);
+        var limit = new Date(t);
+        limit.setDate(limit.getDate() + (days || 2));
+        return due >= t && due <= limit;
+    }
+
+    /* ===== 加载列表 ===== */
+    function loadList(){
+        var url = '{% url "api_test_workflow_list" %}?q=' + encodeURIComponent($search.value);
+        if(currentSort === 'due') url += '&sort=due';
+        if(currentStatus) url += '&status=' + currentStatus;
+        fetch(url)
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if(res.code !== 0) return;
+                allData = res.data;
+                renderList(allData);
+            });
+    }
+
+    /* ===== 渲染列表 ===== */
+    function renderList(data){
+        if(!data || data.length === 0){
+            $list.innerHTML =
+                '<div class="empty-state">' +
+                '  <i class="fas fa-flask"></i>' +
+                '  <p>还没有测试流程，点击「新建流程」开始吧</p>' +
+                '</div>';
+            return;
+        }
+        var html = '';
+        data.forEach(function(w){
+            var pct = w.total_steps > 0 ? Math.round(w.completed_steps / w.total_steps * 100) : 0;
+            var isUrgent = !w.is_completed && w.current_due_date && isOverdue(w.current_due_date);
+            var isSoon = !w.is_completed && w.current_due_date && isDueSoon(w.current_due_date, 2);
+            var cls = 'twf-card';
+            if(w.is_completed) cls += ' completed';
+            else if(isUrgent) cls += ' urgent';
+
+            var iconCls = 'twf-icon';
+            var iconHtml = '';
+            if(w.is_completed){
+                iconCls += ' done';
+                iconHtml = '<i class="fas fa-check-circle" style="color:#5FB878;"></i>';
+            } else if(isUrgent){
+                iconCls += ' urgent-icon';
+                iconHtml = '<i class="fas fa-exclamation-triangle" style="color:#ff4d4f;"></i>';
+            } else {
+                iconCls += ' active';
+                iconHtml = '<i class="fas fa-spinner" style="color:#5FB878;"></i>';
+            }
+
+            // 截止日期信息
+            var dueHtml = '';
+            if(w.current_due_date && !w.is_completed){
+                var due = fmtDate(w.current_due_date);
+                if(isUrgent) dueHtml = '<span class="overdue"><i class="fas fa-exclamation-circle"></i> 已超期: ' + due + '</span>';
+                else if(isSoon) dueHtml = '<span class="due-soon"><i class="fas fa-clock"></i> 即将截止: ' + due + '</span>';
+                else dueHtml = '<span><i class="far fa-calendar-alt"></i> 截止: ' + due + '</span>';
+            }
+
+            // 结果标记
+            var resultHtml = '';
+            if(w.result && w.result !== 'pending'){
+                var rIcon = w.result === 'success' ? 'fa-check-circle' : 'fa-times-circle';
+                var rColor = w.result === 'success' ? '#2e7d32' : '#c62828';
+                var rBg = w.result === 'success' ? '#e8f5e9' : '#fbe9e7';
+                resultHtml = '<span style="display:inline-block;padding:1px 8px;border-radius:8px;font-size:11px;font-weight:600;background:' + rBg + ';color:' + rColor + ';"><i class="fas ' + rIcon + '"></i> ' + (w.result_label || w.result) + '</span>';
+            }
+
+            var pctCls = w.is_completed ? 'pct done' : 'pct';
+            html +=
+                '<div class="' + cls + '" data-id="' + w.id + '" onclick="gotoDetail(' + w.id + ')">' +
+                '  <div class="' + iconCls + '">' + iconHtml + '</div>' +
+                '  <div class="twf-body">' +
+                '    <div class="twf-name">' + escHtml(w.name) + ' ' + resultHtml + '</div>' +
+                '    <div class="twf-meta">' +
+                '      <span><i class="fas fa-globe"></i> ' + w.domain_count + ' 个域名</span>' +
+                '      <span><i class="fas fa-list-ol"></i> ' + w.completed_steps + '/' + w.total_steps + ' 步骤</span>' +
+                (dueHtml || '') +
+                '    </div>' +
+                (w.description ? '<div class="twf-desc">' + escHtml(w.description) + '</div>' : '') +
+                '  </div>' +
+                '  <div class="twf-progress">' +
+                '    <div class="' + pctCls + '">' + pct + '%</div>' +
+                '    <div class="label">' + (w.is_completed ? '已完成' : '进行中') + '</div>' +
+                '  </div>' +
+                '  <div class="twf-actions">' +
+                '    <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="event.stopPropagation();editWorkflow(' + w.id + ')"><i class="fas fa-edit"></i></button>' +
+                '    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteWorkflow(' + w.id + ')"><i class="fas fa-trash"></i></button>' +
+                '  </div>' +
+                '</div>';
+        });
+        $list.innerHTML = html;
+    }
+
+    /* ===== 排序按钮 ===== */
+    $btnSort.addEventListener('click', function(){
+        if(currentSort === 'due'){
+            currentSort = '';
+            $btnSort.classList.remove('active');
+        } else {
+            currentSort = 'due';
+            $btnSort.classList.add('active');
+        }
+        loadList();
+    });
+
+    /* ===== 状态筛选标签 ===== */
+    document.querySelectorAll('.status-tab').forEach(function(tab){
+        tab.addEventListener('click', function(){
+            document.querySelectorAll('.status-tab').forEach(function(t){ t.classList.remove('active'); });
+            tab.classList.add('active');
+            currentStatus = tab.getAttribute('data-status');
+            loadList();
+        });
+    });
+
+    /* ===== 跳转到详情 ===== */
+    window.gotoDetail = function(id){
+        window.location.href = '{% url "test_workflow_detail" 0 %}'.replace('/0/', '/' + id + '/');
+    };
+
+    /* ===== 删除流程 ===== */
+    window.deleteWorkflow = function(id){
+        layer.confirm('确定删除此测试流程？关联的步骤也会一并删除。', {
+            title: '确认删除', btn: ['确定', '取消']
+        }, function(idx){
+            fetch('{% url "api_test_workflow_delete" 0 %}'.replace('/0/', '/' + id + '/'), { method:'POST' })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if(res.code === 0){
+                        layer.msg('已删除', {icon:1});
+                        loadList();
+                    } else { layer.msg(res.message||'删除失败', {icon:2}); }
+                });
+            layer.close(idx);
+        });
+    };
+
+    /* ===== 编辑流程 ===== */
+    window.editWorkflow = function(id){
+        fetch('{% url "api_test_workflow_detail" 0 %}'.replace('/0/', '/' + id + '/'))
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if(res.code !== 0) return;
+                openForm(res.data);
+            });
+    };
+
+    /* ===== 新建按钮 ===== */
+    document.getElementById('btnCreate').addEventListener('click', function(){
+        openForm(null);
+    });
+
+    /* ===== 表单弹窗 ===== */
+    function openForm(data){
+        var isEdit = !!data;
+        var title = isEdit ? '编辑测试流程' : '新建测试流程';
+        var selectedIds = isEdit ? (data.domains||[]).map(function(d){ return d.id; }) : [];
+
+        layer.open({
+            type: 1,
+            title: title,
+            area: ['520px', '480px'],
+            shadeClose: true,
+            content: buildFormHtml(isEdit, data, selectedIds),
+            success: function(layero){
+                loadDomainCheckboxes(layero, selectedIds);
+                var filterInput = layero.find('.domain-filter-input')[0];
+                if(filterInput){
+                    filterInput.addEventListener('input', function(){
+                        loadDomainCheckboxes(layero, selectedIds, this.value);
+                    });
+                }
+            },
+            btn: ['保存', '取消'],
+            yes: function(idx, layero){
+                var name = layero.find('input[name="wf_name"]').val().trim();
+                if(!name){ layer.msg('请填写流程名称', {icon:5}); return; }
+                var desc = layero.find('textarea[name="wf_desc"]').val().trim();
+                var checked = layero.find('.domain-cb:checked');
+                var domainIds = [];
+                checked.each(function(){ domainIds.push(parseInt(this.value)); });
+
+                var url = isEdit
+                    ? '{% url "api_test_workflow_update" 0 %}'.replace('/0/', '/' + data.id + '/')
+                    : '{% url "api_test_workflow_create" %}';
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({name:name, description:desc, domain_ids:domainIds})
+                }).then(function(r){ return r.json(); }).then(function(res){
+                    if(res.code === 0){
+                        layer.msg('保存成功', {icon:1});
+                        layer.close(idx);
+                        loadList();
+                    } else { layer.msg(res.message||'保存失败', {icon:2}); }
+                });
+            }
+        });
+    }
+
+    function buildFormHtml(isEdit, data, selectedIds){
+        var name = isEdit ? escHtml(data.name) : '';
+        var desc = isEdit ? escHtml(data.description) : '';
+        return '' +
+            '<div style="padding:20px 24px 10px;">' +
+            '  <div class="layui-form-item">' +
+            '    <label style="display:block;margin-bottom:4px;font-size:13px;font-weight:500;">流程名称 <span style="color:red;">*</span></label>' +
+            '    <input name="wf_name" class="layui-input" value="' + name + '" placeholder="如「蜘蛛池效果测试」" />' +
+            '  </div>' +
+            '  <div class="layui-form-item" style="margin-top:12px;">' +
+            '    <label style="display:block;margin-bottom:4px;font-size:13px;font-weight:500;">描述</label>' +
+            '    <textarea name="wf_desc" class="layui-textarea" style="height:60px;" placeholder="可选，简要描述测试目的">' + desc + '</textarea>' +
+            '  </div>' +
+            '  <div class="layui-form-item" style="margin-top:12px;">' +
+            '    <label style="display:block;margin-bottom:4px;font-size:13px;font-weight:500;">选择域名</label>' +
+            '    <input class="domain-filter-input" placeholder="搜索域名…" />' +
+            '    <div class="domain-list-wrap" id="domainCheckboxList"></div>' +
+            '  </div>' +
+            '</div>';
+    }
+
+    function loadDomainCheckboxes(layero, selectedIds, q){
+        var url = '{% url "api_seo_domains_for_workflow" %}';
+        if(q) url += '?q=' + encodeURIComponent(q);
+        fetch(url).then(function(r){ return r.json(); }).then(function(res){
+            if(res.code !== 0) return;
+            var container = layero.find('#domainCheckboxList');
+            if(!container.length) return;
+            var html = '';
+            res.data.forEach(function(d){
+                var checked = selectedIds.indexOf(d.id) !== -1 ? 'checked' : '';
+                html += '<label><input type="checkbox" class="domain-cb" value="' + d.id + '" ' + checked + ' /> ' + escHtml(d.domain) + '</label>';
+            });
+            if(!res.data.length) html = '<div style="padding:20px;text-align:center;color:#bbb;">没有匹配的域名</div>';
+            container.html(html);
+        });
+    }
+
+    /* ===== 搜索防抖 ===== */
+    var searchTimer;
+    $search.addEventListener('input', function(){
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(loadList, 300);
+    });
+
+    /* ===== 初始加载 ===== */
+    loadList();
+});
+</script>
+{% endblock %}
