@@ -208,15 +208,19 @@ class ImportResult:
     """导入结果报告。"""
 
     def __init__(self):
-        self.imported = {}       # model_name → 导入数量
-        self.skipped = {}        # model_name → 跳过数量
+        self.overwritten = {}    # model_name → 覆盖更新的数量
+        self.created = {}        # model_name → 新增的数量
+        self.skipped = {}        # model_name → 跳过的数量
         self.errors = []         # [(model_name, detail)]
         self.warnings = []       # [(model_name, detail)]
         self.unknown_models = []  # 导出中有但当前 DB 找不到的模型
         self.unknown_fields = {}  # model_name → [不存在的字段名]
 
-    def add_imported(self, model_name, count=1):
-        self.imported[model_name] = self.imported.get(model_name, 0) + count
+    def add_overwritten(self, model_name, count=1):
+        self.overwritten[model_name] = self.overwritten.get(model_name, 0) + count
+
+    def add_created(self, model_name, count=1):
+        self.created[model_name] = self.created.get(model_name, 0) + count
 
     def add_skipped(self, model_name, count=1):
         self.skipped[model_name] = self.skipped.get(model_name, 0) + count
@@ -228,14 +232,18 @@ class ImportResult:
         self.warnings.append((model_name, detail))
 
     def to_dict(self):
+        total_imported = sum(self.overwritten.values()) + sum(self.created.values())
         return {
-            'imported': self.imported,
+            'overwritten': self.overwritten,
+            'created': self.created,
             'skipped': self.skipped,
             'errors': self.errors[:30],
             'warnings': self.warnings[:30],
             'unknown_models': self.unknown_models,
             'unknown_fields': self.unknown_fields,
-            'total_imported': sum(self.imported.values()),
+            'total_overwritten': sum(self.overwritten.values()),
+            'total_created': sum(self.created.values()),
+            'total_imported': total_imported,
             'total_skipped': sum(self.skipped.values()),
             'total_errors': len(self.errors),
             'total_warnings': len(self.warnings),
@@ -358,6 +366,7 @@ def import_all(data: dict, conflict_strategy: str = IMPORT_DEFAULT) -> ImportRes
                             existing.save()
                             new_obj = existing
                             new_pk = existing.pk
+                            result.add_overwritten(model_name)
                         else:
                             result.add_skipped(model_name)
                             id_map[model_name][old_pk] = existing.pk
@@ -413,7 +422,7 @@ def import_all(data: dict, conflict_strategy: str = IMPORT_DEFAULT) -> ImportRes
                                     pass
 
                     id_map[model_name][old_pk] = new_pk
-                    result.add_imported(model_name)
+                    result.add_created(model_name)
 
             except Exception as e:
                 result.add_error(model_name, f'记录 #{old_pk}: {e}')

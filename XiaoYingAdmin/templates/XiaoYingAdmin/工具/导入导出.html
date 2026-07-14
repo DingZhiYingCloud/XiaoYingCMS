@@ -94,22 +94,27 @@
         <div class="preview-banner">
             <span><span class="label">版本:</span> <span class="val" id="pvVersion">-</span></span>
             <span><span class="label">导出时间:</span> <span class="val" id="pvTime">-</span></span>
-            <span><span class="label">记录总数:</span> <span class="val" id="pvTotal">0</span></span>
+            <span><span class="label">数据集:</span> <span class="val" id="pvTotal">0</span> 条</span>
+            <span style="color:#f57f17;" id="pvConflictInfo">
+                <span class="label">其中</span>
+                <span class="val" id="pvExisting">0</span> 条已存在 <span style="color:#2e7d32;">(将被覆盖)</span> ·
+                <span class="val" id="pvNew">0</span> 条新增
+            </span>
         </div>
 
         <div id="unknownModelsWarning" style="display:none;background:#fff8e1;border-radius:6px;padding:10px 16px;margin-bottom:12px;font-size:13px;"></div>
 
         <table class="model-table" id="previewTable">
-            <thead><tr><th>模型</th><th>记录数</th><th>状态</th></tr></thead>
+            <thead><tr><th>模型</th><th>导出记录</th><th>目标库已有</th><th>操作</th></tr></thead>
             <tbody id="previewBody"></tbody>
         </table>
 
-        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="layui-btn" id="btnImportSkip" style="background:#5FB878;">
-                <i class="fas fa-play"></i> 开始导入（冲突跳过）
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button class="layui-btn layui-btn-warm" id="btnImportOverwrite" style="border:2px solid #ff9800;">
+                <i class="fas fa-sync"></i> 开始导入（推荐·覆盖已有）
             </button>
-            <button class="layui-btn layui-btn-warm" id="btnImportOverwrite">
-                <i class="fas fa-sync"></i> 开始导入（冲突覆盖）
+            <button class="layui-btn" id="btnImportSkip" style="background:#5FB878;">
+                <i class="fas fa-play"></i> 开始导入（跳过冲突）
             </button>
             <button class="layui-btn layui-btn-primary" id="btnImportCancel">
                 <i class="fas fa-times"></i> 取消
@@ -200,6 +205,8 @@ layui.use(['layer'], function(){
             document.getElementById('pvVersion').textContent = pv.version;
             document.getElementById('pvTime').textContent = pv.export_time || '-';
             document.getElementById('pvTotal').textContent = pv.total_records;
+            document.getElementById('pvExisting').textContent = pv.total_existing || 0;
+            document.getElementById('pvNew').textContent = pv.total_new || 0;
 
             // 未知模型警告
             var warnEl = document.getElementById('unknownModelsWarning');
@@ -217,14 +224,18 @@ layui.use(['layer'], function(){
             var tbody = document.getElementById('previewBody');
             var html = '';
             (pv.models || []).forEach(function(m){
-                var isUnknown = pv.unknown_models && pv.unknown_models.indexOf(m.name) !== -1;
-                var statusCls = isUnknown ? 'badge badge-orange' : 'badge badge-green';
-                var statusTxt = isUnknown ? '将被跳过' : '可导入';
+                var isUnknown = m.is_unknown || (pv.unknown_models && pv.unknown_models.indexOf(m.name) !== -1);
+                var safeCount = m.existing_count || 0;
+                var newCount = m.count - safeCount;
+                var actionTxt = isUnknown ? '<span class="badge badge-orange">将被跳过</span>' :
+                    (safeCount > 0 ? '<span class="badge badge-orange">覆盖 ' + safeCount + '</span> <span class="badge badge-green">新增 ' + newCount + '</span>'
+                                   : '<span class="badge badge-green">全部新增</span>');
                 html +=
                     '<tr>' +
                     '  <td>' + escHtml(m.name) + '</td>' +
                     '  <td><span class="badge badge-blue">' + m.count + '</span></td>' +
-                    '  <td><span class="' + statusCls + '">' + statusTxt + '</span></td>' +
+                    '  <td>' + (isUnknown ? '<span class="badge badge-orange">-</span>' : '<span class="badge badge-blue">' + safeCount + '</span>') + '</td>' +
+                    '  <td>' + actionTxt + '</td>' +
                     '</tr>';
             });
             tbody.innerHTML = html;
@@ -291,8 +302,10 @@ layui.use(['layer'], function(){
         // 汇总统计
         html +=
             '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">' +
-            '  <span class="badge badge-green" style="font-size:13px;padding:4px 12px;">导入: ' + report.total_imported + '</span>' +
-            '  <span class="badge badge-orange" style="font-size:13px;padding:4px 12px;">跳过: ' + report.total_skipped + '</span>' +
+            (report.total_overwritten ? '<span class="badge badge-orange" style="font-size:13px;padding:4px 12px;">覆盖更新: ' + report.total_overwritten + '</span>' : '') +
+            (report.total_created ? '<span class="badge badge-green" style="font-size:13px;padding:4px 12px;">新增导入: ' + report.total_created + '</span>' : '') +
+            (report.total_imported ? '<span class="badge badge-blue" style="font-size:13px;padding:4px 12px;">合计写入: ' + report.total_imported + '</span>' : '') +
+            (report.total_skipped ? '<span class="badge badge-orange" style="font-size:13px;padding:4px 12px;">跳过: ' + report.total_skipped + '</span>' : '') +
             (report.total_errors ? '<span class="badge badge-red" style="font-size:13px;padding:4px 12px;">错误: ' + report.total_errors + '</span>' : '') +
             (report.total_warnings ? '<span class="badge badge-orange" style="font-size:13px;padding:4px 12px;">警告: ' + report.total_warnings + '</span>' : '') +
             '</div>';
