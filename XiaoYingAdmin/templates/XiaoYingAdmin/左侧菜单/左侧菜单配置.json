@@ -15,6 +15,12 @@
         "icon": "",
         "url": "/xiaoying_admin/site_settings/",
         "children": []
+      },
+      {
+        "name": "导入导出",
+        "icon": "",
+        "url": "/xiaoying_admin/tools/export-import/",
+        "children": []
       }
     ]
   },

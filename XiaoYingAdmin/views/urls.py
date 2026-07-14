@@ -45,6 +45,12 @@ from XiaoYingAdmin.views.seo.test_workflow import (
     api_seo_domains_for_workflow,
     api_test_workflow_set_result,
 )
+from XiaoYingAdmin.views.tools.export_import import (
+    export_import_view,
+    api_export,
+    api_import_preview,
+    api_import_execute,
+)
 from XiaoYingAdmin.views.spider.logs import (
     spider_logs_view,
     spider_logs_api_list,
@@ -177,6 +183,12 @@ urlpatterns = [
     path('api/seo/domains/records/batch-create/', api_seo_domain_records_batch_create, name='api_seo_domain_records_batch_create'),
     path('api/seo/records/<int:pk>/update/', api_seo_records_update, name='api_seo_records_update'),
     path('api/seo/records/<int:pk>/delete/', api_seo_records_delete, name='api_seo_records_delete'),
+
+    # SEO 测试流程
+    path('tools/export-import/', export_import_view, name='export_import_view'),
+    path('api/tools/export/', api_export, name='api_export'),
+    path('api/tools/import/preview/', api_import_preview, name='api_import_preview'),
+    path('api/tools/import/execute/', api_import_execute, name='api_import_execute'),
 
     # SEO 测试流程
     path('seo/test-workflows/', test_workflow_list_view, name='test_workflow_list'),
