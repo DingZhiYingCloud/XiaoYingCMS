@@ -31,7 +31,15 @@
       共 <strong id="debtCount">0</strong> 条记录
     </span>
   </div>
-  <div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <div style="position:relative;display:inline-flex;align-items:center;">
+      <i class="fas fa-search" style="position:absolute;left:10px;color:#999;font-size:13px;pointer-events:none;"></i>
+      <input type="text" id="debtSearchInput" placeholder="搜索对方姓名..." value=""
+        style="height:30px;padding:0 10px 0 32px;border:1px solid #ddd;border-radius:15px;font-size:13px;outline:none;width:180px;transition:all 0.2s;"
+        onfocus="this.style.borderColor='#e67e22';this.style.boxShadow='0 0 0 3px rgba(230,126,34,0.1)'"
+        onblur="this.style.borderColor='#ddd';this.style.boxShadow='none'"
+        onkeydown="if(event.key==='Enter'){currentDebtPage=1;loadList()}">
+    </div>
     <div class="layui-btn-group">
       <button class="layui-btn layui-btn-sm" id="tabLend" onclick="switchTab('lend')">借出（别人欠我）</button>
       <button class="layui-btn layui-btn-sm layui-btn-primary" id="tabBorrow" onclick="switchTab('borrow')">借入（我欠别人）</button>
@@ -102,8 +110,10 @@ function switchTab(tab) {
 }
 
 function loadList() {
+  var searchVal = (document.getElementById('debtSearchInput').value || '').trim();
   var url = '/xiaoying_admin/api/finance/debt/list/?page=' + currentDebtPage + '&page_size=20';
   if (currentTab !== 'all') url += '&direction=' + currentTab;
+  if (searchVal) url += '&search=' + encodeURIComponent(searchVal);
 
   fetch(url, {credentials: 'same-origin'})
   .then(function(r) { return r.json(); })

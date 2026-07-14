@@ -31,6 +31,9 @@
   </div>
 </div>
 
+{# 到期提醒 #}
+<div id="eventReminderBar" style="display:none;margin-bottom:12px;"></div>
+
 {# ===== 好友列表 ===== #}
 <div id="paneFriend" class="tab-pane active">
   <div style="margin-bottom:10px;">
@@ -146,6 +149,7 @@ layui.use(['layer', 'form'], function() {
   loadEvents();
   loadCategories();
   loadEventTypes();
+  loadEventReminders();
 });
 
 function switchMainTab(tab) {
@@ -387,6 +391,23 @@ function loadFriends() {
     });
     document.getElementById('friendTableBody').innerHTML = html;
     renderFriendPagination(res);
+
+    // 同步填充事件筛选下拉框
+    var eventFilter = document.getElementById('eventFriendFilter');
+    if (eventFilter) {
+      var curVal = eventFilter.value;
+      eventFilter.innerHTML = '<option value="">全部好友</option>';
+      // 需要获取全量好友列表用于填充下拉（当前页可能不全）
+      fetch('/xiaoying_admin/api/finance/friends/list/?page=1&page_size=999999', {credentials: 'same-origin'})
+      .then(function(r) { return r.json(); })
+      .then(function(allRes) {
+        if (!allRes.ok) return;
+        (allRes.list || []).forEach(function(f) {
+          eventFilter.innerHTML += '<option value="' + f.id + '">' + escHtml(f.name) + '</option>';
+        });
+        eventFilter.value = curVal;
+      });
+    }
   });
 }
 
@@ -489,6 +510,10 @@ function deleteFriend(id) {
 // 事件
 // ===================================================================
 function loadEvents(friendId) {
+  // 如果有指定好友，同步更新下拉框
+  if (friendId && document.getElementById('eventFriendFilter')) {
+    document.getElementById('eventFriendFilter').value = friendId;
+  }
   var url = '/xiaoying_admin/api/finance/friend/events/list/?page=' + currentEventPage + '&page_size=20';
   if (friendId) url += '&friend_id=' + friendId;
   if (document.getElementById('eventFriendFilter')) {
@@ -733,6 +758,40 @@ function renderEventPagination(res) {
 function loadEventPage(page) {
   currentEventPage = page;
   loadEvents();
+}
+
+/* ─── 事件到期提醒 ─── */
+function loadEventReminders() {
+  fetch('/xiaoying_admin/api/finance/friend/events/reminders/', {credentials: 'same-origin'})
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok || !res.reminders.length) {
+      document.getElementById('eventReminderBar').style.display = 'none';
+      return;
+    }
+    var bar = document.getElementById('eventReminderBar');
+    var items = [];
+    res.reminders.forEach(function(r) {
+      var dayText = r.days_overdue === 0
+        ? '<span style="color:#e67e22;">今天到期</span>'
+        : '<span style="color:#e74c3c;">已逾期 ' + r.days_overdue + ' 天</span>';
+      items.push('<div style="margin-bottom:4px;display:flex;align-items:center;gap:6px;">' +
+        '<i class="fas fa-exclamation-circle" style="color:#e74c3c;font-size:13px;"></i>' +
+        '<strong>' + escHtml(r.friend_name) + '</strong> — ' +
+        escHtml(r.title) + '（' + r.event_date + '）' +
+        dayText +
+        ' <button class="layui-btn layui-btn-xs" onclick="currentEventPage=1;loadEvents(' + r.friend_id + ')" style="border-radius:6px;padding:0 8px;height:22px;line-height:22px;font-size:11px;">查看</button>' +
+        '</div>');
+    });
+    bar.innerHTML = '<div class="layui-card" style="border-left:3px solid #e74c3c;">' +
+      '<div class="layui-card-body" style="padding:10px 14px;">' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">' +
+      '<i class="fas fa-bell" style="color:#e74c3c;font-size:14px;"></i>' +
+      '<strong style="font-size:14px;color:#e74c3c;">事件到期提醒</strong>' +
+      '<span style="font-size:12px;color:#999;">以下事件已到期但尚未开始</span></div>' +
+      items.join('') + '</div></div>';
+    bar.style.display = '';
+  });
 }
 
 function escHtml(s) {

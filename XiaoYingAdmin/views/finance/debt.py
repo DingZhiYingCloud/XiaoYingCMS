@@ -32,13 +32,16 @@ def debt_view(request):
 @csrf_exempt
 @require_GET
 def debt_api_list(request):
-    """获取债务列表，支持方向筛选 + 分页"""
+    """获取债务列表，支持方向筛选 + 按姓名搜索 + 分页"""
     direction = request.GET.get('direction', '')  # lend / borrow / ''(全部)
+    search = (request.GET.get('search', '') or '').strip()
     page = request.GET.get('page', 1)
     page_size = request.GET.get('page_size', 20)
     qs = Debt.objects.all()
     if direction in ('lend', 'borrow'):
         qs = qs.filter(direction=direction)
+    if search:
+        qs = qs.filter(person_name__icontains=search)
 
     data_list, total, total_pages, page, page_size = paginate_queryset(qs, page, page_size)
     data = []

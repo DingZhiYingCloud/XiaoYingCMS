@@ -102,7 +102,7 @@ from XiaoYingAdmin.views.finance.friend import (
     category_api_list, category_api_save, category_api_delete, category_api_presets,
     event_type_api_list, event_type_api_save, event_type_api_delete, event_type_api_presets,
     friend_api_list, friend_api_save, friend_api_delete,
-    event_api_list, event_api_save, event_api_delete, event_api_toggle_status,
+    event_api_list, event_api_save, event_api_delete, event_api_toggle_status, event_api_reminders,
 )
 
 # 域名前缀: /xiaoying_admin/
@@ -329,4 +329,5 @@ urlpatterns = [
     path('api/finance/friend/events/save/', event_api_save, name='finance_evt_api_save'),
     path('api/finance/friend/events/delete/', event_api_delete, name='finance_evt_api_delete'),
     path('api/finance/friend/events/toggle-status/', event_api_toggle_status, name='finance_evt_api_toggle'),
+    path('api/finance/friend/events/reminders/', event_api_reminders, name='finance_evt_api_reminders'),
 ]

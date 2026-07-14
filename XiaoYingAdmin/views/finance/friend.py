@@ -1,6 +1,8 @@
 """
-好友管理视图 — 好友分类 + 好友 + 事件 CRUD
+好友管理视图 — 好友分类 + 好友 + 事件 CRUD + 到期提醒
 """
+from datetime import date
+
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -351,3 +353,26 @@ def event_api_toggle_status(request):
     ev.status = cycle.get(ev.status, 'pending')
     ev.save()
     return JsonResponse({'ok': True, 'status': ev.status, 'status_label': ev.get_status_display()})
+
+
+@csrf_exempt
+@require_GET
+def event_api_reminders(request):
+    """获取已到期但尚未开始的事件提醒列表"""
+    today = date.today()
+    qs = FriendEvent.objects.filter(
+        event_date__lte=today,
+        status='pending',
+    ).select_related('friend')
+    reminders = []
+    for e in qs:
+        days_overdue = (today - e.event_date).days
+        reminders.append({
+            'id': e.id,
+            'friend_id': e.friend_id,
+            'friend_name': e.friend.name,
+            'title': e.title,
+            'event_date': e.event_date.isoformat(),
+            'days_overdue': days_overdue,
+        })
+    return JsonResponse({'ok': True, 'reminders': reminders})
