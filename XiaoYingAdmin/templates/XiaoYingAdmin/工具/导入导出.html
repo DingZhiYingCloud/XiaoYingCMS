@@ -135,9 +135,19 @@ layui.use(['layer'], function(){
     var layer = layui.layer;
     var uploadedData = null;
 
+    /* ===== HTML 转义工具 ===== */
+    function escHtml(str){
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str||''));
+        return div.innerHTML;
+    }
+
     /* ===== 导出 ===== */
     document.getElementById('btnExport').addEventListener('click', function(){
+        var idx = layer.load(1, {shade: [0.2,'#000']});
         window.location.href = '{% url "api_export" %}';
+        // 导出是直接下载，页面跳转后 loading 会自动消失
+        setTimeout(function(){ layer.close(idx); }, 3000);
     });
 
     /* ===== 文件上传 ===== */
@@ -175,11 +185,13 @@ layui.use(['layer'], function(){
 
     /* ===== 预览 ===== */
     function previewImport(data){
+        var loadIdx = layer.load(1, {shade: [0.2,'#000']});
         fetch('{% url "api_import_preview" %}', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify(data),
         }).then(function(r){ return r.json(); }).then(function(res){
+            layer.close(loadIdx);
             if(res.code !== 0){
                 layer.msg(res.message||'预览失败', {icon:5});
                 return;
@@ -219,6 +231,9 @@ layui.use(['layer'], function(){
 
             document.getElementById('previewWrap').style.display = '';
             document.getElementById('reportWrap').style.display = 'none';
+        }).catch(function(err){
+            layer.close(loadIdx);
+            layer.msg('预览请求失败: ' + err.message, {icon:5});
         });
     }
 
@@ -232,19 +247,25 @@ layui.use(['layer'], function(){
         layer.confirm('确定开始导入？冲突策略为「' + label + '」。此操作将写入数据库。', {
             title: '确认导入', btn: ['确定', '取消'], area: '400px'
         }, function(idx){
+            layer.close(idx);
+            // 显示加载动画，防止用户重复操作
+            var loadIdx = layer.load(2, {shade: [0.3, '#000'], time: 0});
             var url = '{% url "api_import_execute" %}?conflict=' + strategy;
             fetch(url, {
                 method: 'POST',
                 headers: {'Content-Type':'application/json'},
                 body: JSON.stringify(uploadedData),
             }).then(function(r){ return r.json(); }).then(function(res){
+                layer.close(loadIdx);
                 if(res.code !== 0){
                     layer.msg(res.message||'导入失败', {icon:5});
                     return;
                 }
                 showReport(res.data);
+            }).catch(function(err){
+                layer.close(loadIdx);
+                layer.msg('导入请求失败: ' + err.message, {icon:5});
             });
-            layer.close(idx);
         });
     }
 
@@ -266,7 +287,6 @@ layui.use(['layer'], function(){
         el.style.display = '';
 
         var html = '';
-        var hasIssues = report.unknown_models.length || report.unknown_fields_count || report.total_errors;
 
         // 汇总统计
         html +=
