@@ -429,6 +429,7 @@ def _build_page_dict(page: GeneratedPage) -> dict:
         'domains': page.domains or [],
         'create_time': page.create_time.strftime('%Y-%m-%d %H:%M') if page.create_time else '',
         'crosslink_excluded': page.crosslink_excluded,
+        'domain_seo': {s.domain: s.to_dict() for s in page.domain_seo_set.all()},
     }
 
 

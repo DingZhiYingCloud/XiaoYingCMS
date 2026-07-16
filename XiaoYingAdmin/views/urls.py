@@ -51,6 +51,11 @@ from XiaoYingAdmin.views.tools.export_import import (
     api_import_preview,
     api_import_execute,
 )
+from XiaoYingAdmin.views.page_domain_seo import (
+    api_search_engines_list,
+    api_page_domain_seo_save,
+    api_page_domain_seo_get,
+)
 from XiaoYingAdmin.views.spider.logs import (
     spider_logs_view,
     spider_logs_api_list,
@@ -230,6 +235,12 @@ urlpatterns = [
     # 智能互链
     path('api/crosslinks/generate/', admin_request.api_generate_crosslinks, name='api_crosslinks_generate'),
     path('api/crosslinks/exclude-toggle/', admin_request.api_crosslink_exclude_toggle, name='api_crosslinks_exclude_toggle'),
+
+    # 页面域名SEO状态（收录 & 排名）
+    path('api/site-settings/search-engines/', admin_request.api_site_settings_get_search_engines, name='api_search_engines_list'),
+    path('api/site-settings/search-engines/save/', admin_request.api_site_settings_save_search_engines, name='api_search_engines_save'),
+    path('api/pages/domain-seo/get/', api_page_domain_seo_get, name='api_page_domain_seo_get'),
+    path('api/pages/domain-seo/save/', api_page_domain_seo_save, name='api_page_domain_seo_save'),
 
     # 蜘蛛访问日志
     path('spider/logs/', spider_logs_view, name='spider_logs'),

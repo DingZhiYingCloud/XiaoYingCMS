@@ -214,6 +214,33 @@ def site_settings_view(request):
     })
 
 
+@csrf_exempt
+@require_POST
+def api_site_settings_save_search_engines(request):
+    """保存搜索引擎列表（AJAX API）"""
+    try:
+        body = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'code': 1, 'message': 'JSON 解析失败'}, status=400)
+
+    engines = body.get('search_engines', [])
+    if not isinstance(engines, list):
+        return JsonResponse({'code': 1, 'message': 'search_engines 必须为数组'}, status=400)
+
+    settings, _ = SiteSettings.objects.get_or_create(pk=1)
+    settings.search_engines = engines
+    settings.save(update_fields=['search_engines', 'updated_time'])
+
+    return JsonResponse({'code': 0, 'message': '保存成功', 'data': engines})
+
+
+@require_GET
+def api_site_settings_get_search_engines(request):
+    """获取搜索引擎列表（AJAX API）"""
+    settings, _ = SiteSettings.objects.get_or_create(pk=1)
+    return JsonResponse({'code': 0, 'data': settings.search_engines or []})
+
+
 # PageGenerateView: 页面生成视图
 def page_generate_view(request):
     """页面生成页 — 若 session 中存在活跃任务，自动恢复进度显示。"""

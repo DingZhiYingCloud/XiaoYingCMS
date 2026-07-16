@@ -16,6 +16,7 @@ from XiaoYingAdmin.models.multi_page_project import MultiPageProject
 from XiaoYingAdmin.models.multi_page import MultiPage
 from XiaoYingAdmin.models.multi_page_config import MultiPageConfig
 from XiaoYingAdmin.models.seo_domain import SeoDomain
+from XiaoYingAdmin.models.page_domain_seo import PageDomainSeo
 from XiaoYingAdmin.models.domain_seo_record import DomainSeoRecord
 from XiaoYingAdmin.models.seo_test_workflow import SeoTestWorkflow, SeoTestWorkflowStep
 from XiaoYingAdmin.models.finance import (
@@ -46,6 +47,7 @@ __all__ = [
     'SeoDomain',
     'SeoTestWorkflow',
     'SeoTestWorkflowStep',
+    'PageDomainSeo',
     'Debt',
     'FinanceBalance',
     'FinanceTransaction',

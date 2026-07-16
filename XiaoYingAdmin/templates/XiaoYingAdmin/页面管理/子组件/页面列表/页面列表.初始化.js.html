@@ -6,18 +6,16 @@
 // ========== 工具栏 & 搜索 ==========
 
 document.getElementById('btnSearch').addEventListener('click', function() {
-    var isTree = document.getElementById('treeView').classList.contains('active');
-    if (!isTree) loadTableView(1);
+    // 树形视图中搜索会重载树形数据
+    loadTree();
 });
 document.getElementById('btnReset').addEventListener('click', function() {
-    searchInput.value = '';
-    var isTree = document.getElementById('treeView').classList.contains('active');
-    if (!isTree) loadTableView(1);
+    document.getElementById('searchKeyword').value = '';
+    loadTree();
 });
-searchInput.addEventListener('keydown', function(e) {
+document.getElementById('searchKeyword').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-        var isTree = document.getElementById('treeView').classList.contains('active');
-        if (!isTree) loadTableView(1);
+        loadTree();
     }
 });
 

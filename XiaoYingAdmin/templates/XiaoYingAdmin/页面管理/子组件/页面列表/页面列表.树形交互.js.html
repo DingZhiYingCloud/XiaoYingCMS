@@ -22,6 +22,15 @@ function bindTreeEvents() {
         });
     });
 
+    // 域名排除互链开关
+    container.querySelectorAll('.domain-crosslink-toggle').forEach(function(icon) {
+        icon.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var domain = icon.getAttribute('data-domain');
+            if (domain) toggleDomainCrosslink(domain);
+        });
+    });
+
     // 页面操作按钮
     container.querySelectorAll('.pa-btn').forEach(function(btn) {
         btn.addEventListener('click', function(e) {

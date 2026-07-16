@@ -30,6 +30,12 @@ class SiteSettings(BaseModel):
         default=0,
         help_text='操作日志记录数达到此值时自动备份并清空。0=关闭自动备份',
     )
+    search_engines = models.JSONField(
+        '搜索引擎列表',
+        default=list,
+        blank=True,
+        help_text='可用的搜索引擎列表，如 ["百度", "谷歌", "必应", "搜狗", "360搜索"]',
+    )
 
     class Meta:
         verbose_name = '网站设置'

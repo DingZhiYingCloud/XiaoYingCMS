@@ -10,7 +10,6 @@
     <div class="page-list-toolbar">
         <div class="page-view-tabs">
             <button class="tab-btn active" data-view="tree"><i class="fas fa-tree"></i> 树形视图</button>
-            <button class="tab-btn" data-view="table"><i class="fas fa-table"></i> 表格视图</button>
         </div>
         <input type="text" id="searchKeyword" class="layui-input" placeholder="搜索页面名称或需求描述..." style="width:260px;">
         <button class="layui-btn layui-btn-sm" id="btnSearch"><i class="fas fa-search"></i> 搜索</button>
@@ -18,7 +17,6 @@
         <button class="layui-btn layui-btn-sm layui-btn-warm" id="btnCrosslink"><i class="fas fa-link"></i> 智能互链</button>
         <button class="layui-btn layui-btn-sm layui-btn-normal" id="btnCreatePage"><i class="fas fa-plus"></i> 新增页面</button>
         <button class="layui-btn layui-btn-sm" id="btnBatchImport" style="background:#8BC34A;border-color:#8BC34A;"><i class="fas fa-upload"></i> 批量导入</button>
-        <span class="total-label" id="totalLabel">共 0 条</span>
     </div>
 
     {# 主布局 #}
@@ -49,27 +47,7 @@
                 <div id="treeContainer"><div class="loading-mask">加载中...</div></div>
             </div>
 
-            {# ===== 表格视图 ===== #}
-            <div class="table-view" id="tableView">
-                <table class="page-table">
-                    <thead>
-                        <tr>
-                            <th style="width:50px;">ID</th>
-                            <th style="width:130px;">页面名称</th>
-                            <th>需求描述</th>
-                            <th style="width:90px;">创建者</th>
-                            <th style="width:140px;">使用域名</th>
-                            <th style="width:130px;">创建时间</th>
-                            <th style="width:60px;text-align:center;">互链</th>
-                            <th style="width:60px;text-align:center;">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pageTableBody">
-                        <tr><td colspan="8" class="loading-mask">加载中...</td></tr>
-                    </tbody>
-                </table>
-                <div class="pagination" id="paginationWrap"></div>
-            </div>
+            {# 表格视图已移除，仅保留树形视图 #}
         </div>
     </div>
 </div>
@@ -82,9 +60,9 @@
 {% include 'XiaoYingAdmin/页面管理/子组件/页面列表/页面列表.分类选择器.js.html' %}
 {% include 'XiaoYingAdmin/页面管理/子组件/页面列表/页面列表.域名管理.js.html' %}
 {% include 'XiaoYingAdmin/页面管理/子组件/页面列表/页面列表.弹窗页面.js.html' %}
-{% include 'XiaoYingAdmin/页面管理/子组件/页面列表/页面列表.表格视图.js.html' %}
 {% include 'XiaoYingAdmin/页面管理/子组件/页面列表/页面列表.智能互链.js.html' %}
 {% include 'XiaoYingAdmin/页面管理/子组件/页面列表/页面列表.批量导入.js.html' %}
 {% include 'XiaoYingAdmin/页面管理/子组件/页面列表/页面列表.初始化.js.html' %}
+{% include 'XiaoYingAdmin/页面管理/子组件/页面列表/页面列表.SEO状态弹窗.js.html' %}
 
 {% endblock %}

@@ -9,6 +9,7 @@ from django.conf import settings
 from django.db import models
 
 from XiaoYingAdmin.common.base import BaseModel
+from XiaoYingAdmin.models.page_domain_seo import PageDomainSeo
 
 
 class GeneratedPage(BaseModel):
@@ -97,6 +98,7 @@ class GeneratedPage(BaseModel):
             'created_by_id': self.created_by_id,
             'crosslink_excluded': self.crosslink_excluded,
             'category_ids': list(self.categories.values_list('id', flat=True)) if self.pk else [],
+            'domain_seo': {s.domain: s.to_dict() for s in self.domain_seo_set.all()},
         }
         if with_html:
             data['html_content'] = self.html_content

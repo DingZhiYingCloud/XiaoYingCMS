@@ -182,48 +182,56 @@
 .bi-progress-bar .bi-pb-fill { height:100%; width:0; background:linear-gradient(90deg,#8BC34A,#5FB878); border-radius:2px; transition:width .3s; }
 .bi-progress-text { font-size:11px; color:#999; text-align:center; display:none; }
 
-/* ========== 表格视图 ========== */
-.table-view { display: none; }
-.table-view.active { display: block; }
-.page-table { width: 100%; border-collapse: collapse; }
-.page-table th, .page-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f2f2f2; font-size: 13px; }
-.page-table th { background: #fafafa; color: #666; font-weight: 600; }
-.page-table tr:hover td { background: #f8f8f8; }
-.page-table .page-name { font-weight: 600; color: #333; }
-.page-table .page-input { color: #999; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.page-table .domain-badge { display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 3px; font-size: 12px; }
-.page-table .domain-wildcard { display: inline-block; background: #fff3e0; color: #e65100; padding: 2px 8px; border-radius: 3px; font-size: 12px; }
-.page-table .domain-empty { color: #bbb; font-size: 12px; }
-.pagination { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 15px; padding-top: 10px; border-top: 1px solid #f2f2f2; }
-.pagination .page-btn { display: inline-block; padding: 5px 12px; border: 1px solid #e6e6e6; border-radius: 3px; font-size: 13px; color: #333; cursor: pointer; background: #fff; transition: all .15s; user-select: none; }
-.pagination .page-btn:hover { border-color: #5FB878; color: #5FB878; }
-.pagination .page-btn.active { background: #5FB878; color: #fff; border-color: #5FB878; }
-.pagination .page-btn.disabled { cursor: not-allowed; opacity: .5; }
-.pagination .page-info { font-size: 13px; color: #999; margin: 0 8px; }
 .loading-mask { padding: 40px; text-align: center; color: #999; }
-
-/* ========== 下拉菜单（表格视图操作） ========== */
-.action-dropdown { position: relative; display: inline-block; }
-.action-dropdown .dropdown-menu {
-  display: none; position: absolute; right: 0; top: 100%; z-index: 999;
-  min-width: 140px; background: #fff; border: 1px solid #e6e6e6;
-  border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); padding: 4px 0; margin-top: 2px;
-}
-.action-dropdown.open .dropdown-menu { display: block; }
-.action-dropdown .dropdown-item {
-  display: flex; align-items: center; gap: 8px; padding: 7px 14px;
-  color: #393D49; font-size: 13px; text-decoration: none; transition: background .1s; cursor: pointer;
-}
-.action-dropdown .dropdown-item:hover { background: #f0f7f0; color: #5FB878; }
-.action-dropdown .dropdown-item i { width: 16px; text-align: center; color: #999; font-size: 13px; }
-.action-dropdown .dropdown-item:hover i { color: #5FB878; }
-.action-dropdown .dropdown-item.dropdown-danger { color: #e54d4d; }
-.action-dropdown .dropdown-item.dropdown-danger:hover { background: #fff5f5; color: #e54d4d; }
-.action-dropdown .dropdown-item.dropdown-danger:hover i { color: #e54d4d; }
-.action-dropdown .dropdown-divider { height: 1px; background: #e6e6e6; margin: 4px 0; }
 
 @media (max-width: 900px) {
   .modal-scroll-wrap .code-textarea { min-height: 80px; max-height: 28vh; }
 }
 .page-list-wrap .layui-layer-page .layui-layer-content { max-width: 92vw; }
-</style>
+
+/* ========== SEO 状态样式 ========== */
+.seo-engine-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 1px 6px; border-radius: 3px; font-size: 11px;
+    background: #f5f5f5; color: #bbb; border: 1px solid #eee;
+    transition: all .2s; cursor: pointer;
+}
+.seo-engine-badge.lit {
+    background: #e3f2fd; color: #1565c0; border-color: #90caf9;
+}
+.seo-engine-badge.lit.baidu { background: #fce4ec; color: #c62828; border-color: #ef9a9a; }
+.seo-engine-badge.lit.google { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
+.seo-engine-badge.lit.bing { background: #e3f2fd; color: #1565c0; border-color: #90caf9; }
+.seo-engine-badge.lit.sogou { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
+.seo-engine-badge.lit.360 { background: #f3e5f5; color: #7b1fa2; border-color: #ce93d8; }
+
+.seo-rank-icon {
+    display: inline-flex; align-items: center; gap: 2px;
+    font-size: 14px; cursor: pointer; transition: all .2s;
+    color: #ccc;
+}
+.seo-rank-icon.lit { color: #FF9800; }
+.seo-rank-icon:hover { transform: scale(1.15); }
+
+.seo-domain-actions {
+    display: inline-flex; align-items: center; gap: 4px; margin-left: 4px;
+}
+
+/* 树形视图域名节点的 SEO 操作按钮 */
+.tree-node-domain .seo-domain-actions { display: none; }
+.tree-node-domain:hover .seo-domain-actions { display: inline-flex; }
+.tree-node-domain .seo-domain-actions .sa-btn {
+    padding: 1px 6px; border: 1px solid #e0e0e0; border-radius: 3px;
+    background: #fff; color: #666; cursor: pointer; font-size: 10px;
+    transition: all .15s; line-height: 18px;
+}
+.tree-node-domain .seo-domain-actions .sa-btn:hover { border-color: #5FB878; color: #5FB878; }
+.tree-node-domain .seo-domain-actions .sa-btn.seo-rank-btn:hover { border-color: #FF9800; color: #FF9800; }
+
+/* 域名排除互链开关 hover */
+.domain-crosslink-toggle:hover { opacity: 0.7; }
+.tree-node-domain:hover .domain-crosslink-toggle { display: inline-block; }
+.domain-crosslink-toggle { transition: color .2s, opacity .2s; }
+
+
+ </style>

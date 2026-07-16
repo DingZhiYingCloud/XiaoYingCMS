@@ -6,6 +6,27 @@
 
 {% include 'XiaoYingAdmin/核心设置/子组件/网站设置/全局代码统计.html' %}
 
+{# 搜索引擎配置 #}
+<div class="site-section" style="margin-top:20px;">
+    <div class="site-section-header">
+        <h3>搜索引擎配置</h3>
+        <span class="section-desc">配置可用的搜索引擎列表，用于单页面管理中的域名收录状态标记</span>
+    </div>
+    <div class="site-section-body">
+        <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="newEngineInput" class="layui-input" placeholder="输入搜索引擎名称" style="width:200px;">
+            <button class="layui-btn layui-btn-sm" id="addEngineBtn"><i class="fas fa-plus"></i> 添加</button>
+            <button class="layui-btn layui-btn-sm layui-btn-primary" id="saveEnginesBtn"><i class="fas fa-save"></i> 保存</button>
+        </div>
+        <div id="engineList" style="display:flex;gap:8px;flex-wrap:wrap;min-height:36px;padding:8px;background:#fafafa;border-radius:4px;border:1px solid #f0f0f0;">
+            <span style="color:#bbb;font-size:13px;" id="engineEmptyHint">暂无搜索引擎，请在上方添加</span>
+        </div>
+        <p style="font-size:11px;color:#999;margin-top:6px;">
+            <i class="fas fa-info-circle"></i> 添加后保存在数据库中，用于页面列表的域名收录状态标记
+        </p>
+    </div>
+</div>
+
 {# 备份配置 #}
 <div class="site-section" style="margin-top:20px;">
     <div class="site-section-header">
@@ -77,13 +98,85 @@
 {% block js %}
 
 <script>
-layui.use(['form'], function() {
-    var form = layui.form;
+layui.use(['form', 'layer'], function() {
+    var form = layui.form, layer = layui.layer;
     form.render();
 
     form.on('submit(userConfigSubmit)', function(data) {
         return true;
     });
+
+    // ===== 搜索引擎配置 =====
+    var engines = [];
+
+    function loadEngines() {
+        fetch('/xiaoying_admin/api/site-settings/search-engines/')
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                engines = resp.data || [];
+                renderEngines();
+            });
+    }
+
+    function renderEngines() {
+        var el = document.getElementById('engineList');
+        var hint = document.getElementById('engineEmptyHint');
+        if (!engines.length) {
+            el.innerHTML = '<span style="color:#bbb;font-size:13px;" id="engineEmptyHint">暂无搜索引擎，请在上方添加</span>';
+            return;
+        }
+        var html = '';
+        engines.forEach(function(e, i) {
+            html += '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#e8f5e9;color:#2e7d32;border-radius:4px;font-size:13px;">';
+            html += '<span>' + escHtml(e) + '</span>';
+            html += '<i class="fas fa-times" style="cursor:pointer;opacity:.5;font-size:11px;" onclick="removeEngine(' + i + ')"></i>';
+            html += '</span>';
+        });
+        el.innerHTML = html;
+    }
+
+    window.removeEngine = function(idx) {
+        engines.splice(idx, 1);
+        renderEngines();
+    };
+
+    document.getElementById('addEngineBtn').addEventListener('click', function() {
+        var input = document.getElementById('newEngineInput');
+        var val = input.value.trim();
+        if (!val) { layer.msg('请输入搜索引擎名称', {icon:5}); return; }
+        if (engines.indexOf(val) !== -1) { layer.msg('该引擎已存在', {icon:5}); return; }
+        engines.push(val);
+        renderEngines();
+        input.value = '';
+    });
+
+    document.getElementById('newEngineInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') document.getElementById('addEngineBtn').click();
+    });
+
+    document.getElementById('saveEnginesBtn').addEventListener('click', function() {
+        var btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 保存中...';
+        fetch('/xiaoying_admin/api/site-settings/search-engines/save/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ search_engines: engines }),
+        }).then(function(r) { return r.json(); }).then(function(resp) {
+            if (resp.code === 0) {
+                layer.msg('保存成功', {icon:1, time:1000});
+            } else {
+                layer.msg(resp.message || '保存失败', {icon:5});
+            }
+        }).catch(function() {
+            layer.msg('保存失败', {icon:5});
+        }).finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> 保存';
+        });
+    });
+
+    loadEngines();
 });
 </script>
 {% endblock %}
