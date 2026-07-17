@@ -143,9 +143,8 @@
       <span id="ruleCountBadge" style="font-size:13px;color:#999;margin-left:auto;">共 0 条</span>
     </div>
 
-    {# 表格（外层 div 负责圆角裁剪，内层 table 不能 overflow:hidden 以免裁剪下拉菜单） #}
-    <div style="border-radius:6px;overflow:hidden;">
-    <table class="layui-table" id="ruleTable" lay-skin="line" style="margin:0;border-radius:0;overflow:visible;">
+    {# 表格：不能有 overflow:hidden，否则裁剪下拉菜单 #}
+    <table class="layui-table" id="ruleTable" lay-skin="line" style="margin:0;">
       <thead>
         <tr>
           <th style="width:40px;">#</th>
@@ -162,7 +161,6 @@
         <tr><td colspan="8" style="text-align:center;padding:30px 0;color:#999;">加载中...</td></tr>
       </tbody>
     </table>
-    </div>
 
     {# 分页 #}
     <div id="paginationBar" style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px;">
