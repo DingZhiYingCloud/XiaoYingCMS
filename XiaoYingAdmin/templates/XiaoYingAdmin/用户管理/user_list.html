@@ -119,6 +119,33 @@
         font-size: 14px;
     }
     .user-mgmt .empty-state i { font-size: 40px; margin-bottom: 10px; display: block; color: #ddd; }
+
+    /* ===== 操作下拉菜单 ===== */
+    .action-dropdown { position:relative; display:inline-block; }
+    .action-dropdown .dropdown-menu {
+        display:none; position:absolute; right:0; top:100%; z-index:999;
+        min-width:145px; background:#fff; border:1px solid #e8e8e8;
+        border-radius:8px; box-shadow:0 8px 28px rgba(0,0,0,.14); padding:5px 0; margin-top:4px;
+    }
+    .action-dropdown.open .dropdown-menu { display:block; animation:dropIn .15s ease; }
+    @keyframes dropIn { from{opacity:0;transform:translateY(-4px);} to{opacity:1;transform:translateY(0);} }
+    .action-dropdown .dropdown-item {
+        display:flex; align-items:center; gap:9px; padding:8px 16px;
+        color:#393D49; font-size:13px; text-decoration:none;
+        transition:background .1s; cursor:pointer;
+    }
+    .action-dropdown .dropdown-item:hover { background:#f0f7f0; color:#5FB878; }
+    .action-dropdown .dropdown-item i { width:16px; text-align:center; color:#999; font-size:13px; }
+    .action-dropdown .dropdown-item:hover i { color:#5FB878; }
+    .action-dropdown .dropdown-item.dropdown-danger { color:#d32f2f; }
+    .action-dropdown .dropdown-item.dropdown-danger:hover { background:#fff5f5; color:#d32f2f; }
+    .action-dropdown .dropdown-item.dropdown-danger:hover i { color:#d32f2f; }
+    .dropdown-trigger {
+        border-radius:6px !important; transition:all .15s !important;
+    }
+    .dropdown-trigger:hover {
+        border-color:#5FB878 !important; background:#f8fdf9 !important;
+    }
 </style>
 {% endblock %}
 
@@ -167,7 +194,7 @@
                 <th>角色</th>
                 <th>状态</th>
                 <th>注册时间</th>
-                <th style="width:160px;">操作</th>
+                <th style="width:70px;">操作</th>
             </tr>
         </thead>
         <tbody>
@@ -198,26 +225,29 @@
                     {% endif %}
                 </td>
                 <td style="font-size:12px;color:#999;">{{ u.date_joined|date:'Y-m-d H:i' }}</td>
-                <td>
-                    {% if request.user.is_superuser or u == request.user %}
-                    <a href="{% url 'user_edit' pk=u.pk %}" class="action-btn">
-                        <i class="fas fa-edit"></i> 编辑
-                    </a>
-                    {% endif %}
-                    {% if request.user.is_superuser %}
-                    <button type="button" class="action-btn toggle-active"
-                            data-pk="{{ u.pk }}" data-username="{{ u.username }}"
-                            data-active="{{ u.is_active|lower }}">
-                        <i class="fas {% if u.is_active %}fa-ban{% else %}fa-check{% endif %}"></i>
-                        {% if u.is_active %}禁用{% else %}启用{% endif %}
-                    </button>
-                    {% endif %}
-                    {% if u != request.user %}
-                    <button type="button" class="action-btn danger delete-user"
-                            data-pk="{{ u.pk }}" data-username="{{ u.username }}">
-                        <i class="fas fa-trash-alt"></i> 删除
-                    </button>
-                    {% endif %}
+                <td style="width:70px;">
+                    <div class="action-dropdown">
+                        <button class="layui-btn layui-btn-sm layui-btn-primary dropdown-trigger" style="font-size:14px;padding:0 10px;line-height:30px;height:30px;"><i class="fas fa-caret-down"></i></button>
+                        <div class="dropdown-menu">
+                            {% if request.user.is_superuser or u == request.user %}
+                            <a href="{% url 'user_edit' pk=u.pk %}" class="dropdown-item"><i class="fas fa-pen"></i> 编辑</a>
+                            {% endif %}
+                            {% if request.user.is_superuser %}
+                            <a href="javascript:;" class="dropdown-item btn-toggle-user"
+                               data-pk="{{ u.pk }}" data-username="{{ u.username }}"
+                               data-active="{{ u.is_active|lower }}">
+                                <i class="fas {% if u.is_active %}fa-ban{% else %}fa-check{% endif %}"></i>
+                                {% if u.is_active %}禁用{% else %}启用{% endif %}
+                            </a>
+                            {% endif %}
+                            {% if u != request.user %}
+                            <a href="javascript:;" class="dropdown-item dropdown-danger btn-delete-user"
+                               data-pk="{{ u.pk }}" data-username="{{ u.username }}">
+                                <i class="fas fa-trash-alt"></i> 删除
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
                 </td>
             </tr>
             {% empty %}
@@ -238,64 +268,94 @@
 
 {% block js %}
 <script>
-layui.use(['layer'], function () {
-    var layer = layui.layer;
+// ===== 下拉菜单开关 & 全局关闭 =====
+document.addEventListener('click', function(e) {
+  var trigger = e.target.closest('.dropdown-trigger');
+  if (trigger) {
+    e.stopPropagation();
+    var dd = trigger.closest('.action-dropdown');
+    document.querySelectorAll('.action-dropdown.open').forEach(function(d) {
+      if (d !== dd) d.classList.remove('open');
+    });
+    dd.classList.toggle('open');
+    return;
+  }
+
+  // 点击菜单项 → 关闭所属下拉
+  var item = e.target.closest('.dropdown-item');
+  if (item) {
+    var dd = item.closest('.action-dropdown');
+    if (dd) dd.classList.remove('open');
 
     // 切换启用/禁用
-    document.querySelectorAll('.toggle-active').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var pk = this.dataset.pk;
-            var username = this.dataset.username;
-            var isActive = this.dataset.active === 'true';
-            var action = isActive ? '禁用' : '启用';
+    if (item.classList.contains('btn-toggle-user')) {
+      e.stopPropagation();
+      var pk = item.dataset.pk;
+      var username = item.dataset.username;
+      var isActive = item.dataset.active === 'true';
+      var action = isActive ? '禁用' : '启用';
 
-            layer.confirm('确定要' + action + '用户「' + username + '」吗？', {
-                icon: 3, title: '提示', btn: ['确定', '取消']
-            }, function (index) {
-                fetch('/xiaoying_admin/users/' + pk + '/toggle_active/', {
-                    method: 'POST',
-                    headers: {'X-CSRFToken': '{{ csrf_token }}'},
-                }).then(function (r) { return r.json(); }).then(function (data) {
-                    if (data.ok) {
-                        layer.msg(data.is_active ? '已启用' : '已禁用', {icon: 1});
-                        setTimeout(function () { location.reload(); }, 600);
-                    } else {
-                        layer.msg(data.error || '操作失败', {icon: 2});
-                    }
-                }).catch(function () {
-                    layer.msg('网络错误', {icon: 2});
-                });
-                layer.close(index);
-            });
+      layui.use(['layer'], function() {
+        var layer = layui.layer;
+        layer.confirm('确定要' + action + '用户「' + username + '」吗？', {
+          icon: 3, title: '提示', btn: ['确定', '取消']
+        }, function(index) {
+          fetch('/xiaoying_admin/users/' + pk + '/toggle_active/', {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+          }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.ok) {
+              layer.msg(data.is_active ? '已启用' : '已禁用', {icon: 1});
+              setTimeout(function() { location.reload(); }, 600);
+            } else {
+              layer.msg(data.error || '操作失败', {icon: 2});
+            }
+          }).catch(function() {
+            layer.msg('网络错误', {icon: 2});
+          });
+          layer.close(index);
         });
-    });
+      });
+      return;
+    }
 
     // 删除用户
-    document.querySelectorAll('.delete-user').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var pk = this.dataset.pk;
-            var username = this.dataset.username;
+    if (item.classList.contains('btn-delete-user')) {
+      e.stopPropagation();
+      var pk = item.dataset.pk;
+      var username = item.dataset.username;
 
-            layer.confirm('确定要删除用户「' + username + '」吗？<br><span style="color:#e54d4d;font-size:12px;">此操作不可恢复！</span>', {
-                icon: 2, title: '警告', btn: ['确定删除', '取消']
-            }, function (index) {
-                fetch('/xiaoying_admin/users/' + pk + '/delete/', {
-                    method: 'POST',
-                    headers: {'X-CSRFToken': '{{ csrf_token }}'},
-                }).then(function (r) { return r.json(); }).then(function (data) {
-                    if (data.ok) {
-                        layer.msg('已删除「' + data.username + '」', {icon: 1});
-                        setTimeout(function () { location.reload(); }, 600);
-                    } else {
-                        layer.msg(data.error || '删除失败', {icon: 2});
-                    }
-                }).catch(function () {
-                    layer.msg('网络错误', {icon: 2});
-                });
-                layer.close(index);
-            });
+      layui.use(['layer'], function() {
+        var layer = layui.layer;
+        layer.confirm('确定要删除用户「' + username + '」吗？<br><span style="color:#e54d4d;font-size:12px;">此操作不可恢复！</span>', {
+          icon: 2, title: '警告', btn: ['确定删除', '取消']
+        }, function(index) {
+          fetch('/xiaoying_admin/users/' + pk + '/delete/', {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+          }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.ok) {
+              layer.msg('已删除「' + data.username + '」', {icon: 1});
+              setTimeout(function() { location.reload(); }, 600);
+            } else {
+              layer.msg(data.error || '删除失败', {icon: 2});
+            }
+          }).catch(function() {
+            layer.msg('网络错误', {icon: 2});
+          });
+          layer.close(index);
         });
-    });
+      });
+      return;
+    }
+
+    return;
+  }
+
+  // 点击页面其他区域 → 关闭所有下拉
+  document.querySelectorAll('.action-dropdown.open').forEach(function(d) {
+    d.classList.remove('open');
+  });
 });
 </script>
 {% endblock %}

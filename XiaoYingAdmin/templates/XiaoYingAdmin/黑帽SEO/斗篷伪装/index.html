@@ -63,6 +63,50 @@
 }
 .domain-del-tag { color:#999; text-decoration:none; font-size:14px; line-height:1; cursor:pointer; }
 .domain-del-tag:hover { color:#e54d4d; }
+
+/* ===== 斗篷规则表格样式优化 ===== */
+#ruleTable { border-collapse:separate; border-spacing:0; border-radius:6px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+#ruleTable thead th {
+  background:linear-gradient(180deg,#f8f9fa,#eef1f5); color:#393D49; font-weight:600;
+  font-size:13px; padding:10px 12px; border-bottom:2px solid #d2d8e0; white-space:nowrap; user-select:none;
+}
+#ruleTable tbody td { padding:10px 12px; font-size:13px; transition:background .15s; border-bottom:1px solid #f0f0f0; }
+#ruleTable tbody tr:hover td { background:#f5f8ff; }
+#ruleTable tbody tr:nth-child(even) td { background:#fafbfc; }
+#ruleTable tbody tr:nth-child(even):hover td { background:#f0f4ff; }
+#ruleTable tbody tr:last-child td { border-bottom:none; }
+#ruleTable .action-cell { max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#ruleTable .status-badge { display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; font-weight:500; min-width:38px; text-align:center; }
+#ruleTable .status-badge.on { background:#e8f5e9; color:#1b5e20; }
+#ruleTable .status-badge.off { background:#fbe9e7; color:#bf360c; }
+
+/* ===== 操作下拉菜单（仿登录日志） ===== */
+.action-dropdown { position:relative; display:inline-block; }
+.action-dropdown .dropdown-menu {
+  display:none; position:absolute; right:0; top:100%; z-index:999;
+  min-width:145px; background:#fff; border:1px solid #e8e8e8;
+  border-radius:8px; box-shadow:0 8px 28px rgba(0,0,0,.14); padding:5px 0; margin-top:4px;
+}
+.action-dropdown.open .dropdown-menu { display:block; animation:dropIn .15s ease; }
+@keyframes dropIn { from{opacity:0;transform:translateY(-4px);} to{opacity:1;transform:translateY(0);} }
+.action-dropdown .dropdown-item {
+  display:flex; align-items:center; gap:9px; padding:8px 16px;
+  color:#393D49; font-size:13px; text-decoration:none;
+  transition:background .1s; cursor:pointer;
+}
+.action-dropdown .dropdown-item:hover { background:#f0f7f0; color:#5FB878; }
+.action-dropdown .dropdown-item i { width:16px; text-align:center; color:#999; font-size:13px; }
+.action-dropdown .dropdown-item:hover i { color:#5FB878; }
+.action-dropdown .dropdown-item.dropdown-danger { color:#d32f2f; }
+.action-dropdown .dropdown-item.dropdown-danger:hover { background:#fff5f5; color:#d32f2f; }
+.action-dropdown .dropdown-item.dropdown-danger:hover i { color:#d32f2f; }
+.dropdown-trigger {
+  border-radius:6px !important; transition:all .15s !important;
+}
+.dropdown-trigger:hover {
+  border-color:#5FB878 !important; background:#f8fdf9 !important;
+}
+
 @media (max-width:700px) {
   .cloak-3col { flex-direction:column; }
   .cloak-3col > .cloak-form-group { min-width:unset; }
@@ -100,20 +144,21 @@
     </div>
 
     {# 表格 #}
-    <table class="layui-table" lay-skin="line" style="margin:0;">
+    <table class="layui-table" id="ruleTable" lay-skin="line" style="margin:0;">
       <thead>
         <tr>
           <th style="width:40px;">#</th>
-          <th>域名</th>
+          <th style="width:200px;">域名</th>
           <th style="width:80px;">状态</th>
-          <th style="width:120px;">爬虫行为</th>
-          <th style="width:120px;">搜索引擎用户行为</th>
-          <th style="width:120px;">直接访问行为</th>
+          <th>备注</th>
+          <th>爬虫行为</th>
+          <th>搜索引擎用户行为</th>
+          <th>直接访问行为</th>
           <th style="width:180px;">操作</th>
         </tr>
       </thead>
       <tbody id="ruleTableBody">
-        <tr><td colspan="7" style="text-align:center;padding:30px 0;color:#999;">加载中...</td></tr>
+        <tr><td colspan="8" style="text-align:center;padding:30px 0;color:#999;">加载中...</td></tr>
       </tbody>
     </table>
 
@@ -253,8 +298,8 @@ function badgeHtml(domain, isEnabled) {
 
 function statusBadge(enabled) {
   return enabled
-    ? '<span class="layui-badge layui-bg-green">启用</span>'
-    : '<span class="layui-badge layui-bg-gray">禁用</span>';
+    ? '<span class="status-badge on">启用</span>'
+    : '<span class="status-badge off">禁用</span>';
 }
 
 function escHtml(s) {
@@ -266,7 +311,7 @@ function escHtml(s) {
 // ===== 加载规则列表 =====
 function loadRules() {
   var tbody = document.getElementById('ruleTableBody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px 0;color:#999;"><i class="fas fa-spinner fa-pulse"></i> 加载中...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px 0;color:#999;"><i class="fas fa-spinner fa-pulse"></i> 加载中...</td></tr>';
 
   var params = new URLSearchParams({
     page: STATE.page,
@@ -279,12 +324,12 @@ function loadRules() {
   xhr.open('GET', '{% url "seo_cloak_api_list" %}?' + params.toString());
   xhr.onload = function() {
     if (xhr.status !== 200) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px 0;color:#e54d4d;">加载失败</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px 0;color:#e54d4d;">加载失败</td></tr>';
       return;
     }
     var res = JSON.parse(xhr.responseText);
     if (!res.ok) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px 0;color:#e54d4d;">' + escHtml(res.error || '加载失败') + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px 0;color:#e54d4d;">' + escHtml(res.error || '加载失败') + '</td></tr>';
       return;
     }
 
@@ -298,11 +343,21 @@ function loadRules() {
   xhr.send();
 }
 
+// 行为值 → 中文标签映射（纯展示层，与后端 action_choices 保持一致）
+var ACTION_LABELS = {
+  pass_through: '放行（返回正常内容）',
+  show_seo:      '展示 SEO 优化内容',
+  show_cloak:    '展示伪装内容',
+  redirect:      '重定向到指定 URL',
+  block:         '阻止访问',
+};
+function actionLabel(val) { return ACTION_LABELS[val] || val; }
+
 // ===== 渲染表格行 =====
 function renderTable(rules) {
   var tbody = document.getElementById('ruleTableBody');
   if (!rules || rules.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px 0;color:#999;">暂无规则</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px 0;color:#999;">暂无规则</td></tr>';
     document.getElementById('ruleCountBadge').textContent = '共 0 条';
     return;
   }
@@ -311,18 +366,35 @@ function renderTable(rules) {
   for (var i = 0; i < rules.length; i++) {
     var r = rules[i];
     var num = (STATE.page - 1) * STATE.pageSize + i + 1;
+    // 备注：超过 50 字截断 + 完整内容放 title 悬停查看
+    var remarkText = (r.remark || '').trim();
+    var remarkCell;
+    if (remarkText) {
+      var short = remarkText.length > 50 ? remarkText.slice(0, 50) + '…' : remarkText;
+      // word-break:keep-all 防止浏览器对纯中文按字换行；
+      // overflow-wrap:break-word 让超长英文/URL 在词内断行；
+      // max-width 限制单元格最大宽度。
+      remarkCell = '<span title="' + escHtml(remarkText) + '" style="display:inline-block;max-width:340px;color:#666;white-space:normal;word-break:keep-all;overflow-wrap:break-word;line-height:1.5;">' + escHtml(short) + '</span>';
+    } else {
+      remarkCell = '<span style="color:#ccc;">—</span>';
+    }
     html += '<tr data-id="' + r.id + '" data-domain="' + escHtml(r.domain) + '">';
     html += '<td>' + num + '</td>';
     html += '<td>' + badgeHtml(r.domain, r.is_enabled) + '</td>';
     html += '<td>' + statusBadge(r.is_enabled) + '</td>';
-    html += '<td>' + escHtml(r.spider_action) + '</td>';
-    html += '<td>' + escHtml(r.search_action) + '</td>';
-    html += '<td>' + escHtml(r.direct_action) + '</td>';
+    html += '<td style="word-break:keep-all;overflow-wrap:break-word;">' + remarkCell + '</td>';
+    html += '<td class="action-cell">' + actionLabel(r.spider_action) + '</td>';
+    html += '<td class="action-cell">' + actionLabel(r.search_action) + '</td>';
+    html += '<td class="action-cell">' + actionLabel(r.direct_action) + '</td>';
     html += '<td>';
-    html += '<button class="layui-btn layui-btn-xs layui-btn-normal btn-edit-rule">编辑</button>';
+    html += '<div class="action-dropdown">';
+    html += '<button class="layui-btn layui-btn-sm layui-btn-primary dropdown-trigger" style="font-size:14px;padding:0 10px;line-height:30px;height:30px;"><i class="fas fa-caret-down"></i></button>';
+    html += '<div class="dropdown-menu">';
+    html += '<a href="javascript:;" class="dropdown-item btn-edit-rule"><i class="fas fa-pen"></i> 编辑</a>';
     if (r.domain) {
-      html += ' <button class="layui-btn layui-btn-xs layui-btn-danger btn-delete-rule">删除</button>';
+      html += '<a href="javascript:;" class="dropdown-item dropdown-danger btn-delete-rule"><i class="fas fa-trash-alt"></i> 删除</a>';
     }
+    html += '</div></div>';
     html += '</td>';
     html += '</tr>';
   }
@@ -333,12 +405,37 @@ function renderTable(rules) {
   bindRowEvents();
 }
 
-// ===== 绑定每行的事件 =====
+// ===== 绑定每行的事件（事件委托） =====
 function bindRowEvents() {
-  document.querySelectorAll('.btn-edit-rule').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
+  // 所有操作都委托在 tbody 上，无需逐个绑定
+}
+
+// ===== 下拉菜单开关 & 全局关闭 =====
+document.addEventListener('click', function(e) {
+  // 点击下拉触发器 → 切换当前
+  var trigger = e.target.closest('.dropdown-trigger');
+  if (trigger) {
+    e.stopPropagation();
+    var dd = trigger.closest('.action-dropdown');
+    // 关闭其他已打开的
+    document.querySelectorAll('#ruleTableBody .action-dropdown.open').forEach(function(d) {
+      if (d !== dd) d.classList.remove('open');
+    });
+    dd.classList.toggle('open');
+    return;
+  }
+
+  // 点击菜单项 → 关闭所属下拉
+  var item = e.target.closest('.dropdown-item');
+  if (item) {
+    var dd = item.closest('.action-dropdown');
+    if (dd) dd.classList.remove('open');
+
+    // 编辑
+    if (item.classList.contains('btn-edit-rule')) {
       e.stopPropagation();
-      var tr = this.closest('tr');
+      var tr = item.closest('tr');
+      if (!tr) return;
       var ruleId = parseInt(tr.dataset.id);
       if (!ruleId) return;
       var xhr = new XMLHttpRequest();
@@ -351,13 +448,14 @@ function bindRowEvents() {
         }
       };
       xhr.send();
-    });
-  });
+      return;
+    }
 
-  document.querySelectorAll('.btn-delete-rule').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
+    // 删除
+    if (item.classList.contains('btn-delete-rule')) {
       e.stopPropagation();
-      var tr = this.closest('tr');
+      var tr = item.closest('tr');
+      if (!tr) return;
       var ruleId = parseInt(tr.dataset.id);
       var domain = tr.dataset.domain;
       layer.confirm('确定删除域名 <code>' + escHtml(domain) + '</code> 的斗篷规则？', {
@@ -380,9 +478,17 @@ function bindRowEvents() {
         xhr.send();
         layer.close(index);
       });
-    });
+      return;
+    }
+
+    return;
+  }
+
+  // 点击页面其他区域 → 关闭所有下拉
+  document.querySelectorAll('#ruleTableBody .action-dropdown.open').forEach(function(d) {
+    d.classList.remove('open');
   });
-}
+});
 
 // ===== 渲染分页 =====
 function renderPagination() {
@@ -467,6 +573,7 @@ function openCloakForm(rule) {
     whitelist_paths_raw: '',
     seo_content: '',
     cloak_content: '',
+    remark: '',
   };
 
   var tpl = document.getElementById('cloakFormTpl').innerHTML;
@@ -494,6 +601,7 @@ function openCloakForm(rule) {
   tpl = tpl.replace(/<!-- WHITELIST_PATHS_RAW -->/g, rule.whitelist_paths_raw || '');
   tpl = tpl.replace(/<!-- SEO_CONTENT -->/g, rule.seo_content || '');
   tpl = tpl.replace(/<!-- CLOAK_CONTENT -->/g, rule.cloak_content || '');
+  tpl = tpl.replace(/<!-- RULE_REMARK -->/g, rule.remark || '');
 
   // 域名输入框禁用（编辑默认规则时）
   if (!isNew && !rule.domain) {
@@ -542,10 +650,28 @@ function submitCloakForm(ruleId, callback) {
     return JSON.stringify(arr);
   }
 
+  // ★ 关键修复1：提交前先同步 input 框中尚未按 Enter 的域名
+  // 避免用户填了域名却忘记按 Enter 导致前端把它当作空域名处理
+  var pendingInput = document.getElementById('domainInput');
+  if (pendingInput && pendingInput.value.trim()) {
+    if (typeof window.__cloakAddDomainTag === 'function') {
+      window.__cloakAddDomainTag(pendingInput.value.trim());
+    }
+    pendingInput.value = '';
+  }
+
   // 收集域名标签
   var domains = typeof window.__cloakDomainTags === 'function' ? window.__cloakDomainTags() : [];
-  // 如果标签为空，视为全局默认规则（domain=''）
-  if (domains.length === 0) domains = [''];
+
+  // ★ 关键修复2：编辑模式允许空域名；新增模式必须有至少一个域名
+  if (!ruleId && domains.length === 0) {
+    layer.msg('请先添加至少一个域名（输入后按回车确认）', {icon: 2});
+    return;
+  }
+  if (ruleId && domains.length === 0) {
+    // 编辑模式空域名 = 全局默认规则（兜底）
+    domains = [''];
+  }
 
   var fd = new FormData(form);
   var basePayload = {
@@ -562,6 +688,7 @@ function submitCloakForm(ruleId, callback) {
     whitelist_paths: fd.get('whitelist_paths') || '',
     seo_content: fd.get('seo_content') || '',
     cloak_content: fd.get('cloak_content') || '',
+    remark: fd.get('remark') || '',
   };
 
   // 如果是编辑模式，只更新当前规则（只用一个域名）

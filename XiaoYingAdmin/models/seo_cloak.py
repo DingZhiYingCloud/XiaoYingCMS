@@ -178,6 +178,14 @@ class SeoCloakRule(models.Model):
         help_text='不受斗篷伪装影响的路径，每行一条（支持前缀匹配，如 /api/）',
     )
 
+    # ===== 备注（可选，供管理员标识规则用途） =====
+    remark = models.TextField(
+        blank=True, default='',
+        verbose_name='备注',
+        help_text='可选。用于管理员标识本条规则的用途或备注说明，最长 1000 字符。',
+        max_length=1000,
+    )
+
     # ===== 元信息 =====
     created_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
@@ -336,6 +344,7 @@ class SeoCloakRule(models.Model):
             'cloak_content': self.cloak_content,
             'whitelist_paths': self.get_whitelist_paths(),
             'whitelist_paths_raw': self.whitelist_paths,
+            'remark': self.remark,
             'redirect_choices': [
                 {'code': code, 'label': label, 'desc': desc}
                 for code, label, desc in REDIRECT_CHOICES

@@ -125,6 +125,17 @@
     </div>
   </div>
 
+  {# ===== 备注（可选） ===== #}
+  <div class="cloak-section">
+    <div class="cloak-section-title"><i class="fas fa-comment-dots"></i> 备注 <span class="cloak-aux" style="font-weight:normal;color:#999;">（可选）</span></div>
+    <div class="cloak-form-row">
+      <div class="cloak-form-group" style="flex:1;">
+        <textarea name="remark" class="cloak-textarea" maxlength="1000" placeholder="为这条规则添加备注说明，例如用途、负责人、生效时间等。最多 1000 字符。"><!-- RULE_REMARK --></textarea>
+        <div class="cloak-aux">仅用于管理员标识规则用途，不会参与斗篷伪装的实际判定逻辑。</div>
+      </div>
+    </div>
+  </div>
+
   {# ===== SEO 内容 & 伪装内容 ===== #}
   <div class="cloak-section">
     <div class="cloak-section-title"><i class="fas fa-code"></i> 内容配置</div>

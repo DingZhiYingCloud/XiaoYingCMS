@@ -140,10 +140,10 @@ def seo_cloak_config_save(request):
                 return err(f'域名 "{domain}" 的规则已存在')
             rule.domain = domain
     else:
-        # 新增：检查 domain 是否已存在
-        if SeoCloakRule.objects.filter(domain=domain).exists():
-            return err(f'域名 "{domain}" 的规则已存在')
-        rule = SeoCloakRule(domain=domain)
+        # 新增：如果 domain 已存在则更新（upsert），否则创建
+        rule = SeoCloakRule.objects.filter(domain=domain).first()
+        if not rule:
+            rule = SeoCloakRule(domain=domain)
 
     # 开关
     if 'is_enabled' in body:
@@ -193,9 +193,13 @@ def seo_cloak_config_save(request):
             setattr(rule, field, val)
 
     # 其他文本字段
-    for field in ('whitelist_paths', 'seo_content', 'cloak_content'):
+    for field in ('whitelist_paths', 'seo_content', 'cloak_content', 'remark'):
         if field in body:
-            setattr(rule, field, (body[field] or ''))
+            val = (body[field] or '')
+            # remark 限制最大 1000 字符
+            if field == 'remark' and len(val) > 1000:
+                return err('备注长度不能超过 1000 字符')
+            setattr(rule, field, val)
 
     rule.save()
 

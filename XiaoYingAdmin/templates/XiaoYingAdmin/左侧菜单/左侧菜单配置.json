@@ -110,7 +110,6 @@
           }
         ]
       }
-
     ]
   },
   {
@@ -171,6 +170,7 @@
       {
         "name": "防火墙",
         "icon": "",
+        "superuser_only": true,
         "url": "/xiaoying_admin/firewall/",
         "children": []
       },
@@ -184,6 +184,7 @@
   },
   {
     "name": "个人财务",
+    "superuser_only": true,
     "icon": "",
     "url": "",
     "children": [

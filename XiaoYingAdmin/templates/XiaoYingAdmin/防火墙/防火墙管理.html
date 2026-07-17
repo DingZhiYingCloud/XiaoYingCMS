@@ -19,16 +19,148 @@
 .fw-resp-tag {
   display:inline-block;padding:1px 6px;border-radius:2px;font-size:11px;background:#f0f0f0;color:#666;
 }
+
+/* ================================
+   权限拒绝醒目卡片
+   ================================ */
+.permission-denied-wrap {
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:60vh;
+  padding:20px;
+}
+
+.permission-denied-card {
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 8px 40px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
+  text-align:center;
+  padding:50px 48px 40px;
+  max-width:480px;
+  width:100%;
+  border-top:5px solid #e74c3c;
+  animation:pdFadeIn .4s ease;
+}
+
+@keyframes pdFadeIn {
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.permission-denied-card .pd-icon-wrap {
+  width:80px;
+  height:80px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#fff5f5,#ffe0e0);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:0 auto 18px;
+}
+
+.permission-denied-card .pd-icon-wrap i {
+  font-size:36px;
+  color:#e74c3c;
+}
+
+.permission-denied-card .pd-title {
+  font-size:24px;
+  font-weight:700;
+  color:#2c3e50;
+  margin:0 0 10px;
+}
+
+.permission-denied-card .pd-desc {
+  font-size:15px;
+  color:#666;
+  margin:0 0 22px;
+  line-height:1.6;
+  background:#fefaf0;
+  border:1px solid #fdebd0;
+  border-radius:8px;
+  padding:12px 16px;
+}
+
+.permission-denied-card .pd-role-info {
+  font-size:13px;
+  color:#888;
+  margin-bottom:14px;
+  padding:10px;
+  background:#f9f9f9;
+  border-radius:8px;
+}
+
+.permission-denied-card .pd-role-info i {
+  margin-right:6px;
+}
+
+.permission-denied-card .pd-hint {
+  font-size:13px;
+  color:#999;
+  margin-bottom:24px;
+  line-height:1.5;
+}
+
+.permission-denied-card .pd-hint i {
+  color:#f39c12;
+  margin-right:5px;
+}
+
+.permission-denied-card .pd-back-btn {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:10px 32px;
+  background:#5FB878;
+  color:#fff;
+  border-radius:8px;
+  font-size:14px;
+  font-weight:500;
+  text-decoration:none;
+  transition:background .2s, transform .15s;
+}
+
+.permission-denied-card .pd-back-btn:hover {
+  background:#4aa86a;
+  transform:translateY(-1px);
+  color:#fff;
+}
 </style>
 {% endblock %}
 
 {% block body %}
 
 {% if error %}
-<div class="layui-alert layui-alert-danger" style="margin-bottom:12px;">
-  <i class="fas fa-exclamation-circle"></i> {{ error }}
+{# ===== 醒目权限拒绝提示 ===== #}
+<div class="permission-denied-wrap">
+  <div class="permission-denied-card">
+    <div class="pd-icon-wrap">
+      <i class="fas fa-shield-halved"></i>
+    </div>
+    <h2 class="pd-title">访问被拒绝</h2>
+    <p class="pd-desc">{{ error }}</p>
+    <div class="pd-role-info">
+      <i class="fas fa-user-shield"></i>
+      当前角色：
+      {% if request.user.is_superuser %}
+        <strong style="color:#5FB878;">超级管理员</strong>
+      {% elif request.user.is_staff %}
+        <strong style="color:#e67e22;">管理员</strong>
+      {% else %}
+        <strong style="color:#888;">普通用户</strong>
+      {% endif %}
+    </div>
+    <div class="pd-hint">
+      <i class="fas fa-lightbulb"></i>
+      提示：如需访问防火墙管理，请联系超级管理员提升权限
+    </div>
+    <a href="{% url 'index' %}" class="pd-back-btn">
+      <i class="fas fa-arrow-left"></i> 返回首页
+    </a>
+  </div>
 </div>
-{% endif %}
+{% else %}
 
 {# ===== 操作栏 ===== #}
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
@@ -108,6 +240,7 @@
     </table>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 
 

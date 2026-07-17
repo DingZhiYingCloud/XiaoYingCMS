@@ -167,6 +167,34 @@ def _find_active_urls(menu_items, current_path):
     return active_urls
 
 
+def _filter_superuser_only(menu_items, is_superuser):
+    """
+    递归过滤菜单中仅超级管理员可见的项。
+
+    配置项中标记了 ``"superuser_only": true`` 的菜单仅在
+    ``is_superuser == True`` 时保留，否则整项（含子菜单）被移除。
+
+    参数:
+      menu_items: list，原始菜单配置
+      is_superuser: bool，当前用户是否为超级管理员
+
+    返回:
+      list，过滤后的菜单配置
+    """
+    result = []
+    for item in menu_items:
+        # 标记为 superuser_only 但当前不是超级管理员 → 跳过此项及所有子项
+        if item.get('superuser_only') and not is_superuser:
+            continue
+        # 递归处理子菜单
+        children = item.get('children', [])
+        if children:
+            item = dict(item)  # 浅拷贝，避免影响缓存
+            item['children'] = _filter_superuser_only(children, is_superuser)
+        result.append(item)
+    return result
+
+
 # =============================================================================
 # 中间件
 # =============================================================================
@@ -222,6 +250,10 @@ class LayoutMiddleware:
         if request.show_sidebar:
             menu_data = self._get_menu_data()
             current_path = request.path_info
+
+            # 权限过滤：仅超级管理员可见的菜单项
+            is_superuser = getattr(request.user, 'is_superuser', False)
+            menu_data = _filter_superuser_only(menu_data, is_superuser)
 
             active_urls = _find_active_urls(menu_data, current_path)
 
