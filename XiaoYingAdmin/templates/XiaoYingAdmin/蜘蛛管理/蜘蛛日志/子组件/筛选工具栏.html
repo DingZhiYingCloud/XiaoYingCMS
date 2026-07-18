@@ -36,6 +36,12 @@
             <input type="text" name="ip" value="{{ current_ip }}" placeholder="按 IP 过滤" class="sf-input">
         </div>
 
+        {# ===== 来源（referer 模糊搜索） ===== #}
+        <div class="sf-search-wrap">
+            <span class="sf-search-icon"><i class="fas fa-link"></i></span>
+            <input type="text" name="referer" value="{{ current_referer }}" placeholder="按来源过滤" class="sf-input">
+        </div>
+
         {# ===== 方法 ===== #}
         <select name="method" class="sf-select" style="width:100px;">
             <option value="">所有方法</option>
@@ -73,7 +79,7 @@
         </select>
         <span class="sf-page-size-label">条</span>
 
-        <a href="{% url 'spider_logs_api_export' %}?days={{ days }}{% if current_who %}&who={{ current_who }}{% endif %}{% if current_spider %}&spider={{ current_spider }}{% endif %}{% if current_ip %}&ip={{ current_ip }}{% endif %}{% if current_method %}&method={{ current_method }}{% endif %}"
+        <a href="{% url 'spider_logs_api_export' %}?days={{ days }}{% if current_who %}&who={{ current_who }}{% endif %}{% if current_spider %}&spider={{ current_spider }}{% endif %}{% if current_ip %}&ip={{ current_ip }}{% endif %}{% if current_method %}&method={{ current_method }}{% endif %}{% if current_referer %}&referer={{ current_referer|urlencode }}{% endif %}"
            class="sf-btn sf-btn-warm">
             <i class="fas fa-file-csv"></i> 导出 CSV
         </a>

@@ -71,6 +71,8 @@ def _build_filters(request) -> dict:
     if method := q.get('method', '').strip().upper():
         if method in ('GET', 'POST', 'HEAD', 'PUT', 'DELETE'):
             filters['method'] = method
+    if referer := q.get('referer', '').strip():
+        filters['referer__icontains'] = referer
     return filters
 
 
@@ -448,6 +450,8 @@ def spider_logs_view(request):
         query_parts.append(f'ip={request.GET.get("ip")}')
     if request.GET.get('method'):
         query_parts.append(f'method={request.GET.get("method")}')
+    if request.GET.get('referer'):
+        query_parts.append(f'referer={request.GET.get("referer")}')
     query_parts.append(f'page_size={page_size}')
     current_query = '&'.join(query_parts)
     total_pages = max(1, (total + page_size - 1) // page_size)
@@ -465,6 +469,7 @@ def spider_logs_view(request):
         'current_spider': request.GET.get('spider', ''),
         'current_ip': request.GET.get('ip', ''),
         'current_method': request.GET.get('method', ''),
+        'current_referer': request.GET.get('referer', ''),
         'page': page,
         'page_size': page_size,
         'allowed_page_sizes': ALLOWED_PAGE_SIZES,
