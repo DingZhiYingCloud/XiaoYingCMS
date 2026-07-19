@@ -130,7 +130,7 @@ function openCreatePage() {
                     layer.closeAll();
                     layer.msg('创建成功', {icon:1});
                     loadTree();
-                    if (currentPageTV) loadTableView(currentPageTV);
+                    if (typeof currentPageTV !== 'undefined' && typeof loadTableView === 'function') loadTableView(currentPageTV);
                 }).catch(function() { layer.close(idx); layer.msg('创建失败', {icon:2}); });
             });
         },
@@ -187,19 +187,29 @@ function openEditor(id) {
                             body: JSON.stringify({ id: id, name: name, input_content: inputContent, html_content: htmlContent }),
                         }).then(function(r) { return r.json(); }).then(function(resp) {
                             if (resp.error) { layer.close(idx); layer.msg(resp.error, {icon:2}); return; }
-                            // 更新分类
-                            return fetch('/xiaoying_admin/api/pages/saved/set-categories/', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: id, category_ids: catIds }),
-                            }).then(function() { return resp; });
-                        }).then(function(resp) {
+                            try {
+                                // 页面已成功更新，先关闭加载层
+                                layer.close(idx);
+                                // 独立更新分类（不影响主流程）
+                                fetch('/xiaoying_admin/api/pages/saved/set-categories/', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id: id, category_ids: catIds }),
+                                }).catch(function() {
+                                    // 分类更新失败不阻塞整体流程
+                                });
+                                layer.closeAll();
+                                layer.msg('已更新', {icon:1});
+                                loadTree();
+                                if (typeof currentPageTV !== 'undefined' && typeof loadTableView === 'function') loadTableView(currentPageTV);
+                            } catch(e) {
+                                layer.close(idx);
+                                layer.msg('保存失败: ' + (e.message || '未知错误'), {icon:2});
+                            }
+                        }).catch(function() {
                             layer.close(idx);
-                            layer.closeAll();
-                            layer.msg('已更新', {icon:1});
-                            loadTree();
-                            if (currentPageTV) loadTableView(currentPageTV);
-                        }).catch(function() { layer.close(idx); layer.msg('保存失败', {icon:2}); });
+                            layer.msg('保存失败', {icon:2});
+                        });
                     });
                 },
             });
@@ -265,7 +275,7 @@ function seoOptimizePage(id) {
                                 layer.close(idx);
                                 layer.msg('SEO 优化完成！', {icon:1, time:2000});
                                 loadTree();
-                                if (currentPageTV) loadTableView(currentPageTV);
+                                if (typeof currentPageTV !== 'undefined' && typeof loadTableView === 'function') loadTableView(currentPageTV);
                             } else if (prog.status === 'failed') {
                                 clearInterval(pollTimer);
                                 layer.close(idx);

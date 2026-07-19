@@ -102,6 +102,7 @@ from XiaoYingAdmin.views.finance.balance import (
     balance_view,
     balance_api_info, balance_api_initial, balance_api_transaction,
     balance_api_transactions, balance_api_adjust,
+    finance_api_reset,
 )
 from XiaoYingAdmin.views.finance.expense import (
     expense_view,
@@ -320,6 +321,7 @@ urlpatterns = [
     path('api/finance/balance/transaction/', balance_api_transaction, name='finance_balance_api_transaction'),
     path('api/finance/balance/transactions/', balance_api_transactions, name='finance_balance_api_transactions'),
     path('api/finance/balance/adjust/', balance_api_adjust, name='finance_balance_api_adjust'),
+    path('api/finance/reset/', finance_api_reset, name='finance_api_reset'),
 
     # 日常消费
     path('finance/expense/', expense_view, name='finance_expense'),

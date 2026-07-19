@@ -373,7 +373,7 @@ function saveDomainSeo(pageId, domain, layerIdx) {
 /** 刷新页面 SEO 显示 */
 function refreshPageSeoDisplay() {
     if (document.getElementById('tableView') && document.getElementById('tableView').classList.contains('active')) {
-        if (typeof loadTableView === 'function') loadTableView(currentPageTV || 1);
+        if (typeof loadTableView === 'function') loadTableView(typeof currentPageTV !== 'undefined' ? currentPageTV : 1);
     } else {
         if (typeof loadTree === 'function') loadTree();
     }

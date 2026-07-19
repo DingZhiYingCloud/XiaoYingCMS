@@ -33,6 +33,9 @@
     <button class="layui-btn layui-btn-sm layui-btn-warm" id="btnAdjust" onclick="showAdjustForm()" style="display:none;">
       <i class="fas fa-sliders-h"></i> 余额调整
     </button>
+    <button class="layui-btn layui-btn-sm layui-btn-danger" id="btnReset" onclick="resetFinance()" style="display:none;">
+      <i class="fas fa-exclamation-triangle"></i> 重置全部
+    </button>
   </div>
 </div>
 
@@ -102,6 +105,7 @@ function loadBalance() {
     var isInit = parseFloat(res.balance) === 0 && parseFloat(res.initial_amount) === 0;
     document.getElementById('btnInit').style.display = isInit ? 'inline-block' : 'none';
     document.getElementById('btnAdjust').style.display = isInit ? 'none' : 'inline-block';
+    document.getElementById('btnReset').style.display = isInit ? 'none' : 'inline-block';
   });
 }
 
@@ -319,6 +323,72 @@ function submitAdjust() {
     else { layer.msg(res.error || '调整失败', {icon:2}); }
   })
   .catch(function(e) { layer.msg('请求失败', {icon:2}); });
+}
+
+/* ─── 重置个人财务模块 ─── */
+function resetFinance() {
+  layer.confirm(
+    '<div style="padding:10px 0;line-height:2;font-size:14px;">' +
+    '<p style="color:#e74c3c;font-weight:600;font-size:16px;"><i class="fas fa-exclamation-triangle"></i> 危险操作</p>' +
+    '<p>即将重置<b>全部</b>个人财务模块数据：</p>' +
+    '<ul style="margin:8px 0 0 18px;list-style:disc;">' +
+    '<li>总金额 → 归零</li>' +
+    '<li>交易流水 → 清空</li>' +
+    '<li>日常消费 → 清空</li>' +
+    '<li>债务记录 → 清空</li>' +
+    '<li>好友及好友事件 → 清空</li>' +
+    '<li>好友分类 / 事件类型 → 恢复默认</li>' +
+    '</ul>' +
+    '<p style="color:#999;font-size:12px;margin-top:10px;">此操作<b>不可撤销</b>，请确认！</p>' +
+    '</div>',
+    {
+      icon: 0,
+      title: '<i class="fas fa-exclamation-circle"></i> 重置确认',
+      btn: ['确认重置', '取消'],
+      area: ['480px', 'auto'],
+      btnAlign: 'c',
+      shadeClose: false,
+    },
+    function(index) {
+      // 二次确认
+      layer.close(index);
+      layer.confirm(
+        '再次确认：真的要重置全部个人财务数据吗？<br><small style="color:#e74c3c;">所有数据将被永久删除，且不可恢复。</small>',
+        {
+          icon: 3,
+          title: '二次确认',
+          btn: ['是的，立即重置', '取消'],
+          area: ['420px', 'auto'],
+          shadeClose: false,
+        },
+        function(idx) {
+          layer.close(idx);
+          var loadIdx = layer.load(1);
+          fetch('/xiaoying_admin/api/finance/reset/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({confirm: 'yes'}),
+            credentials: 'same-origin',
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            layer.close(loadIdx);
+            if (res.ok) {
+              layer.msg(res.message, {icon:1});
+              loadBalance();
+              loadTransactions();
+            } else {
+              layer.msg(res.error || '重置失败', {icon:2});
+            }
+          })
+          .catch(function(e) {
+            layer.close(loadIdx);
+            layer.msg('请求失败: ' + e, {icon:2});
+          });
+        }
+      );
+    }
+  );
 }
 
 function escHtml(s) {

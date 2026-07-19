@@ -1,5 +1,5 @@
 """
-总金额系统视图 — 余额管理 + 收支记录
+总金额系统视图 — 余额管理 + 收支记录 + 模块重置
 """
 from datetime import date
 
@@ -11,7 +11,10 @@ from django.views.decorators.http import require_GET, require_POST
 
 from XiaoYingAdmin.common.http import parse_json_body, err, get_or_404
 from XiaoYingAdmin.middleware.operation_log import log_operation
-from XiaoYingAdmin.models.finance import FinanceBalance, FinanceTransaction
+from XiaoYingAdmin.models.finance import (
+    FinanceBalance, FinanceTransaction, DailyExpense, Debt,
+    FriendCategory, FriendEvent, Friend, EventType,
+)
 from XiaoYingAdmin.views.finance import paginate_queryset, paginate_response
 
 BALANCE_TEMPLATE = 'XiaoYingAdmin/个人财务/总金额.html'
@@ -187,3 +190,62 @@ def balance_api_adjust(request):
     )
     log_operation(request, f'余额调整: ¥{old_balance} → ¥{new_balance} ({reason})')
     return JsonResponse({'ok': True, 'balance': str(new_balance)})
+
+
+# =============================================================================
+# 模块重置
+# =============================================================================
+
+PRESET_CATEGORIES = ['亲密好友', '好朋友', '普通朋友', '同事', '家人']
+PRESET_EVENT_TYPES = ['请吃饭', '送礼物', '聚会', '看电影', '其他']
+
+
+@csrf_exempt
+@require_POST
+def finance_api_reset(request):
+    """
+    POST /xiaoying_admin/api/finance/reset/
+    重置个人财务模块全部数据（总金额、流水、日常消费、债务、好友、分类等）。
+    需要二次确认 confirm_token = 'yes' + 当前时间戳（防误触）。
+    """
+    body, error = parse_json_body(request)
+    if error is not None:
+        return error
+
+    # 二次确认检查
+    if body.get('confirm') != 'yes':
+        return err('请二次确认后执行重置（需传 confirm="yes"）')
+
+    # 1. 好友事件（Friend 级联删除会自动删 FriendEvent，但先删更安全）
+    FriendEvent.objects.all().delete()
+
+    # 2. 好友
+    Friend.objects.all().delete()
+
+    # 3. 好友分类 → 重建预设
+    FriendCategory.objects.all().delete()
+    for i, name in enumerate(PRESET_CATEGORIES):
+        FriendCategory.objects.create(name=name, sort_order=i * 10, is_preset=True)
+
+    # 4. 事件类型 → 重建预设
+    EventType.objects.all().delete()
+    for name in PRESET_EVENT_TYPES:
+        EventType.objects.create(name=name, is_preset=True)
+
+    # 5. 债务
+    Debt.objects.all().delete()
+
+    # 6. 日常消费
+    DailyExpense.objects.all().delete()
+
+    # 7. 财务交易记录
+    FinanceTransaction.objects.all().delete()
+
+    # 8. 总金额 → 归零
+    bal, _ = FinanceBalance.objects.get_or_create(pk=1)
+    bal.balance = 0
+    bal.initial_amount = 0
+    bal.save()
+
+    log_operation(request, '重置个人财务模块全部数据')
+    return JsonResponse({'ok': True, 'message': '个人财务模块已全部重置'})

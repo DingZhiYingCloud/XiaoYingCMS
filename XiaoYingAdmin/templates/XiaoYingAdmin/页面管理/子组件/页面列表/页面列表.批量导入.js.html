@@ -306,7 +306,7 @@ function openBatchImportModal() {
 
                         // 刷新页面列表
                         loadTree();
-                        if (typeof loadTableView === 'function' && currentPageTV) {
+                        if (typeof loadTableView === 'function' && typeof currentPageTV !== 'undefined') {
                             loadTableView(currentPageTV);
                         }
                     };
