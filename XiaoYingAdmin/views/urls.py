@@ -236,6 +236,8 @@ urlpatterns = [
     # 智能互链
     path('api/crosslinks/generate/', admin_request.api_generate_crosslinks, name='api_crosslinks_generate'),
     path('api/crosslinks/exclude-toggle/', admin_request.api_crosslink_exclude_toggle, name='api_crosslinks_exclude_toggle'),
+    path('api/crosslinks/domains/', admin_request.api_crosslinks_domain_list, name='api_crosslinks_domain_list'),
+    path('api/crosslinks/remove-domains/', admin_request.api_crosslinks_remove_domains, name='api_crosslinks_remove_domains'),
 
     # 页面域名SEO状态（收录 & 排名）
     path('api/site-settings/search-engines/', admin_request.api_site_settings_get_search_engines, name='api_search_engines_list'),

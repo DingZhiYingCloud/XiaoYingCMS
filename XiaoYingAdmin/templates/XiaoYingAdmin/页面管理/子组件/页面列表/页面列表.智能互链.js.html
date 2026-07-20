@@ -137,4 +137,121 @@ function doCrosslink(categoryId) {
         }
     );
 }
+
+// ============================================================
+// 管理互链 — 查看/移除已互联的域名
+// ============================================================
+
+// 延时等待 DOM 就绪后绑定事件
+setTimeout(function() {
+    var mgrBtn = document.getElementById('btnManageCrosslinks');
+    if (mgrBtn) {
+        mgrBtn.addEventListener('click', openCrosslinkManager);
+    }
+}, 100);
+
+function openCrosslinkManager() {
+    var idx = layer.load(1);
+    fetch('/xiaoying_admin/api/crosslinks/domains/', {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin',
+    }).then(function(r) { return r.json(); }).then(function(resp) {
+        layer.close(idx);
+        if (!resp.ok) { layer.msg(resp.error || '获取域名列表失败', {icon:2}); return; }
+
+        var domains = resp.domains || [];
+        if (domains.length === 0) {
+            layer.msg('当前没有互链域名', {icon:0});
+            return;
+        }
+
+        var listHtml = '';
+        domains.forEach(function(d, i) {
+            listHtml += '<label class="cl-mgr-item">'
+                + '<input type="checkbox" class="cl-mgr-checkbox" data-index="' + i + '" data-url="' + escHtml(d.url) + '">'
+                + '<span class="cl-mgr-url" title="' + escHtml(d.url) + '">' + escHtml(d.display) + '</span>'
+                + '<span class="cl-mgr-count">' + d.count + ' 个页面</span>'
+                + '</label>';
+        });
+
+        var content = ''
+            + '<div class="cl-mgr-bar">'
+            + '<label><input type="checkbox" id="clMgrSelectAll"> 全选/反选</label>'
+            + '<span class="cl-mgr-summary">共 ' + domains.length + ' 个域名</span>'
+            + '</div>'
+            + '<div class="cl-mgr-list">' + listHtml + '</div>';
+
+        layer.open({
+            type: 1,
+            title: '<i class="fas fa-cog" style="color:#795548;"></i> 管理互链域名',
+            area: ['520px', '420px'],
+            shadeClose: true,
+            btn: ['移除选中域名', '清空全部互链', '取消'],
+            btnAlign: 'c',
+            content: content,
+            yes: function(modalIdx) {
+                // 移除选中
+                var checked = document.querySelectorAll('.cl-mgr-checkbox:checked');
+                if (checked.length === 0) {
+                    layer.msg('请至少勾选一个域名', {icon:0});
+                    return;
+                }
+                var urls = [];
+                checked.forEach(function(cb) { urls.push(cb.getAttribute('data-url')); });
+                layer.close(modalIdx);
+                confirmRemoveDomains(urls, false);
+            },
+            btn2: function(modalIdx) {
+                // 清空全部
+                layer.close(modalIdx);
+                confirmRemoveDomains([], true);
+                return false; // 阻止关闭默认行为（已手动关）
+            },
+            success: function(layero) {
+                // 全选/反选
+                layero.find('#clMgrSelectAll').on('change', function() {
+                    var checked = this.checked;
+                    layero.find('.cl-mgr-checkbox').each(function() {
+                        this.checked = checked;
+                    });
+                });
+            }
+        });
+    }).catch(function() {
+        layer.close(idx);
+        layer.msg('网络错误', {icon:2});
+    });
+}
+
+function confirmRemoveDomains(domains, removeAll) {
+    var msg = removeAll
+        ? '<p><strong>此操作将清空所有页面的互链块</strong></p><p>所有友情链接将被移除，不可撤销。</p>'
+        : '<p>将从所有页面中移除以下 <strong>' + domains.length + '</strong> 个域名的互链：</p>'
+        + '<ul style="margin:8px 0 0 18px;list-style:disc;font-size:12px;color:#666;">'
+        + domains.map(function(u) { return '<li>' + escHtml(u) + '</li>'; }).join('')
+        + '</ul>';
+
+    layer.confirm(msg, {
+        icon: 3,
+        title: '确认移除',
+        btn: ['确认移除', '取消'],
+        area: ['460px', 'auto'],
+    }, function(index) {
+        layer.close(index);
+        var idx = layer.load(1, { shade: [0.3, '#000'] });
+        var body = removeAll ? { remove_all: true } : { domains: domains };
+        fetch('/xiaoying_admin/api/crosslinks/remove-domains/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify(body),
+        }).then(function(r) { return r.json(); }).then(function(resp) {
+            layer.close(idx);
+            if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+            layer.msg(resp.message, {icon:1, time:3000});
+            // 刷新树
+            if (typeof loadTree === 'function') loadTree();
+        }).catch(function() { layer.close(idx); layer.msg('网络错误', {icon:2}); });
+    });
+}
 </script>
