@@ -132,6 +132,7 @@ function renderRootDomainNode(root) {
     html += '<span class="tree-label">' + escHtml(root.root) + '</span>';
     html += '<span class="tree-count">' + (root.page_count || 0) + ' 个页面</span>';
     html += '<button class="tree-domain-btn" onclick="event.stopPropagation();openDomainViewModalByRootName(\'' + escAttr(root.root) + '\')" title="查看全部子域名"><i class="fas fa-list"></i></button>';
+    html += '<button class="tree-domain-btn tree-del-root-btn" onclick="event.stopPropagation();deleteRootDomain(\'' + escAttr(root.root) + '\', ' + (root.page_count || 0) + ')" title="删除全部"><i class="fas fa-trash-alt"></i></button>';
     html += '</div>';
     html += '<div class="tree-children">';
     root.domains.forEach(function(dom) {

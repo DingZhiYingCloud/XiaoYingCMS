@@ -457,3 +457,31 @@ def api_seo_records_delete(request, pk):
     domain_id = record.seo_domain_id
     record.delete()
     return JsonResponse({'ok': True, 'message': '记录已删除', 'seo_domain_id': domain_id})
+
+
+@csrf_exempt
+@require_POST
+def api_seo_records_clear_all(request):
+    """清空所有域名SEO时间线记录（包括关联的域名实体）"""
+    data, error = parse_json_body(request)
+    if error:
+        return error
+    if data.get('confirm') != 'yes':
+        return err('请确认清空操作')
+
+    from XiaoYingAdmin.models.seo_domain import SeoDomain
+
+    # 统计
+    record_count = DomainSeoRecord.objects.count()
+    domain_count = SeoDomain.objects.count()
+
+    # 先删记录再删域名（外键约束）
+    DomainSeoRecord.objects.all().delete()
+    SeoDomain.objects.all().delete()
+
+    return JsonResponse({
+        'ok': True,
+        'message': f'已清空 {record_count} 条时间线记录和 {domain_count} 个域名实体',
+        'deleted_records': record_count,
+        'deleted_domains': domain_count,
+    })

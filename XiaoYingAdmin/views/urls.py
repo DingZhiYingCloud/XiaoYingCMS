@@ -29,21 +29,7 @@ from XiaoYingAdmin.views.seo.domain_records import (
     api_seo_domain_records_batch_create,
     api_seo_records_update,
     api_seo_records_delete,
-)
-from XiaoYingAdmin.views.seo.test_workflow import (
-    test_workflow_list_view,
-    test_workflow_detail_view,
-    api_test_workflow_list,
-    api_test_workflow_create,
-    api_test_workflow_update,
-    api_test_workflow_delete,
-    api_test_workflow_detail,
-    api_test_workflow_step_create,
-    api_test_workflow_step_update,
-    api_test_workflow_step_complete,
-    api_test_workflow_step_delete,
-    api_seo_domains_for_workflow,
-    api_test_workflow_set_result,
+    api_seo_records_clear_all,
 )
 from XiaoYingAdmin.views.tools.export_import import (
     export_import_view,
@@ -189,27 +175,13 @@ urlpatterns = [
     path('api/seo/domains/records/batch-create/', api_seo_domain_records_batch_create, name='api_seo_domain_records_batch_create'),
     path('api/seo/records/<int:pk>/update/', api_seo_records_update, name='api_seo_records_update'),
     path('api/seo/records/<int:pk>/delete/', api_seo_records_delete, name='api_seo_records_delete'),
+    path('api/seo/records/clear-all/', api_seo_records_clear_all, name='api_seo_records_clear_all'),
 
-    # SEO 测试流程
+    # 工具: 导入/导出
     path('tools/export-import/', export_import_view, name='export_import_view'),
     path('api/tools/export/', api_export, name='api_export'),
     path('api/tools/import/preview/', api_import_preview, name='api_import_preview'),
     path('api/tools/import/execute/', api_import_execute, name='api_import_execute'),
-
-    # SEO 测试流程
-    path('seo/test-workflows/', test_workflow_list_view, name='test_workflow_list'),
-    path('seo/test-workflows/<int:pk>/', test_workflow_detail_view, name='test_workflow_detail'),
-    path('api/seo/test-workflows/list/', api_test_workflow_list, name='api_test_workflow_list'),
-    path('api/seo/test-workflows/create/', api_test_workflow_create, name='api_test_workflow_create'),
-    path('api/seo/test-workflows/<int:pk>/update/', api_test_workflow_update, name='api_test_workflow_update'),
-    path('api/seo/test-workflows/<int:pk>/delete/', api_test_workflow_delete, name='api_test_workflow_delete'),
-    path('api/seo/test-workflows/<int:pk>/', api_test_workflow_detail, name='api_test_workflow_detail'),
-    path('api/seo/test-workflows/<int:pk>/steps/create/', api_test_workflow_step_create, name='api_test_workflow_step_create'),
-    path('api/seo/test-workflows/<int:pk>/steps/<int:step_pk>/update/', api_test_workflow_step_update, name='api_test_workflow_step_update'),
-    path('api/seo/test-workflows/<int:pk>/steps/<int:step_pk>/complete/', api_test_workflow_step_complete, name='api_test_workflow_step_complete'),
-    path('api/seo/test-workflows/<int:pk>/steps/<int:step_pk>/delete/', api_test_workflow_step_delete, name='api_test_workflow_step_delete'),
-    path('api/seo/test-workflows/<int:pk>/set-result/', api_test_workflow_set_result, name='api_test_workflow_set_result'),
-    path('api/seo/domains/for-workflow/', api_seo_domains_for_workflow, name='api_seo_domains_for_workflow'),
 
     # AJAX API: 已保存页面
     path('api/pages/saved/', admin_request.api_saved_pages, name='api_saved_pages'),
@@ -218,6 +190,7 @@ urlpatterns = [
     path('api/pages/saved/set-domain/', admin_request.api_saved_page_set_domain, name='api_saved_page_set_domain'),
     path('api/pages/saved/set-categories/', page_tree_views.page_set_categories, name='api_page_set_categories'),
     path('api/pages/saved/delete/', admin_request.api_saved_page_delete, name='api_saved_page_delete'),
+    path('api/pages/saved/delete-by-root/', admin_request.api_saved_page_delete_by_root, name='api_saved_page_delete_by_root'),
     path('api/pages/saved/update/', admin_request.api_saved_page_update, name='api_saved_page_update'),
     path('api/pages/saved/seo-optimize/', admin_request.api_seo_optimize_page, name='api_seo_optimize_page'),
 

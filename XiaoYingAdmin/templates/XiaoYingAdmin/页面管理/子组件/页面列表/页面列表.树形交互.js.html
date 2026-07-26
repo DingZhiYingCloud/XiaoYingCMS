@@ -80,6 +80,36 @@ function openPage(btn) {
     window.open(url, '_blank');
 }
 
+// 删除根域名下的所有页面
+function deleteRootDomain(root, count) {
+    layer.confirm(
+        '<div style="text-align:center;padding:10px 0;">' +
+        '<i class="fas fa-exclamation-triangle" style="font-size:42px;color:#ff4d4f;margin-bottom:10px;"></i>' +
+        '<p style="font-size:15px;font-weight:600;margin-bottom:8px;">确定要删除根域名下的全部页面吗？</p>' +
+        '<p style="font-size:13px;color:#555;">根域名: <strong>' + escHtml(root) + '</strong></p>' +
+        '<p style="font-size:13px;color:#999;">将删除 <strong style="color:#ff4d4f;">' + count + '</strong> 个页面，此操作不可恢复！</p>' +
+        '</div>',
+        {icon:3, title:'确认批量删除', btn:['确认删除','取消']},
+        function(idx) {
+            layer.close(idx);
+            var loadIdx = layer.load(1);
+            fetch('/xiaoying_admin/api/pages/saved/delete-by-root/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({root: root}),
+            }).then(function(r){return r.json()}).then(function(resp){
+                layer.close(loadIdx);
+                if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                layer.msg(resp.message||'删除成功', {icon:1});
+                loadTree();
+            }).catch(function(){
+                layer.close(loadIdx);
+                layer.msg('删除失败', {icon:2});
+            });
+        }
+    );
+}
+
 // 删除页面
 function deletePage(id) {
     layer.confirm('确定删除此页面吗？', { icon: 3, btn: ['确定', '取消'], title: '确认删除' }, function(index) {

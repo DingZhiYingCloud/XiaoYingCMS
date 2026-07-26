@@ -682,6 +682,60 @@ def api_saved_page_delete(request):
 
 @csrf_exempt
 @require_POST
+def api_saved_page_delete_by_root(request):
+    """
+    删除指定根域名下的所有已保存页面。
+
+    查找范围：page.domain（旧字段） 和 page.domains（JSON 数组，支持 *. 通配符）。
+    匹配逻辑：域名字段的值 == root，或以 .root 结尾（即 root 的子域名）。
+
+    请求: application/json
+      {"root": "example.com"}
+    """
+    body, error = parse_json_body(request)
+    if error is not None:
+        return error
+
+    root = (body.get('root') or '').strip().lower()
+    if not root:
+        return err('请提供根域名')
+
+    from XiaoYingAdmin.models.generated_page import GeneratedPage
+
+    # 遍历所有页面，匹配 domains JSON 数组和旧 domain 字段
+    root_dot = '.' + root
+    matched_ids = []
+    for page in GeneratedPage.objects.iterator():
+        # 检查旧 domain 字段
+        if page.domain and page.domain.lower() == root:
+            matched_ids.append(page.id)
+            continue
+        # 检查 domains JSON 数组
+        if page.domains:
+            for d in page.domains:
+                d_lower = d.lower()
+                # 去掉 *. 前缀再比较
+                clean_d = d_lower.lstrip('*.')
+                if clean_d == root or clean_d.endswith(root_dot):
+                    matched_ids.append(page.id)
+                    break
+
+    if not matched_ids:
+        return JsonResponse({'message': f'根域名 "{root}" 下没有页面', 'deleted': 0})
+
+    pages = GeneratedPage.objects.filter(id__in=matched_ids)
+    count = pages.count()
+    page_names = list(pages.values_list('name', flat=True))
+    pages.delete()
+
+    log_operation(request, 'delete', 'GeneratedPage', None,
+                  f'批量删除根域名「{root}」下的 {count} 个页面: {", ".join(page_names)}',
+                  detail={'changes': {'批量删除根域名': {'new': f'{root} ({count}个页面)'}}})
+    return JsonResponse({'message': f'已删除根域名 "{root}" 下的 {count} 个页面', 'deleted': count})
+
+
+@csrf_exempt
+@require_POST
 def api_saved_page_update(request):
     """
     更新已保存页面的名称、需求描述或 HTML 内容。

@@ -128,6 +128,9 @@
         <button class="layui-btn layui-btn-sm layui-btn-warm" onclick="enterBatchMode()">
             <i class="fas fa-tasks"></i> 批量记录
         </button>
+        <button class="layui-btn layui-btn-sm layui-btn-danger" onclick="clearAllRecords()">
+            <i class="fas fa-trash-alt"></i> 清空全部
+        </button>
     </div>
 </div>
 
@@ -544,6 +547,47 @@ function submitBatchRecords() {
         }
     }).catch(function(){ layer.msg('网络错误', {icon:2}); })
     .finally(function(){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> 提交'; });
+}
+
+// ===== 清空全部 =====
+function clearAllRecords() {
+    layer.confirm(
+        '<div style="text-align:center;padding:10px 0;">' +
+        '<i class="fas fa-exclamation-triangle" style="font-size:48px;color:#ff4d4f;margin-bottom:10px;"></i>' +
+        '<p style="font-size:15px;font-weight:600;margin-bottom:8px;">确定要清空全部域名SEO记录吗？</p>' +
+        '<p style="font-size:13px;color:#999;">此操作将<strong style="color:#ff4d4f;">永久删除</strong>所有域名实体及其时间线记录，不可恢复！</p>' +
+        '</div>',
+        {icon:3, title:'确认清空', btn:['确认清空','取消']},
+        function(idx) {
+            // 二次确认
+            layer.prompt({
+                title: '<span style="color:#ff4d4f;">请输入 YES 确认清空</span>',
+                formType: 0,
+                btn: ['确认','取消'],
+                area: ['350px','auto'],
+                value: '',
+            }, function(val, index) {
+                if (val.trim().toUpperCase() !== 'YES') {
+                    layer.msg('请输入 YES 确认操作', {icon:2});
+                    return;
+                }
+                layer.close(index);
+                fetch('/xiaoying_admin/api/seo/records/clear-all/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({confirm: 'yes'}),
+                }).then(function(r){return r.json()}).then(function(data){
+                    if (data.ok) {
+                        layer.msg(data.message, {icon:1});
+                        loadDomains();
+                    } else {
+                        layer.msg(data.error||'清空失败', {icon:2});
+                    }
+                }).catch(function(){ layer.msg('网络错误', {icon:2}); })
+                .finally(function(){ layer.close(idx); });
+            });
+        }
+    );
 }
 
 // ===== 初始化 =====

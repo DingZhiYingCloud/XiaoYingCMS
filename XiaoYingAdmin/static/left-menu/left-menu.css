@@ -207,17 +207,19 @@
 /* ================================
    展开/折叠箭头（覆盖 LayUI 默认箭头）
    ================================ */
+
+/* 折叠状态：朝下（展开子菜单） */
 .sidebar-menu .layui-nav-item a .layui-nav-more {
-    border-color: rgba(255, 255, 255, 0.35) transparent transparent;
-    transition: transform 0.25s ease, border-color 0.2s;
-    margin-top: -3px;
     right: 14px;
+    margin-top: -3px;
+    transform: rotate(0deg) !important;
+    transition: transform 0.25s ease;
 }
 
+/* 展开状态：朝上（收起子菜单） */
 .sidebar-menu .layui-nav-itemed > a .layui-nav-more {
-    border-color: transparent transparent rgba(255, 255, 255, 0.6);
-    transform: rotate(0deg);
-    margin-top: -7px;
+    transform: rotate(180deg) !important;
+    margin-top: -3px;
 }
 
 /* ================================
