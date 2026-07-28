@@ -1,11 +1,12 @@
 """
 域名绑定中间件 — 将绑定了域名的页面直接渲染到前台。
 
-支持单页面（GeneratedPage）和多页面（MultiPageProject）两种模式：
+支持单页面（GeneratedPage）、多页面（MultiPageProject）和权重页面项目（WeightProject）：
   - 单页面：匹配域名 → 返回该页面 HTML
   - 多页面：匹配域名 → 按请求路径匹配项目内的页面 → 返回对应页面 HTML
+  - 权重页面项目：匹配域名 → 反向代理到子项目的 Django 服务器
 
-一条域名只能绑定一个项目（单页面或多页面），互斥约束在启用时校验。
+一条域名只能绑定一个项目，互斥约束在启用时校验。
 
 工作流程：
   1. 请求进来，判断路径是否以 /xiaoying_admin/ 开头
@@ -13,13 +14,19 @@
   3. 否 → 从 Host 请求头提取域名
   4. 先匹配多页面项目 → 按路径返回多页面内的页面
   5. 未匹配 → 匹配单页面
-  6. 皆未匹配 → 返回"未开启页面"
+  6. 未匹配 → 匹配权重页面项目 → 反向代理到子项目
+  7. 皆未匹配 → 返回"未开启页面"
 """
 
+import logging
 import re
+import urllib.error
+import urllib.request
 
 from django.http import HttpResponse
 from XiaoYingAdmin.models.generated_page import GeneratedPage
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -172,6 +179,90 @@ class DomainBindMiddleware:
         return None
 
     # ------------------------------------------------------------------
+    # 权重页面项目查找
+    # ------------------------------------------------------------------
+
+    def _find_weight_project_by_domain(self, host: str):
+        """查找域名匹配的权重页面项目。"""
+        from XiaoYingAdmin.models.weight_project import WeightProject
+        for project in WeightProject.objects.exclude(domain='').iterator():
+            if self._match_domain(host, project.domain):
+                return project
+        return None
+
+    # ------------------------------------------------------------------
+    # 代理转发到权重页面项目
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _proxy_headers(source_meta: dict) -> dict:
+        """从 request.META 提取需要转发的 HTTP 头。"""
+        headers = {}
+        for key, value in source_meta.items():
+            if key.startswith('HTTP_'):
+                header_name = key[5:].replace('_', '-').title()
+                if header_name in ('Host', 'X-Forwarded-For', 'X-Forwarded-Proto',
+                                   'X-Forwarded-Host', 'Connection', 'Proxy-Connection',
+                                   'Transfer-Encoding', 'Content-Length'):
+                    continue
+                headers[header_name] = value
+        # X-Forwarded-For
+        xff = source_meta.get('HTTP_X_FORWARDED_FOR', '')
+        remote_addr = source_meta.get('REMOTE_ADDR', '')
+        if xff:
+            headers['X-Forwarded-For'] = f'{xff}, {remote_addr}'
+        elif remote_addr:
+            headers['X-Forwarded-For'] = remote_addr
+        return headers
+
+    def _proxy_to_weight_project(self, request, project) -> HttpResponse:
+        """将请求代理转发到权重页面项目的 Django 服务器。"""
+        if project.status != 'running':
+            return HttpResponse(
+                f'<h1 style="text-align:center;margin-top:15%;color:#999;">'
+                f'项目「{project.name}」未运行<br>'
+                f'<span style="font-size:14px;">请先在后台启动该项目</span></h1>',
+                status=502, content_type='text/html; charset=utf-8',
+            )
+
+        target_url = f'http://127.0.0.1:{project.port}{request.path}'
+        if request.META.get('QUERY_STRING'):
+            target_url += f'?{request.META["QUERY_STRING"]}'
+
+        headers = self._proxy_headers(request.META)
+        headers['Host'] = f'127.0.0.1:{project.port}'
+
+        body = request.body if request.method in ('POST', 'PUT', 'PATCH') else None
+
+        try:
+            req = urllib.request.Request(
+                target_url, data=body if body else None,
+                headers=headers, method=request.method,
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                resp_body = resp.read()
+                resp_headers = dict(resp.headers)
+                content_type = resp_headers.get('Content-Type', 'text/html; charset=utf-8')
+                return HttpResponse(
+                    content=resp_body,
+                    status=resp.status,
+                    content_type=content_type,
+                )
+        except urllib.error.HTTPError as e:
+            return HttpResponse(
+                content=e.read(),
+                status=e.code,
+                content_type=dict(e.headers).get('Content-Type', 'text/plain'),
+            )
+        except (urllib.error.URLError, OSError) as e:
+            logger.warning(f'代理请求失败: {target_url} → {e}')
+            return HttpResponse(
+                f'<h1 style="text-align:center;margin-top:15%;color:#999;">'
+                f'代理请求失败<br><span style="font-size:14px;">请检查子项目是否运行正常</span></h1>',
+                status=502, content_type='text/html; charset=utf-8',
+            )
+
+    # ------------------------------------------------------------------
     # 主入口
     # ------------------------------------------------------------------
 
@@ -218,7 +309,15 @@ class DomainBindMiddleware:
                 content_type='text/html; charset=utf-8',
             )
 
-        # ---- 3. 都没有 → 返回提示 ----
+        # ---- 3. 尝试权重页面项目 ----
+        wp = self._find_weight_project_by_domain(host)
+        if wp is None and raw_host.strip().lower() != host:
+            wp = self._find_weight_project_by_domain(raw_host.strip().lower())
+
+        if wp:
+            return self._proxy_to_weight_project(request, wp)
+
+        # ---- 4. 都没有 → 返回提示 ----
         return HttpResponse(
             '未开启页面',
             content_type='text/plain; charset=utf-8',
