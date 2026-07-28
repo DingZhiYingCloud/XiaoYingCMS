@@ -156,3 +156,7 @@ XIAOYING_API_URL = os.getenv('API_URL', 'http://127.0.0.1:8000')
 BACKUP_DIR = os.getenv('BACKUP_DIR', 'backups')
 if not os.path.isabs(BACKUP_DIR):
     BACKUP_DIR = os.path.join(str(BASE_DIR), BACKUP_DIR)
+
+# 权重项目 Python 解释器路径（可选）
+# 手动指定子项目使用的 Python 路径，自动创建 venv 和自动检测均失效时使用
+WEIGHT_PROJECT_PYTHON = os.getenv('WEIGHT_PROJECT_PYTHON', '') or ''

@@ -48,8 +48,20 @@ def _get_manage_py(project_path: str) -> str:
 
 
 def _get_python_path(project_path: str) -> str:
-    """获取项目对应的 Python 解释器路径（优先使用虚拟环境）。"""
-    # 检查是否有虚拟环境
+    """获取项目对应的 Python 解释器路径。
+    
+    优先级：
+      1. settings.WEIGHT_PROJECT_PYTHON 手动指定
+      2. 项目目录下的 .venv 或 venv
+      3. 当前进程的 Python（sys.executable）
+    """
+    # 1. 优先使用配置的手动路径
+    from django.conf import settings as dj_settings
+    configured_python = getattr(dj_settings, 'WEIGHT_PROJECT_PYTHON', '')
+    if configured_python and os.path.isfile(configured_python):
+        return configured_python
+
+    # 2. 检查项目是否有虚拟环境
     venv_paths = [
         os.path.join(project_path, '.venv', 'Scripts', 'python.exe'),
         os.path.join(project_path, 'venv', 'Scripts', 'python.exe'),
@@ -334,6 +346,39 @@ def _start_project(project: WeightProject) -> tuple[bool, str]:
 
     python_path = _get_python_path(project_path)
     log_path = _get_log_path(project_path, project.port)
+
+    # 检查 Python 是否能导入 Django，不能则自动创建 venv
+    try:
+        result = subprocess.run(
+            [python_path, '-c', 'import django; print(django.__version__)'],
+            capture_output=True, text=True, timeout=10,
+        )
+        can_import_django = result.returncode == 0
+    except Exception:
+        can_import_django = False
+
+    if not can_import_django:
+        # 尝试用 CMS 自身的 Python（当前进程的 Python）创建子项目的 venv
+        logger.info('Python %s 没有 Django，自动为项目创建 venv', python_path)
+        venv_dir = os.path.join(project_path, '.venv')
+        try:
+            subprocess.run(
+                [sys.executable, '-m', 'venv', venv_dir],
+                cwd=project_path, check=True, capture_output=True, timeout=60,
+            )
+            venv_python = os.path.join(venv_dir, 'bin', 'python')
+            if not os.path.exists(venv_python):
+                venv_python = os.path.join(venv_dir, 'Scripts', 'python.exe')
+            # 安装 Django
+            subprocess.run(
+                [venv_python, '-m', 'pip', 'install', 'django'],
+                cwd=project_path, check=True, capture_output=True, timeout=120,
+            )
+            python_path = venv_python
+            logger.info('子项目 venv 已创建: %s', venv_dir)
+        except Exception as e:
+            logger.exception('自动创建 venv 失败')
+            return False, f'Python 缺少 Django 且自动创建虚拟环境失败: {str(e)}'
 
     # 子进程必须使用干净的 env，避免继承父进程的 DJANGO_SETTINGS_MODULE
     clean_env = os.environ.copy()
