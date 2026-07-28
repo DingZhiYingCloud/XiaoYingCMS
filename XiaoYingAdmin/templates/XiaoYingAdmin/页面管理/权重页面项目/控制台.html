@@ -82,7 +82,7 @@
 
     <div class="proxy-url">
         <i class="fas fa-shield-alt"></i> 代理访问（经过防火墙/SEO斗篷/蜘蛛日志）：
-        <code>http://127.0.0.1:8000{% url 'weight_project_proxy_root' pk=project.id %}</code>
+        <code>{{ request.scheme }}://{{ request.get_host }}{% url 'weight_project_proxy_root' pk=project.id %}</code>
     </div>
 
     <div class="console-box" id="consoleBox">
@@ -127,7 +127,7 @@
     <div class="console-info">
         <span><i class="fas fa-file"></i> 日志: logs/django-{{ project.port }}.log</span>
         <span><i class="fas fa-sync"></i> 自动刷新: 2秒</span>
-        <span><i class="fas fa-fingerprint"></i> 直连: <code style="padding:1px 5px;background:#f5f5f5;border-radius:3px;">http://localhost:{{ project.port }}</code></span>
+        <span><i class="fas fa-fingerprint"></i> 直连: <code style="padding:1px 5px;background:#f5f5f5;border-radius:3px;">http://{{ request.META.SERVER_NAME|default:'127.0.0.1' }}:{{ project.port }}</code> <span style="font-size:11px;color:#999;">(仅本机可用)</span></span>
     </div>
 
     {# 日志备份配置 #}

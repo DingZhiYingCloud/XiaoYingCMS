@@ -50,6 +50,14 @@
         </div>
 
         <div class="layui-form-item">
+            <label class="layui-form-label">绑定域名</label>
+            <div class="layui-input-block">
+                <input type="text" name="domain" class="layui-input" placeholder="例如：www.example.com">
+                <div class="form-tip"><i class="fas fa-globe"></i>可选。项目绑定的域名，设置后可通过域名直接访问</div>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
             <div class="layui-input-block" style="margin-left:160px;">
                 <button type="button" class="layui-btn" id="btnSubmit" style="padding:0 36px;font-size:15px;">
                     <i class="fas fa-rocket"></i> 创建并初始化
@@ -95,6 +103,14 @@
         </div>
 
         <div class="layui-form-item">
+            <label class="layui-form-label">绑定域名</label>
+            <div class="layui-input-block">
+                <input type="text" name="domain" class="layui-input" placeholder="例如：www.example.com">
+                <div class="form-tip"><i class="fas fa-globe"></i>可选。项目绑定的域名，设置后可通过域名直接访问</div>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
             <div class="layui-input-block" style="margin-left:160px;">
                 <button type="button" class="layui-btn" id="btnSubmit" style="padding:0 36px;font-size:15px;">
                     <i class="fas fa-plus"></i> 添加项目
@@ -117,6 +133,7 @@ layui.use(['layer'], function() {
         var name = form.querySelector('[name="name"]').value.trim();
         var description = form.querySelector('[name="description"]').value.trim();
         var port = form.querySelector('[name="port"]').value.trim();
+        var domain = form.querySelector('[name="domain"]').value.trim();
 
         if (!name) { layer.msg('请输入项目名称', {icon:2}); return; }
         if (!port || isNaN(port) || parseInt(port) < 1024 || parseInt(port) > 65535) {
@@ -130,7 +147,7 @@ layui.use(['layer'], function() {
             fetch('/xiaoying_admin/api/weight-project/create-from-template/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-                body: JSON.stringify({ name: name, description: description, port: port }),
+                body: JSON.stringify({ name: name, description: description, port: port, domain: domain }),
             })
             .then(function(r) { return r.json(); })
             .then(function(resp) {
@@ -150,7 +167,7 @@ layui.use(['layer'], function() {
             fetch('/xiaoying_admin/api/weight-project/create/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-                body: JSON.stringify({ name: name, description: description, project_path: projectPath, port: port }),
+                body: JSON.stringify({ name: name, description: description, project_path: projectPath, port: port, domain: domain }),
             })
             .then(function(r) { return r.json(); })
             .then(function(resp) {

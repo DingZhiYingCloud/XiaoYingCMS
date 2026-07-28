@@ -34,6 +34,10 @@ class WeightProject(BaseModel):
         choices=Status.choices, default=Status.STOPPED,
     )
     pid = models.IntegerField('进程PID', null=True, blank=True)
+    domain = models.CharField(
+        '绑定域名', max_length=256, blank=True, default='',
+        help_text='子项目绑定的域名（可选）。设置后详情页将显示域名直达链接',
+    )
     auto_start = models.BooleanField('开机自启', default=False)
     auto_backup_threshold = models.IntegerField(
         '日志自动备份阈值', default=0,
@@ -65,6 +69,7 @@ class WeightProject(BaseModel):
             'status': self.status,
             'status_display': self.get_status_display(),
             'pid': self.pid,
+            'domain': self.domain,
             'auto_start': self.auto_start,
             'auto_backup_threshold': self.auto_backup_threshold,
             'created_by_id': self.created_by_id,

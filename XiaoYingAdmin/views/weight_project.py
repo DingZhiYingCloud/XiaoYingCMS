@@ -240,6 +240,7 @@ def api_weight_project_create(request):
         project_type=WeightProject.ProjectType.MANUAL,
         project_path=project_path,
         port=port,
+        domain=(data.get('domain') or '').strip(),
         auto_start=data.get('auto_start', False),
         created_by=request.user if request.user.is_authenticated else None,
     )
@@ -275,6 +276,8 @@ def api_weight_project_update(request, pk):
             project.port = port
         except (TypeError, ValueError):
             return err('端口必须为数字')
+    if 'domain' in data:
+        project.domain = (data['domain'] or '').strip()
     if 'auto_start' in data:
         project.auto_start = bool(data['auto_start'])
 
@@ -661,6 +664,7 @@ def api_weight_project_create_from_template(request):
         project_type=WeightProject.ProjectType.AUTO,
         project_path=project_dir,
         port=port,
+        domain=(data.get('domain') or '').strip(),
         auto_start=data.get('auto_start', False),
         created_by=request.user if request.user.is_authenticated else None,
     )

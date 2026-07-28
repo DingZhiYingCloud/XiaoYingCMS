@@ -56,6 +56,14 @@
         </div>
 
         <div class="layui-form-item">
+            <label class="layui-form-label">绑定域名</label>
+            <div class="layui-input-block">
+                <input type="text" name="domain" class="layui-input" value="{{ project.domain }}" placeholder="例如：www.example.com">
+                <div class="form-tip"><i class="fas fa-globe"></i>可选。设置后详情页将显示域名直达链接</div>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
             <div class="layui-input-block" style="margin-left:160px;">
                 <button type="button" class="layui-btn" id="btnSubmit" style="padding:0 36px;">
                     <i class="fas fa-save"></i> 保存修改
@@ -77,6 +85,7 @@ layui.use(['layer'], function() {
         var description = form.querySelector('[name="description"]').value.trim();
         var projectPath = form.querySelector('[name="project_path"]').value.trim();
         var port = form.querySelector('[name="port"]').value.trim();
+        var domain = form.querySelector('[name="domain"]').value.trim();
 
         if (!name) { layer.msg('请输入项目名称', {icon:2}); return; }
         if (!port || isNaN(port) || parseInt(port) < 1024 || parseInt(port) > 65535) {
@@ -92,6 +101,7 @@ layui.use(['layer'], function() {
                 description: description,
                 project_path: projectPath,
                 port: parseInt(port),
+                domain: domain,
             }),
         })
         .then(function(r) { return r.json(); })
