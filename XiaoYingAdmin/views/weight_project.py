@@ -36,7 +36,7 @@ def _is_port_available(port: int) -> bool:
         return s.connect_ex(('127.0.0.1', port)) != 0
 
 
-def _find_available_port(start: int = 9000, end: int = 9999) -> int:
+def _find_available_port(start: int = 9000, end: int = 60000) -> int:
     """从 start 开始找一个可用端口。"""
     for port in range(start, end + 1):
         if _is_port_available(port):
