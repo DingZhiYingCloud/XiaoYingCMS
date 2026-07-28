@@ -50,14 +50,16 @@ class LoginRequiredMiddleware(MiddlewareMixin):
         if not path.startswith('/xiaoying_admin/'):
             return None
 
+        # 预先查询站点设置（多个路径分支都需要用到）
+        from XiaoYingAdmin.models.site_settings import SiteSettings
+        from XiaoYingAdmin.common.http import get_client_ip
+        site_settings = SiteSettings.objects.first()
+
         # 反向代理路径不受 IP 白名单限制，子项目内容应对公网开放
         if not path.startswith('/xiaoying_admin/wp-proxy/'):
             # =================================================================
             # IP 白名单检查：如果配置了白名单，非白名单 IP 禁止访问后台
             # =================================================================
-            from XiaoYingAdmin.models.site_settings import SiteSettings
-            from XiaoYingAdmin.common.http import get_client_ip
-            site_settings = SiteSettings.objects.first()
             if site_settings and site_settings.login_ip_whitelist.strip():
                 whitelist_ips = [
                     ip.strip() for ip in site_settings.login_ip_whitelist.strip().split('\n')
