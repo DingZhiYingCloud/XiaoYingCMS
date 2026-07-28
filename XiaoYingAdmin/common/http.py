@@ -86,3 +86,31 @@ def get_client_ip(request: HttpRequest) -> str:
     if xff:
         return xff.split(',')[0].strip()
     return request.META.get('REMOTE_ADDR', '')
+
+
+def get_request_host(request: HttpRequest) -> str:
+    """获取请求的 Host 域名（不含端口）。"""
+    raw_host = request.META.get('HTTP_HOST', '')
+    return raw_host.split(':')[0].strip().lower()
+
+
+def is_host_allowed(host: str, domain_list_text: str) -> bool:
+    """
+    检查 Host 是否在域名白名单中。
+    支持：
+      - 精确域名: xiaoyingclub.com
+      - 通配符: *.example.com
+      - 多行文本，每行一个域名
+    """
+    if not domain_list_text or not domain_list_text.strip():
+        return True  # 未配置白名单 = 全部允许
+    host = host.lower()
+    for line in domain_list_text.strip().split('\n'):
+        pattern = line.strip().lower()
+        if not pattern:
+            continue
+        if pattern == host:
+            return True
+        if pattern.startswith('*.') and host.endswith(pattern[1:]):
+            return True
+    return False

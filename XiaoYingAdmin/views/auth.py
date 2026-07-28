@@ -118,6 +118,20 @@ def login_view(request):
             )
 
     # =====================================================================
+    # 域名白名单检查：如果配置了允许的域名，非白名单域名禁止访问后台
+    # =====================================================================
+    if site_settings and site_settings.allowed_admin_domains.strip():
+        from XiaoYingAdmin.common.http import get_request_host, is_host_allowed
+        current_host = get_request_host(request)
+        if not is_host_allowed(current_host, site_settings.allowed_admin_domains):
+            return HttpResponse(
+                '<h1 style="text-align:center;margin-top:15%;color:#999;">'
+                '访问被拒绝<br><span style="font-size:14px;">'
+                '请通过指定的域名访问后台管理</span></h1>',
+                status=403, content_type='text/html; charset=utf-8',
+            )
+
+    # =====================================================================
     # 检查当前 IP 是否已被自动封禁
     # =====================================================================
     if site_settings and site_settings.max_login_attempts > 0:

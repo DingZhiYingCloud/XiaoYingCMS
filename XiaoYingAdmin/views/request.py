@@ -211,7 +211,8 @@ def site_settings_view(request):
                 max_attempts = 0
             settings.max_login_attempts = max(0, max_attempts)
             settings.login_ip_whitelist = (request.POST.get('login_ip_whitelist', '') or '').strip()
-            settings.save(update_fields=['max_login_attempts', 'login_ip_whitelist', 'updated_time'])
+            settings.allowed_admin_domains = (request.POST.get('allowed_admin_domains', '') or '').strip()
+            settings.save(update_fields=['max_login_attempts', 'login_ip_whitelist', 'allowed_admin_domains', 'updated_time'])
 
         # 判断提交的是用户系统配置表单
         if 'registration_enabled' in request.POST:

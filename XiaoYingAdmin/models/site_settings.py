@@ -51,6 +51,11 @@ class SiteSettings(BaseModel):
         blank=True, default='',
         help_text='只允许这些 IP 访问登录页和后台，每行一个 IP。为空则不限制',
     )
+    allowed_admin_domains = models.TextField(
+        verbose_name='允许访问后台的域名白名单',
+        blank=True, default='',
+        help_text='只允许通过指定域名访问后台，每行一个域名（支持 *.example.com 通配符）。为空则不限制',
+    )
 
     class Meta:
         verbose_name = '网站设置'

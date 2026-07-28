@@ -99,7 +99,7 @@
 <div class="site-section" style="margin-top:20px;">
     <div class="site-section-header">
         <h3>登录安全配置</h3>
-        <span class="section-desc">配置登录失败封禁策略和 IP 白名单</span>
+        <span class="section-desc">配置登录失败封禁策略、IP 白名单和后台域名白名单</span>
     </div>
     <div class="site-section-body">
         <form class="layui-form" method="post" action="">
@@ -124,6 +124,19 @@
                               placeholder="每行一个 IP，例如：&#10;192.168.1.1&#10;10.0.0.1&#10;127.0.0.1">{{ site_settings.login_ip_whitelist }}</textarea>
                     <div style="font-size:12px;color:#999;margin-top:4px;">
                         <i class="fas fa-info-circle"></i> 只允许列表中的 IP 访问登录页和后台，每行一个 IP。留空则不限制
+                    </div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label" style="width:180px;">后台域名白名单</label>
+                <div class="layui-input-block" style="margin-left:180px;">
+                    <textarea name="allowed_admin_domains" class="layui-textarea"
+                              style="min-height:100px;font-family:monospace;"
+                              placeholder="每行一个域名，例如：&#10;admin.xiaoyingclub.com&#10;xiaoyingclub.com&#10;*.xiaoyingclub.com">{{ site_settings.allowed_admin_domains }}</textarea>
+                    <div style="font-size:12px;color:#999;margin-top:4px;">
+                        <i class="fas fa-info-circle"></i>
+                        只允许通过指定域名访问后台，每行一个域名。支持通配符 <code>*.example.com</code>。
+                        留空则不限制。配置后请确保当前域名在白名单中，否则会被锁定！
                     </div>
                 </div>
             </div>
