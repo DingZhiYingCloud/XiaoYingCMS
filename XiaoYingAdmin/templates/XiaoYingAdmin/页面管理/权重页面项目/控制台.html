@@ -1,0 +1,447 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% block title %}控制台 - {{ project.name }}{% endblock %}
+{% block head %}
+<style>
+    .console-wrap { max-width:1200px; margin:0 auto; }
+    .console-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+    .console-header h2 { margin:0; font-size:17px; color:#393D49; }
+    .console-header h2 i { color:#1E9FFF; margin-right:6px; }
+    .console-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+    .console-box { background:#1e1e1e; border-radius:6px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,.2); }
+    .console-titlebar { background:#333; color:#ccc; padding:8px 16px; font-size:12px; display:flex; align-items:center; justify-content:space-between; }
+    .console-titlebar .dots { display:flex; gap:6px; }
+    .console-titlebar .dot { width:10px; height:10px; border-radius:50%; }
+    .console-titlebar .dot.red { background:#FF5F56; }
+    .console-titlebar .dot.yellow { background:#FFBD2E; }
+    .console-titlebar .dot.green { background:#27C93F; }
+    .console-titlebar .title-text { color:#999; font-family:monospace; }
+    .console-titlebar .status-indicator { font-size:11px; }
+    .console-titlebar .status-indicator .dot { width:7px; height:7px; display:inline-block; margin-right:4px; }
+    .console-titlebar .status-indicator .dot.online { background:#5FB878; }
+    .console-titlebar .status-indicator .dot.offline { background:#ccc; }
+
+    /* 日志过滤标签栏 */
+    .console-tabs { display:flex; background:#252526; border-bottom:1px solid #333; }
+    .console-tabs .tab { padding:7px 18px; font-size:12px; color:#999; cursor:pointer; border-bottom:2px solid transparent; transition:all .15s; }
+    .console-tabs .tab:hover { color:#ccc; background:#2d2d2d; }
+    .console-tabs .tab.active { color:#d4d4d4; border-bottom-color:#1E9FFF; background:#2d2d2d; }
+    .console-tabs .tab .badge { display:inline-block; background:#555; color:#ccc; border-radius:8px; padding:0 6px; font-size:10px; margin-left:4px; }
+
+    .console-output { background:#1e1e1e; padding:14px 18px; min-height:480px; max-height:600px; overflow-y:auto; font-family:'Consolas','Courier New',monospace; font-size:13px; line-height:1.6; color:#d4d4d4; white-space:pre-wrap; word-break:break-all; }
+    .console-output .empty-hint { color:#666; text-align:center; padding:60px 20px; }
+    .console-output .empty-hint i { display:block; font-size:36px; margin-bottom:10px; }
+    .console-output .error-line { background:rgba(255,87,34,.15); }
+    .console-output .req-line { color:#82aaff; }
+    .console-output .req-ok { color:#5FB878; }
+    .console-output .req-4xx { color:#FFD54F; }
+    .console-output .req-5xx { color:#FF5722; }
+
+    .console-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center; }
+    .console-actions .layui-btn { height:30px; line-height:30px; padding:0 14px; font-size:12px; }
+    .console-actions .layui-btn i { margin-right:4px; }
+    .console-actions .req-stats { font-size:12px; color:#999; margin-left:auto; display:flex; gap:12px; }
+    .console-actions .req-stats span { display:inline-flex; align-items:center; gap:3px; }
+
+    .console-info { font-size:12px; color:#999; margin-top:8px; display:flex; gap:16px; flex-wrap:wrap; }
+    .console-info span i { width:16px; }
+
+    .search-bar { display:flex; gap:6px; align-items:center; }
+    .search-bar input { background:#3c3c3c; border:1px solid #555; color:#ccc; padding:4px 10px; border-radius:3px; font-size:12px; width:180px; outline:none; }
+    .search-bar input:focus { border-color:#1E9FFF; }
+    .search-bar .match-count { color:#999; font-size:11px; }
+
+    .proxy-url { display:inline-block; background:#f0f7ff; border:1px solid #c8e1ff; border-radius:4px; padding:6px 12px; font-size:13px; color:#1565c0; margin-bottom:8px; }
+    .proxy-url i { margin-right:6px; }
+    .proxy-url code { background:#e3f2fd; padding:2px 8px; border-radius:3px; color:#0d47a1; }
+
+    /* 备份配置 */
+    .backup-section { background:#fff; border:1px solid #e6e6e6; border-radius:6px; padding:14px 18px; margin-top:16px; }
+    .backup-section h4 { margin:0 0 10px; font-size:14px; color:#393D49; }
+    .backup-section h4 i { margin-right:6px; color:#1E9FFF; }
+    .backup-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+    .backup-row .layui-input { width:100px; }
+    .backup-files { max-height:240px; overflow-y:auto; }
+    .backup-files table { width:100%; border-collapse:collapse; font-size:12px; }
+    .backup-files th { background:#f8f8f8; padding:6px 10px; text-align:left; border-bottom:1px solid #e6e6e6; color:#666; }
+    .backup-files td { padding:6px 10px; border-bottom:1px solid #f0f0f0; }
+    .backup-files tr:hover td { background:#fafafa; }
+    .backup-files .empty { text-align:center; color:#999; padding:20px; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="console-wrap">
+    <div class="console-header">
+        <h2><i class="fas fa-terminal"></i>{{ project.name }} - 控制台</h2>
+        <div class="console-toolbar">
+            <a href="{% url 'weight_project_detail' pk=project.id %}" class="layui-btn layui-btn-sm layui-btn-primary"><i class="fas fa-arrow-left"></i> 返回详情</a>
+            <button class="layui-btn layui-btn-sm layui-btn-normal" id="btnFixMigrations"><i class="fas fa-database"></i> 修复迁移</button>
+            <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnClearLog"><i class="fas fa-trash"></i> 清空日志</button>
+        </div>
+    </div>
+
+    <div class="proxy-url">
+        <i class="fas fa-shield-alt"></i> 代理访问（经过防火墙/SEO斗篷/蜘蛛日志）：
+        <code>http://127.0.0.1:8000{% url 'weight_project_proxy_root' pk=project.id %}</code>
+    </div>
+
+    <div class="console-box" id="consoleBox">
+        <div class="console-titlebar">
+            <div class="dots">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+                <span class="dot green"></span>
+            </div>
+            <span class="title-text">{{ project.name }} — runserver 0.0.0.0:{{ project.port }}</span>
+            <span class="status-indicator">
+                <span class="dot {{ project.status }}" id="statusDot"></span>
+                <span id="statusText">{{ project.get_status_display }}</span>
+            </span>
+        </div>
+        <div class="console-tabs" id="consoleTabs">
+            <span class="tab active" data-filter="all">全部日志</span>
+            <span class="tab" data-filter="request">请求日志 <span class="badge" id="reqCount">0</span></span>
+        </div>
+        <div class="console-output" id="consoleOutput">
+            <div class="empty-hint">
+                <i class="fas fa-terminal"></i>
+                等待日志输出...<br>
+                <span style="font-size:12px;color:#555;">启动项目后日志将自动显示在这里</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="console-actions">
+        <button class="layui-btn layui-btn-sm" id="btnScrollLock"><i class="fas fa-lock-open"></i> 自动滚动</button>
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="搜索日志 (Enter)">
+            <span class="match-count" id="matchCount"></span>
+        </div>
+        <div class="req-stats">
+            <span><i class="fas fa-check-circle" style="color:#5FB878;"></i> <span id="statOk">0</span></span>
+            <span><i class="fas fa-exclamation-triangle" style="color:#FFD54F;"></i> <span id="stat4xx">0</span></span>
+            <span><i class="fas fa-times-circle" style="color:#FF5722;"></i> <span id="stat5xx">0</span></span>
+        </div>
+    </div>
+
+    <div class="console-info">
+        <span><i class="fas fa-file"></i> 日志: logs/django-{{ project.port }}.log</span>
+        <span><i class="fas fa-sync"></i> 自动刷新: 2秒</span>
+        <span><i class="fas fa-fingerprint"></i> 直连: <code style="padding:1px 5px;background:#f5f5f5;border-radius:3px;">http://localhost:{{ project.port }}</code></span>
+    </div>
+
+    {# 日志备份配置 #}
+    <div class="backup-section">
+        <h4><i class="fas fa-archive"></i> 日志备份</h4>
+        <div class="backup-row">
+            <span style="font-size:12px;color:#666;">自动备份阈值：</span>
+            <input type="number" class="layui-input" id="backupThreshold" min="0" step="100"
+                   value="{{ project.auto_backup_threshold|default:0 }}" style="width:100px;">
+            <span style="font-size:12px;color:#999;">行（0=关闭自动备份）</span>
+            <button class="layui-btn layui-btn-sm layui-btn-normal" id="btnSaveBackupConfig"><i class="fas fa-save"></i> 保存</button>
+            <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnRefreshBackups"><i class="fas fa-sync-alt"></i> 刷新</button>
+        </div>
+        <div class="backup-files" id="backupFiles">
+            <div class="empty">暂无备份文件</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block js %}
+<script>
+layui.use(['layer'], function() {
+    var layer = layui.layer;
+    var projectId = {{ project.id }};
+    var consoleOutput = document.getElementById('consoleOutput');
+    var statusDot = document.getElementById('statusDot');
+    var statusText = document.getElementById('statusText');
+    var searchInput = document.getElementById('searchInput');
+    var matchCount = document.getElementById('matchCount');
+    var autoScroll = true;
+    var timer = null;
+    var lastContent = '';
+    var currentSearch = '';
+    var logLines = [];
+    var filterMode = 'all';
+    var requestLines = [];
+
+    // HTTP 请求日志正则
+    var REQ_PATTERN = /^\[.+\]\s+"(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s+\S+/;
+
+    // 过滤标签切换
+    document.querySelectorAll('#consoleTabs .tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('#consoleTabs .tab').forEach(function(t) { t.classList.remove('active'); });
+            this.classList.add('active');
+            filterMode = this.getAttribute('data-filter');
+            if (lastContent) renderLogs(lastContent);
+        });
+    });
+
+    // 自动滚动控制
+    document.getElementById('btnScrollLock').addEventListener('click', function() {
+        autoScroll = !autoScroll;
+        this.innerHTML = autoScroll ? '<i class="fas fa-lock-open"></i> 自动滚动' : '<i class="fas fa-lock"></i> 已暂停';
+        if (autoScroll) scrollToBottom();
+    });
+
+    // 搜索
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            currentSearch = this.value.trim().toLowerCase();
+            if (lastContent) renderLogs(lastContent);
+        }
+    });
+
+    function scrollToBottom() {
+        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    function isRequestLine(line) {
+        return REQ_PATTERN.test(line.trim());
+    }
+
+    function getStatusCodeClass(line) {
+        var m = line.match(/" ((\d{3})) /);
+        if (!m) return '';
+        var code = parseInt(m[1]);
+        if (code < 300) return 'req-ok';
+        if (code < 500) return 'req-4xx';
+        return 'req-5xx';
+    }
+
+    function renderLogs(log) {
+        var lines = log.split('\n');
+        logLines = lines;
+        requestLines = [];
+        var stats = { ok: 0, c4xx: 0, c5xx: 0 };
+
+        var html = '';
+        for (var i = 0; i < lines.length; i++) {
+            var raw = lines[i];
+            if (!raw) { html += '\n'; continue; }
+
+            var isReq = isRequestLine(raw);
+            if (isReq) requestLines.push(raw);
+
+            // 根据过滤模式决定是否显示
+            if (filterMode === 'request' && !isReq) continue;
+
+            var line = escHtml(raw);
+            var cls = '';
+            if (isReq) {
+                cls = ' req-line';
+                var codeCls = getStatusCodeClass(raw);
+                if (codeCls === 'req-ok') stats.ok++;
+                else if (codeCls === 'req-4xx') stats.c4xx++;
+                else if (codeCls === 'req-5xx') stats.c5xx++;
+                if (codeCls) cls += ' ' + codeCls;
+            } else if (raw.indexOf('Error') > -1 || raw.indexOf('Traceback') > -1) {
+                cls = ' error-line';
+            }
+
+            if (currentSearch && line.toLowerCase().includes(currentSearch)) {
+                var re = new RegExp('(' + escapeRegex(currentSearch) + ')', 'gi');
+                line = line.replace(re, '<mark style="background:#FFD54F;color:#333;">$1</mark>');
+            }
+            html += '<div' + cls + '>' + line + '</div>';
+        }
+        consoleOutput.innerHTML = html || '<div class="empty-hint"><i class="fas fa-filter"></i>没有匹配的请求日志</div>';
+
+        // 更新统计
+        document.getElementById('reqCount').textContent = requestLines.length;
+        document.getElementById('statOk').textContent = stats.ok;
+        document.getElementById('stat4xx').textContent = stats.c4xx;
+        document.getElementById('stat5xx').textContent = stats.c5xx;
+
+        if (autoScroll) scrollToBottom();
+    }
+
+    function fetchLogs() {
+        fetch('/xiaoying_admin/api/weight-project/' + projectId + '/logs/?lines=500')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.running) {
+                    statusDot.className = 'dot online';
+                    statusText.textContent = '运行中';
+                } else {
+                    statusDot.className = 'dot offline';
+                    statusText.textContent = '已停止';
+                }
+
+                var log = data.log || '';
+                if (log === lastContent && log) return;
+
+                lastContent = log;
+                var wasAtBottom = (consoleOutput.scrollTop + consoleOutput.clientHeight >= consoleOutput.scrollHeight - 30);
+
+                if (!log) {
+                    consoleOutput.innerHTML = '<div class="empty-hint"><i class="fas fa-terminal"></i>暂无日志输出<br><span style="font-size:12px;color:#555;">请先启动项目，然后访问页面产生请求日志</span></div>';
+                    document.getElementById('reqCount').textContent = '0';
+                    document.getElementById('statOk').textContent = '0';
+                    document.getElementById('stat4xx').textContent = '0';
+                    document.getElementById('stat5xx').textContent = '0';
+                    return;
+                }
+
+                renderLogs(log);
+
+                if ((autoScroll || wasAtBottom) && autoScroll) scrollToBottom();
+            })
+            .catch(function() {});
+    }
+
+    function escHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function escapeRegex(s) {
+        return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // 修复迁移
+    document.getElementById('btnFixMigrations').addEventListener('click', function() {
+        var btn = this;
+        layer.confirm('确定修复数据库迁移？<br><span style="color:#FF5722;font-size:12px;">会为所有模型重新创建迁移并执行 migrate</span>', {
+            icon:3, title:'确认操作'
+        }, function(index) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> 执行中...';
+            fetch('/xiaoying_admin/api/weight-project/' + projectId + '/fix-migrations/', { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                layer.close(index);
+                if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                layer.msg(resp.message, {icon:1, time:2000});
+                setTimeout(fetchLogs, 500);
+            })
+            .catch(function() { layer.close(index); layer.msg('网络错误', {icon:2}); })
+            .finally(function() { btn.disabled = false; btn.innerHTML = '<i class="fas fa-database"></i> 修复迁移'; });
+        });
+    });
+
+    // 清空日志
+    document.getElementById('btnClearLog').addEventListener('click', function() {
+        layer.confirm('确定清空日志文件？', {icon:3, title:'确认'}, function(index) {
+            fetch('/xiaoying_admin/api/weight-project/' + projectId + '/clear-log/', { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                layer.close(index);
+                if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                lastContent = '';
+                fetchLogs();
+                layer.msg('已清空', {icon:1});
+            });
+        });
+    });
+
+    // 自动刷新
+    fetchLogs();
+    timer = setInterval(fetchLogs, 2000);
+
+    // ===== 日志备份管理 =====
+    var backupThresholdInput = document.getElementById('backupThreshold');
+    var backupFilesEl = document.getElementById('backupFiles');
+
+    // 保存备份配置
+    document.getElementById('btnSaveBackupConfig').addEventListener('click', function() {
+        var btn = this;
+        var threshold = parseInt(backupThresholdInput.value) || 0;
+        if (threshold < 0) { layer.msg('阈值不能为负数', {icon:5}); return; }
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 保存中...';
+        fetch('/xiaoying_admin/api/weight-project/' + projectId + '/save-backup-config/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ auto_backup_threshold: threshold }),
+        }).then(function(r) { return r.json(); })
+        .then(function(resp) {
+            if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+            layer.msg(resp.message, {icon:1, time:1500});
+        }).catch(function() {
+            layer.msg('保存失败', {icon:5});
+        }).finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> 保存';
+        });
+    });
+
+    // 加载备份文件列表
+    function loadBackupList() {
+        backupFilesEl.innerHTML = '<div class="empty">加载中...</div>';
+        fetch('/xiaoying_admin/api/weight-project/' + projectId + '/backup-list/')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var list = data.backups || [];
+                if (!list.length) {
+                    backupFilesEl.innerHTML = '<div class="empty">暂无备份文件</div>';
+                    return;
+                }
+                var html = '<table><thead><tr><th>文件名</th><th>大小</th><th>备份时间</th><th>操作</th></tr></thead><tbody>';
+                list.forEach(function(f) {
+                    html += '<tr>';
+                    html += '<td>' + escHtml(f.filename) + '</td>';
+                    html += '<td>' + f.size_str + '</td>';
+                    html += '<td>' + f.modified + '</td>';
+                    html += '<td><a class="layui-btn layui-btn-xs" href="/xiaoying_admin/api/weight-project/' + projectId + '/backup-download/?filename=' + encodeURIComponent(f.filename) + '"><i class="fas fa-download"></i> 下载</a></td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                backupFilesEl.innerHTML = html;
+            })
+            .catch(function() {
+                backupFilesEl.innerHTML = '<div class="empty">加载失败</div>';
+            });
+    }
+
+    document.getElementById('btnRefreshBackups').addEventListener('click', loadBackupList);
+    loadBackupList();
+
+    // 监听自动备份事件：在 fetchLogs 中检测 backup 字段
+    var _origFetchLogs = fetchLogs;
+    fetchLogs = function() {
+        fetch('/xiaoying_admin/api/weight-project/' + projectId + '/logs/?lines=500')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.running) {
+                    statusDot.className = 'dot online';
+                    statusText.textContent = '运行中';
+                } else {
+                    statusDot.className = 'dot offline';
+                    statusText.textContent = '已停止';
+                }
+
+                // 自动备份通知
+                if (data.backup) {
+                    layer.msg('日志已自动备份: ' + data.backup, {icon:1, time:3000});
+                    loadBackupList();
+                }
+
+                var log = data.log || '';
+                if (log === lastContent && log) return;
+
+                lastContent = log;
+                var wasAtBottom = (consoleOutput.scrollTop + consoleOutput.clientHeight >= consoleOutput.scrollHeight - 30);
+
+                if (!log) {
+                    consoleOutput.innerHTML = '<div class="empty-hint"><i class="fas fa-terminal"></i>暂无日志输出<br><span style="font-size:12px;color:#555;">请先启动项目，然后访问页面产生请求日志</span></div>';
+                    document.getElementById('reqCount').textContent = '0';
+                    document.getElementById('statOk').textContent = '0';
+                    document.getElementById('stat4xx').textContent = '0';
+                    document.getElementById('stat5xx').textContent = '0';
+                    return;
+                }
+
+                renderLogs(log);
+                if ((autoScroll || wasAtBottom) && autoScroll) scrollToBottom();
+            })
+            .catch(function() {});
+    };
+    // 重置定时器使用新的 fetchLogs
+    clearInterval(timer);
+    fetchLogs();
+    timer = setInterval(fetchLogs, 2000);
+});
+</script>
+{% endblock %}

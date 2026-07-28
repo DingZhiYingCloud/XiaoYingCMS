@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}我的站点{% endblock %}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
+        .navbar { background: #1a73e8; color: #fff; padding: 0 20px; display: flex; align-items: center; height: 56px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+        .navbar a { color: rgba(255,255,255,.9); text-decoration: none; padding: 0 16px; font-size: 14px; line-height: 56px; transition: background .2s; }
+        .navbar a:hover, .navbar a.active { background: rgba(255,255,255,.1); color: #fff; }
+        .navbar .brand { font-size: 18px; font-weight: 600; margin-right: 24px; }
+        .navbar .nav-right { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+        .navbar .user-info { font-size: 13px; opacity: .8; padding: 0 8px; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; flex: 1; width: 100%; }
+        .messages { margin-bottom: 16px; }
+        .messages .msg { padding: 10px 14px; border-radius: 4px; font-size: 14px; margin-bottom: 8px; }
+        .messages .msg.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+        .messages .msg.error { background: #fbe9e7; color: #c62828; border: 1px solid #ffcdd2; }
+        .messages .msg.info { background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+        .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); padding: 24px; margin-bottom: 20px; }
+        .card h2 { font-size: 18px; margin-bottom: 16px; color: #1a237e; }
+        .btn { display: inline-block; padding: 8px 20px; border-radius: 4px; border: none; font-size: 14px; cursor: pointer; text-decoration: none; transition: background .2s; }
+        .btn-primary { background: #1a73e8; color: #fff; }
+        .btn-primary:hover { background: #1557b0; }
+        .btn-danger { background: #e53935; color: #fff; }
+        .btn-danger:hover { background: #c62828; }
+        .btn-outline { background: #fff; color: #666; border: 1px solid #ddd; }
+        .btn-outline:hover { background: #f5f5f5; }
+        .btn-sm { padding: 5px 12px; font-size: 13px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 14px; color: #555; margin-bottom: 4px; font-weight: 500; }
+        .form-group input, .form-group textarea { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; transition: border-color .2s; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #1a73e8; }
+        .form-group textarea { min-height: 120px; resize: vertical; }
+        .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th, .table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+        .table th { background: #fafafa; font-weight: 600; color: #555; }
+        .table tr:hover { background: #f8f9ff; }
+        .table .actions { display: flex; gap: 6px; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; display: block; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+        .stat-card { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.08); text-align: center; }
+        .stat-card .num { font-size: 32px; font-weight: 700; color: #1a73e8; }
+        .stat-card .label { font-size: 13px; color: #999; margin-top: 4px; }
+        .auth-wrap { max-width: 400px; margin: 60px auto; }
+        .auth-wrap .card { padding: 32px; }
+        .auth-wrap h2 { text-align: center; margin-bottom: 24px; font-size: 22px; color: #1a237e; }
+        .auth-link { text-align: center; margin-top: 14px; font-size: 13px; color: #999; }
+        .auth-link a { color: #1a73e8; text-decoration: none; }
+        footer { text-align: center; padding: 20px; color: #999; font-size: 13px; border-top: 1px solid #eee; margin-top: auto; }
+        @media (max-width: 768px) {
+            .navbar { padding: 0 12px; }
+            .navbar a { padding: 0 10px; font-size: 13px; }
+            .container { padding: 16px 12px; }
+            .stat-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="{% url 'index' %}" class="brand">我的站点</a>
+        {% if user.is_authenticated %}
+        <a href="{% url 'article_list' %}">文章管理</a>
+        <a href="{% url 'article_create' %}">写文章</a>
+        <div class="nav-right">
+            <span class="user-info">{{ user.username }}</span>
+            <a href="{% url 'logout' %}">退出</a>
+        </div>
+        {% else %}
+        <div class="nav-right">
+            <a href="{% url 'login' %}">登录</a>
+            <a href="{% url 'register' %}">注册</a>
+        </div>
+        {% endif %}
+    </nav>
+
+    <div class="container">
+        {% if messages %}
+        <div class="messages">
+            {% for msg in messages %}
+            <div class="msg {{ msg.tags }}">{{ msg }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>&copy; {% now 'Y' %} 我的站点. All rights reserved.</footer>
+</body>
+</html>

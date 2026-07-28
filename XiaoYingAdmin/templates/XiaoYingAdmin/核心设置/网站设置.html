@@ -69,6 +69,32 @@
     </div>
 </div>
 
+{# 权重项目代理公开访问 #}
+<div class="site-section" style="margin-top:20px;">
+    <div class="site-section-header">
+        <h3>权重项目配置</h3>
+        <span class="section-desc">权重页面项目的代理访问相关设置</span>
+    </div>
+    <div class="site-section-body">
+        <form class="layui-form" method="post" action="">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <div class="layui-input-block site-switch-row">
+                    <input type="hidden" name="wp_proxy_public" value="off">
+                    <input type="checkbox" name="wp_proxy_public" lay-skin="switch" lay-text="公开|需登录" lay-filter="wpProxySwitch" value="on"
+                           {% if site_settings.wp_proxy_public %}checked{% endif %}>
+                    <span class="site-switch-desc"><i class="fas fa-info-circle"></i> 关闭后，访问代理路径（/xiaoying_admin/wp-proxy/）需要先登录小影CMS后台</span>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit>保存配置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 {# 用户系统配置 #}
 <div class="site-section" style="margin-top:20px;">
     <div class="site-section-header">

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}文章管理 - 我的站点{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <h2 style="font-size:20px;color:#1a237e;">文章管理</h2>
+    <a href="{% url 'article_create' %}" class="btn btn-primary">写文章</a>
+</div>
+
+<div class="card">
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width:40%;">标题</th>
+                <th style="width:20%;">更新时间</th>
+                <th style="width:20%;">创建时间</th>
+                <th style="width:20%;">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in articles %}
+            <tr>
+                <td><a href="{% url 'article_detail' pk=a.pk %}" style="color:#1a73e8;text-decoration:none;font-weight:500;">{{ a.title }}</a></td>
+                <td>{{ a.updated_at|date:'Y-m-d H:i' }}</td>
+                <td>{{ a.created_at|date:'Y-m-d H:i' }}</td>
+                <td class="actions">
+                    <a href="{% url 'article_detail' pk=a.pk %}" class="btn btn-outline btn-sm">查看</a>
+                    <a href="{% url 'article_edit' pk=a.pk %}" class="btn btn-outline btn-sm">编辑</a>
+                    <a href="{% url 'article_delete' pk=a.pk %}" class="btn btn-danger btn-sm" onclick="return confirm('确定删除这篇文章吗？')">删除</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="text-align:center;color:#999;padding:40px;">暂无文章，<a href="{% url 'article_create' %}" style="color:#1a73e8;">写第一篇</a></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

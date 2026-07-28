@@ -1,0 +1,225 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% block title %}{{ project.name }} - 权重页面项目{% endblock %}
+{% block head %}
+<style>
+    .wp-detail-wrap { max-width:860px; margin:0 auto; }
+    .wp-detail-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+    .wp-detail-header h2 { margin:0; font-size:18px; color:#393D49; }
+    .wp-detail-header h2 i { color:#1E9FFF; margin-right:8px; }
+
+    .detail-card { background:#fff; border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,.06); padding:24px 28px; margin-bottom:16px; }
+    .detail-card h3 { font-size:15px; color:#393D49; margin:0 0 16px; padding-bottom:10px; border-bottom:1px solid #f0f0f0; }
+    .detail-card h3 i { color:#1E9FFF; margin-right:6px; }
+
+    .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .info-item { }
+    .info-item .label { font-size:12px; color:#999; margin-bottom:2px; }
+    .info-item .value { font-size:14px; color:#333; word-break:break-all; }
+    .info-item .value.path { font-size:13px; color:#666; background:#f5f5f5; padding:4px 8px; border-radius:4px; display:inline-block; }
+
+    .status-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:12px; font-size:13px; }
+    .status-badge.running { background:#e8f5e9; color:#2e7d32; }
+    .status-badge.stopped { background:#f5f5f5; color:#999; }
+    .status-badge.error { background:#fbe9e7; color:#c62828; }
+    .status-badge .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+    .status-badge .dot.running { background:#5FB878; animation:pulse 2s infinite; }
+    .status-badge .dot.stopped { background:#ccc; }
+    .status-badge .dot.error { background:#FF5722; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+    .action-bar { display:flex; gap:10px; flex-wrap:wrap; }
+    .action-bar .layui-btn { padding:0 20px; }
+    .action-bar .layui-btn i { margin-right:4px; }
+
+    .type-tag { display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; }
+    .type-tag.manual { background:#e3f2fd; color:#1565c0; }
+    .type-tag.auto { background:#f3e5f5; color:#7b1fa2; }
+
+    .desc-box { background:#f8f9fa; border-radius:6px; padding:14px 16px; font-size:14px; color:#555; line-height:1.6; min-height:40px; }
+    .desc-box.empty { color:#bbb; font-style:italic; }
+
+    .tip-box { background:#fff8e1; border:1px solid #ffe082; border-radius:6px; padding:12px 16px; font-size:13px; color:#795548; margin-bottom:16px; }
+    .tip-box i { margin-right:6px; color:#FF9800; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="wp-detail-wrap">
+    <div class="wp-detail-header">
+        <h2><i class="fas fa-cube"></i>{{ project.name }}</h2>
+        <div class="action-bar">
+            <button class="layui-btn layui-btn-sm" id="btnEdit"><i class="fas fa-edit"></i> 编辑</button>
+            <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnDelete"><i class="fas fa-trash"></i> 删除</button>
+        </div>
+    </div>
+
+    {% if project.status == 'stopped' %}
+    <div class="tip-box">
+        <i class="fas fa-info-circle"></i>项目当前已停止，点击下方「启动」按钮即可运行。
+    </div>
+    {% endif %}
+
+    <div class="detail-card">
+        <h3><i class="fas fa-info-circle"></i>基本信息</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="label">项目状态</div>
+                <div class="value">
+                    <span class="status-badge {{ project.status }}">
+                        <span class="dot {{ project.status }}"></span>
+                        {{ project.get_status_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="label">项目类型</div>
+                <div class="value">
+                    <span class="type-tag {{ project.project_type }}">{{ project.get_project_type_display }}</span>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="label">运行端口</div>
+                <div class="value">{{ project.port }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">进程 PID</div>
+                <div class="value">{{ project.pid|default:'无' }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">创建者</div>
+                <div class="value">{{ project.created_by|default:'系统' }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">创建时间</div>
+                <div class="value">{{ project.create_time|date:'Y-m-d H:i:s' }}</div>
+            </div>
+            {% if project.project_path %}
+            <div class="info-item" style="grid-column:1/-1;">
+                <div class="label">项目路径</div>
+                <div class="value path">{{ project.project_path }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="detail-card">
+        <h3><i class="fas fa-align-left"></i>项目描述</h3>
+        <div class="desc-box {% if not project.description %}empty{% endif %}">
+            {{ project.description|default:'暂无描述' }}
+        </div>
+    </div>
+
+    <div class="detail-card">
+        <h3><i class="fas fa-cog"></i>操作</h3>
+        <div class="action-bar" id="actionBar" data-id="{{ project.id }}">
+            {% if project.status == 'running' %}
+            <button class="layui-btn layui-btn-warm" id="btnStop"><i class="fas fa-stop"></i> 停止</button>
+            <button class="layui-btn layui-btn-primary" id="btnRestart"><i class="fas fa-sync"></i> 重启</button>
+            {% if project.project_path %}
+            <a href="http://localhost:{{ project.port }}" target="_blank" class="layui-btn layui-btn-normal">
+                <i class="fas fa-external-link-alt"></i> 直连访问
+            </a>
+            {% endif %}
+            {% else %}
+            <button class="layui-btn layui-btn-normal" id="btnStart"><i class="fas fa-play"></i> 启动</button>
+            {% endif %}
+            <button class="layui-btn layui-btn-primary" id="btnRefreshStatus"><i class="fas fa-sync"></i> 刷新状态</button>
+            <a href="{% url 'weight_project_console' pk=project.id %}" class="layui-btn layui-btn-primary"><i class="fas fa-terminal"></i> 控制台</a>
+            <button class="layui-btn layui-btn-primary" id="btnFixMigrations"><i class="fas fa-database"></i> 修复迁移</button>
+        </div>
+    </div>
+
+    {% if project.project_path %}
+    <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;padding:12px 16px;font-size:13px;color:#2e7d32;margin-bottom:16px;">
+        <i class="fas fa-shield-alt"></i> <strong>代理访问（经过防火墙 / SEO 斗篷 / 蜘蛛日志）：</strong><br>
+        <code style="background:#c8e6c9;padding:3px 10px;border-radius:4px;display:inline-block;margin-top:4px;">http://127.0.0.1:8000{% url 'weight_project_proxy_root' pk=project.id %}</code>
+        <div style="margin-top:6px;font-size:12px;color:#558b2f;">
+            <i class="fas fa-info-circle"></i> 通过代理地址访问时，防火墙拦截、SEO 斗篷伪装、蜘蛛访问日志等中间件全部生效。
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block js %}
+<script>
+layui.use(['layer'], function() {
+    var layer = layui.layer;
+    var projectId = {{ project.id }};
+
+    function refreshStatus() {
+        fetch('/xiaoying_admin/api/weight-project/' + projectId + '/status/')
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                if (resp.project) {
+                    layer.msg('状态已刷新: ' + resp.project.status_display, {icon:1, time:1000});
+                    // 如果状态变化，整页刷新
+                    if (resp.project.status !== '{{ project.status }}') {
+                        setTimeout(function() { location.reload(); }, 500);
+                    }
+                }
+            })
+            .catch(function() { layer.msg('刷新失败', {icon:2}); });
+    }
+
+    function doAction(action) {
+        layer.load(1, { shade: [0.3, '#000'] });
+        fetch('/xiaoying_admin/api/weight-project/' + projectId + '/' + action + '/', { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                layer.closeAll('loading');
+                if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                layer.msg(resp.message, {icon:1, time:1500}, function() {
+                    location.reload();
+                });
+            })
+            .catch(function() { layer.closeAll('loading'); layer.msg('网络错误', {icon:2}); });
+    }
+
+    document.getElementById('btnEdit').addEventListener('click', function() {
+        window.location.href = '/xiaoying_admin/weight-project/' + projectId + '/edit/';
+    });
+
+    document.getElementById('btnDelete').addEventListener('click', function() {
+        layer.confirm('确定删除项目「{{ project.name }}」？<br><span style="color:#FF5722;font-size:12px;">注意：仅删除系统记录，不会删除项目文件。</span>', {icon:3, title:'确认删除'}, function(index) {
+            fetch('/xiaoying_admin/api/weight-project/' + projectId + '/delete/', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(resp) {
+                    if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                    layer.msg('已删除', {icon:1, time:800}, function() {
+                        window.location.href = '{% url "weight_project_list" %}';
+                    });
+                });
+            layer.close(index);
+        });
+    });
+
+    var btnStart = document.getElementById('btnStart');
+    var btnStop = document.getElementById('btnStop');
+    var btnRestart = document.getElementById('btnRestart');
+    var btnRefresh = document.getElementById('btnRefreshStatus');
+    var btnFix = document.getElementById('btnFixMigrations');
+
+    if (btnFix) {
+        btnFix.addEventListener('click', function() {
+            layer.confirm('确定修复数据库迁移？<br><span style="color:#FF5722;font-size:12px;">会为所有模型重新创建迁移并执行 migrate</span>', {icon:3, title:'确认'}, function(index) {
+                btnFix.disabled = true;
+                btnFix.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> 执行中...';
+                fetch('/xiaoying_admin/api/weight-project/' + projectId + '/fix-migrations/', { method: 'POST' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(resp) {
+                        layer.close(index);
+                        if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                        layer.msg(resp.message, {icon:1, time:2000});
+                    })
+                    .catch(function() { layer.close(index); layer.msg('网络错误', {icon:2}); })
+                    .finally(function() { btnFix.disabled = false; btnFix.innerHTML = '<i class="fas fa-database"></i> 修复迁移'; });
+            });
+        });
+    }
+
+    if (btnStart) btnStart.addEventListener('click', function() { doAction('start'); });
+    if (btnStop) btnStop.addEventListener('click', function() { doAction('stop'); });
+    if (btnRestart) btnRestart.addEventListener('click', function() { doAction('restart'); });
+    if (btnRefresh) btnRefresh.addEventListener('click', refreshStatus);
+});
+</script>
+{% endblock %}

@@ -55,6 +55,13 @@ class LoginRequiredMiddleware(MiddlewareMixin):
         if not path.startswith('/xiaoying_admin/'):
             return None
 
+        # 权重项目代理路径：如果开启了公开访问，无需登录
+        if path.startswith('/xiaoying_admin/wp-proxy/'):
+            from XiaoYingAdmin.models.site_settings import SiteSettings
+            site_settings = SiteSettings.objects.first()
+            if site_settings and site_settings.wp_proxy_public:
+                return None
+
         # 未登录 → 跳转到登录页
         login_url = getattr(settings, 'LOGIN_URL', '/xiaoying_admin/login/')
         return HttpResponseRedirect(login_url)

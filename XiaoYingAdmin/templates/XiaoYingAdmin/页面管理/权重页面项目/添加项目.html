@@ -1,0 +1,168 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% block title %}{% if project_type == 'auto' %}系统创建项目{% else %}添加项目{% endif %}{% endblock %}
+{% block head %}
+<style>
+    .wp-form-wrap { max-width:720px; margin:0 auto; background:#fff; border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,.06); padding:30px 36px; }
+    .wp-form-wrap h2 { font-size:18px; color:#393D49; margin-bottom:24px; }
+    .wp-form-wrap h2 i { color:#1E9FFF; margin-right:8px; }
+    .form-tip { font-size:12px; color:#999; margin-top:4px; }
+    .form-tip i { margin-right:3px; }
+    .layui-form-label { width:130px; }
+    .layui-input-block { margin-left:160px; }
+    .mode-switch { display:flex; gap:12px; margin-bottom:24px; }
+    .mode-btn { flex:1; padding:14px 20px; border:2px solid #e6e6e6; border-radius:8px; text-align:center; cursor:pointer; transition:all .2s; }
+    .mode-btn:hover { border-color:#1E9FFF; }
+    .mode-btn.active { border-color:#1E9FFF; background:#f0f7ff; }
+    .mode-btn .mode-icon { font-size:28px; display:block; margin-bottom:6px; }
+    .mode-btn .mode-name { font-size:15px; font-weight:600; color:#333; }
+    .mode-btn.active .mode-name { color:#1E9FFF; }
+    .mode-btn .mode-desc { font-size:12px; color:#999; margin-top:4px; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="wp-form-wrap">
+    {% if project_type == 'auto' %}
+    <h2><i class="fas fa-magic"></i>系统创建权重页面项目</h2>
+    <form class="layui-form" method="post" id="createForm">
+        {% csrf_token %}
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">项目名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" class="layui-input" placeholder="例如：我的音乐站" required>
+                <div class="form-tip"><i class="fas fa-info-circle"></i>作为文件夹名称和项目标识，请使用英文或拼音（如 my_music_site）</div>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">项目描述</label>
+            <div class="layui-input-block">
+                <textarea name="description" class="layui-textarea" placeholder="简单描述这个项目的用途" style="min-height:80px;"></textarea>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">运行端口</label>
+            <div class="layui-input-block">
+                <input type="number" name="port" class="layui-input" value="9000" min="1024" max="65535" required>
+                <div class="form-tip"><i class="fas fa-plug"></i>每个项目使用独立端口，建议从 9000 开始递增</div>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <div class="layui-input-block" style="margin-left:160px;">
+                <button type="button" class="layui-btn" id="btnSubmit" style="padding:0 36px;font-size:15px;">
+                    <i class="fas fa-rocket"></i> 创建并初始化
+                </button>
+                <a href="{% url 'weight_project_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+            </div>
+        </div>
+    </form>
+
+    {% else %}
+    <h2><i class="fas fa-plus-circle"></i>添加已有项目</h2>
+    <form class="layui-form" method="post" id="createForm">
+        {% csrf_token %}
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">项目名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" class="layui-input" placeholder="例如：音乐网站" required>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">项目描述</label>
+            <div class="layui-input-block">
+                <textarea name="description" class="layui-textarea" placeholder="简单描述这个项目的用途" style="min-height:80px;"></textarea>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">项目目录路径</label>
+            <div class="layui-input-block">
+                <input type="text" name="project_path" class="layui-input" placeholder="例如：/www/wwwroot/my_site" required>
+                <div class="form-tip"><i class="fas fa-folder"></i>服务器上项目代码的绝对路径，需包含 manage.py</div>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">运行端口</label>
+            <div class="layui-input-block">
+                <input type="number" name="port" class="layui-input" value="9000" min="1024" max="65535" required>
+                <div class="form-tip"><i class="fas fa-plug"></i>每个项目使用独立端口</div>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <div class="layui-input-block" style="margin-left:160px;">
+                <button type="button" class="layui-btn" id="btnSubmit" style="padding:0 36px;font-size:15px;">
+                    <i class="fas fa-plus"></i> 添加项目
+                </button>
+                <a href="{% url 'weight_project_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+            </div>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}
+{% block js %}
+<script>
+layui.use(['layer'], function() {
+    var layer = layui.layer;
+    var mode = '{{ project_type }}';
+
+    document.getElementById('btnSubmit').addEventListener('click', function() {
+        var form = document.getElementById('createForm');
+        var name = form.querySelector('[name="name"]').value.trim();
+        var description = form.querySelector('[name="description"]').value.trim();
+        var port = form.querySelector('[name="port"]').value.trim();
+
+        if (!name) { layer.msg('请输入项目名称', {icon:2}); return; }
+        if (!port || isNaN(port) || parseInt(port) < 1024 || parseInt(port) > 65535) {
+            layer.msg('请输入有效端口（1024-65535）', {icon:2}); return;
+        }
+        port = parseInt(port);
+
+        if (mode === 'auto') {
+            // 模式B：系统创建
+            layer.load(2, { shade: [0.3, '#000'] });
+            fetch('/xiaoying_admin/api/weight-project/create-from-template/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: JSON.stringify({ name: name, description: description, port: port }),
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                layer.closeAll('loading');
+                if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                layer.msg('项目创建成功！', {icon:1, time:1500}, function() {
+                    window.location.href = '/xiaoying_admin/weight-project/' + resp.project.id + '/';
+                });
+            })
+            .catch(function() { layer.closeAll('loading'); layer.msg('网络错误', {icon:2}); });
+        } else {
+            // 模式A：手动添加
+            var projectPath = form.querySelector('[name="project_path"]').value.trim();
+            if (!projectPath) { layer.msg('请输入项目目录路径', {icon:2}); return; }
+
+            layer.load(1, { shade: [0.3, '#000'] });
+            fetch('/xiaoying_admin/api/weight-project/create/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: JSON.stringify({ name: name, description: description, project_path: projectPath, port: port }),
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                layer.closeAll('loading');
+                if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                layer.msg('项目已添加', {icon:1, time:1500}, function() {
+                    window.location.href = '/xiaoying_admin/weight-project/' + resp.project.id + '/';
+                });
+            })
+            .catch(function() { layer.closeAll('loading'); layer.msg('网络错误', {icon:2}); });
+        }
+    });
+});
+</script>
+{% endblock %}

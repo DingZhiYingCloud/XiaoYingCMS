@@ -30,9 +30,9 @@ class StatisticsCodeMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # 后台、静态资源路径直接放行
+        # 后台、静态资源路径直接放行（但 wp-proxy 代理路径保留注入，让权重页面项目也能有统计代码）
         path = request.path
-        if path.startswith('/xiaoying_admin/') or path.startswith('/static/') or path.startswith('/media/'):
+        if (path.startswith('/xiaoying_admin/') and not path.startswith('/xiaoying_admin/wp-proxy/')) or path.startswith('/static/') or path.startswith('/media/'):
             return self.get_response(request)
 
         response = self.get_response(request)

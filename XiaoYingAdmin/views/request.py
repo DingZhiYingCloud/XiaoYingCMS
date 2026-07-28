@@ -198,6 +198,11 @@ def site_settings_view(request):
             update_fields.append('updated_time')
             settings.save(update_fields=update_fields)
 
+        # 判断提交的是权重项目公开访问配置
+        if 'wp_proxy_public' in request.POST:
+            settings.wp_proxy_public = request.POST.get('wp_proxy_public') == 'on'
+            settings.save(update_fields=['wp_proxy_public', 'updated_time'])
+
         # 判断提交的是用户系统配置表单
         if 'registration_enabled' in request.POST:
             user_config.registration_enabled = request.POST.get('registration_enabled') == 'on'

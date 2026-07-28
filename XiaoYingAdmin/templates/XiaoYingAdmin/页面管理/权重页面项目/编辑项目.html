@@ -1,0 +1,109 @@
+{% extends 'XiaoYingAdmin/template.html' %}
+{% block title %}编辑项目 - {{ project.name }}{% endblock %}
+{% block head %}
+<style>
+    .wp-form-wrap { max-width:720px; margin:0 auto; background:#fff; border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,.06); padding:30px 36px; }
+    .wp-form-wrap h2 { font-size:18px; color:#393D49; margin-bottom:24px; }
+    .wp-form-wrap h2 i { color:#1E9FFF; margin-right:8px; }
+    .form-tip { font-size:12px; color:#999; margin-top:4px; }
+    .layui-form-label { width:130px; }
+    .layui-input-block { margin-left:160px; }
+    .project-info { background:#f8f9fa; border-radius:6px; padding:14px 18px; margin-bottom:20px; display:flex; gap:20px; flex-wrap:wrap; font-size:13px; }
+    .project-info span { color:#666; }
+    .project-info span strong { color:#333; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="wp-form-wrap">
+    <h2><i class="fas fa-edit"></i>编辑项目</h2>
+
+    <div class="project-info">
+        <span>类型：<strong>{{ project.get_project_type_display }}</strong></span>
+        <span>状态：<strong>{{ project.get_status_display }}</strong></span>
+        <span>创建时间：<strong>{{ project.create_time|date:'Y-m-d H:i:s' }}</strong></span>
+    </div>
+
+    <form class="layui-form" method="post" id="editForm">
+        {% csrf_token %}
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">项目名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" class="layui-input" value="{{ project.name }}" required>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">项目描述</label>
+            <div class="layui-input-block">
+                <textarea name="description" class="layui-textarea" style="min-height:80px;">{{ project.description }}</textarea>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">项目目录路径</label>
+            <div class="layui-input-block">
+                <input type="text" name="project_path" class="layui-input" value="{{ project.project_path }}" placeholder="服务器上的绝对路径">
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">运行端口</label>
+            <div class="layui-input-block">
+                <input type="number" name="port" class="layui-input" value="{{ project.port }}" min="1024" max="65535" required>
+                <div class="form-tip"><i class="fas fa-plug"></i>修改端口后需重启才能生效</div>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <div class="layui-input-block" style="margin-left:160px;">
+                <button type="button" class="layui-btn" id="btnSubmit" style="padding:0 36px;">
+                    <i class="fas fa-save"></i> 保存修改
+                </button>
+                <a href="{% url 'weight_project_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+{% block js %}
+<script>
+layui.use(['layer'], function() {
+    var layer = layui.layer;
+
+    document.getElementById('btnSubmit').addEventListener('click', function() {
+        var form = document.getElementById('editForm');
+        var name = form.querySelector('[name="name"]').value.trim();
+        var description = form.querySelector('[name="description"]').value.trim();
+        var projectPath = form.querySelector('[name="project_path"]').value.trim();
+        var port = form.querySelector('[name="port"]').value.trim();
+
+        if (!name) { layer.msg('请输入项目名称', {icon:2}); return; }
+        if (!port || isNaN(port) || parseInt(port) < 1024 || parseInt(port) > 65535) {
+            layer.msg('请输入有效端口（1024-65535）', {icon:2}); return;
+        }
+
+        layer.load(1, { shade: [0.3, '#000'] });
+        fetch('{% url "api_weight_project_update" pk=project.id %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({
+                name: name,
+                description: description,
+                project_path: projectPath,
+                port: parseInt(port),
+            }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+            layer.closeAll('loading');
+            if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+            layer.msg('保存成功', {icon:1, time:1500}, function() {
+                window.location.href = '{% url "weight_project_detail" pk=project.id %}';
+            });
+        })
+        .catch(function() { layer.closeAll('loading'); layer.msg('网络错误', {icon:2}); });
+    });
+});
+</script>
+{% endblock %}

@@ -66,12 +66,15 @@ class FirewallMiddleware(MiddlewareMixin):
 
     @staticmethod
     def _match_ip(client_ip: str, rule_value: str) -> bool:
-        """IP 匹配（支持精确匹配和 CIDR 前缀匹配如 192.168.1.）"""
+        """IP 匹配（支持精确匹配、localhost 别名、CIDR 前缀匹配如 192.168.1.）"""
         if not client_ip:
             return False
         rule_value = rule_value.strip()
         if not rule_value:
             return False
+        # localhost 别名 → 匹配 127.0.0.1 / ::1
+        if rule_value.lower() == 'localhost':
+            return client_ip in ('127.0.0.1', '::1')
         if '/' in rule_value:
             # CIDR 精确匹配（简化版，仅匹配 /24）
             try:

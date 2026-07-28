@@ -69,6 +69,21 @@ from XiaoYingAdmin.views.static_file_route import (
     static_file_route_api_list, static_file_route_api_save,
     static_file_route_api_delete, static_file_route_api_toggle,
 )
+from XiaoYingAdmin.views.weight_project import (
+    weight_project_list_view, weight_project_create_view,
+    weight_project_edit_view, weight_project_detail_view,
+    weight_project_auto_create_view, weight_project_console_view,
+    weight_project_proxy_view,
+    api_weight_project_list, api_weight_project_create,
+    api_weight_project_update, api_weight_project_delete,
+    api_weight_project_start, api_weight_project_stop,
+    api_weight_project_restart, api_weight_project_status,
+    api_weight_project_create_from_template,
+    api_weight_project_logs, api_weight_project_clear_log,
+    api_weight_project_fix_migrations,
+    api_weight_project_backup_list, api_weight_project_backup_download,
+    api_weight_project_save_backup_config,
+)
 from XiaoYingAdmin.views.multi_page import (
     multi_page_list_view, multi_page_create_view,
     multi_page_project_detail_view, multi_page_edit_view, multi_page_preview_view,
@@ -275,6 +290,35 @@ urlpatterns = [
     # 多页面 AI 配置
     path('multi-page/config/', multi_page_config_view, name='multi_page_config'),
     path('api/multi-page/config/save/', api_multi_page_config_save, name='api_multi_page_config_save'),
+
+    # 权重页面项目
+    path('weight-project/', weight_project_list_view, name='weight_project_list'),
+    path('weight-project/create/', weight_project_create_view, name='weight_project_create'),
+    path('weight-project/auto-create/', weight_project_auto_create_view, name='weight_project_auto_create'),
+    path('weight-project/<int:pk>/', weight_project_detail_view, name='weight_project_detail'),
+    path('weight-project/<int:pk>/edit/', weight_project_edit_view, name='weight_project_edit'),
+    path('weight-project/<int:pk>/console/', weight_project_console_view, name='weight_project_console'),
+
+    # 反向代理：wp-proxy/<id>/任意路径 → 转发到子项目
+    path('wp-proxy/<int:pk>/', weight_project_proxy_view, name='weight_project_proxy_root'),
+    path('wp-proxy/<int:pk>/<path:subpath>', weight_project_proxy_view, name='weight_project_proxy'),
+
+    # API: 权重页面项目
+    path('api/weight-project/list/', api_weight_project_list, name='api_weight_project_list'),
+    path('api/weight-project/create/', api_weight_project_create, name='api_weight_project_create'),
+    path('api/weight-project/<int:pk>/update/', api_weight_project_update, name='api_weight_project_update'),
+    path('api/weight-project/<int:pk>/delete/', api_weight_project_delete, name='api_weight_project_delete'),
+    path('api/weight-project/<int:pk>/start/', api_weight_project_start, name='api_weight_project_start'),
+    path('api/weight-project/<int:pk>/stop/', api_weight_project_stop, name='api_weight_project_stop'),
+    path('api/weight-project/<int:pk>/restart/', api_weight_project_restart, name='api_weight_project_restart'),
+    path('api/weight-project/<int:pk>/status/', api_weight_project_status, name='api_weight_project_status'),
+    path('api/weight-project/<int:pk>/logs/', api_weight_project_logs, name='api_weight_project_logs'),
+    path('api/weight-project/<int:pk>/clear-log/', api_weight_project_clear_log, name='api_weight_project_clear_log'),
+    path('api/weight-project/<int:pk>/fix-migrations/', api_weight_project_fix_migrations, name='api_weight_project_fix_migrations'),
+    path('api/weight-project/create-from-template/', api_weight_project_create_from_template, name='api_weight_project_create_from_template'),
+    path('api/weight-project/<int:pk>/backup-list/', api_weight_project_backup_list, name='api_weight_project_backup_list'),
+    path('api/weight-project/<int:pk>/backup-download/', api_weight_project_backup_download, name='api_weight_project_backup_download'),
+    path('api/weight-project/<int:pk>/save-backup-config/', api_weight_project_save_backup_config, name='api_weight_project_save_backup_config'),
 
     # =========================================================================
     # 个人财务管理

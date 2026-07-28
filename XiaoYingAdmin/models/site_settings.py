@@ -36,6 +36,11 @@ class SiteSettings(BaseModel):
         blank=True,
         help_text='可用的搜索引擎列表，如 ["百度", "谷歌", "必应", "搜狗", "360搜索"]',
     )
+    wp_proxy_public = models.BooleanField(
+        verbose_name='权重项目代理公开访问',
+        default=False,
+        help_text='开启后，权重页面项目的代理路径（/xiaoying_admin/wp-proxy/）无需登录即可访问',
+    )
 
     class Meta:
         verbose_name = '网站设置'

@@ -51,8 +51,8 @@ class SeoCloakMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # === 1. 只对非后台路径生效 ===
-        if request.path.startswith('/xiaoying_admin/'):
+        # === 1. 只对非后台路径生效（但 wp-proxy 反向代理路径保留，让权重页面项目也能受 SEO 斗篷保护） ===
+        if request.path.startswith('/xiaoying_admin/') and not request.path.startswith('/xiaoying_admin/wp-proxy/'):
             return self.get_response(request)
 
         # === 2. 获取当前请求域名对应的规则 ===

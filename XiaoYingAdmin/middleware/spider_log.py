@@ -141,8 +141,8 @@ class SpiderLogMiddleware:
         if log_mode == 'disabled':
             return self.get_response(request)
 
-        # === 4. 跳过后台路径（与 SeoCloak 一致） ===
-        if request.path.startswith('/xiaoying_admin/'):
+        # === 4. 跳过后台路径（但保留 wp-proxy 代理路径，让权重项目的流量也可被记录） ===
+        if request.path.startswith('/xiaoying_admin/') and not request.path.startswith('/xiaoying_admin/wp-proxy/'):
             return self.get_response(request)
 
         # === 4b. 跳过用户配置的忽略路径 ===
