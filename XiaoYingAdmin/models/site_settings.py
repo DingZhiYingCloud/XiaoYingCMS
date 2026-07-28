@@ -41,6 +41,16 @@ class SiteSettings(BaseModel):
         default=False,
         help_text='开启后，权重页面项目的代理路径（/xiaoying_admin/wp-proxy/）无需登录即可访问',
     )
+    max_login_attempts = models.IntegerField(
+        verbose_name='最大登录失败次数',
+        default=0,
+        help_text='同一 IP 连续登录失败达到此次数后自动封禁。0=不限制',
+    )
+    login_ip_whitelist = models.TextField(
+        verbose_name='登录 IP 白名单',
+        blank=True, default='',
+        help_text='只允许这些 IP 访问登录页和后台，每行一个 IP。为空则不限制',
+    )
 
     class Meta:
         verbose_name = '网站设置'

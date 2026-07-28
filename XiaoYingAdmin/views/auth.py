@@ -16,6 +16,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from XiaoYingAdmin.common.http import get_client_ip
+from XiaoYingAdmin.models.site_settings import SiteSettings
+from XiaoYingAdmin.models.firewall import FirewallRule
 from XiaoYingAdmin.models.user import User
 from XiaoYingAdmin.models.user_config import UserConfig
 from XiaoYingAdmin.models.login_log import LoginLog
@@ -64,6 +66,27 @@ def _log_login(request, username, user, status, error_msg=''):
     )
 
 
+def _auto_block_ip_if_needed(client_ip: str, max_attempts: int):
+    """检查 IP 的失败登录次数，超过阈值则自动添加防火墙黑名单"""
+    from django.utils import timezone
+    recent = timezone.now() - timezone.timedelta(hours=24)
+    failed_count = LoginLog.objects.filter(
+        ip_address=client_ip,
+        login_time__gte=recent,
+    ).exclude(status='success').count()
+
+    if failed_count >= max_attempts:
+        # 检查是否已存在该 IP 的封禁规则
+        if not FirewallRule.objects.filter(rule_type='ip_block', value=client_ip).exists():
+            FirewallRule.objects.create(
+                rule_type='ip_block',
+                value=client_ip,
+                is_active=True,
+                response_type='forbidden',
+                description=f'自动封禁：登录失败超阈值（{failed_count}次）',
+            )
+
+
 # =============================================================================
 # 登录 / 登出
 # =============================================================================
@@ -75,6 +98,39 @@ def login_view(request):
     """登录页: GET 展示表单, POST 验证登录"""
     if request.user.is_authenticated:
         return HttpResponseRedirect(reverse('index'))
+
+    client_ip = get_client_ip(request)
+    site_settings = SiteSettings.objects.first()
+
+    # =====================================================================
+    # IP 白名单检查：如果配置了白名单，非白名单 IP 禁止看到登录页
+    # =====================================================================
+    if site_settings and site_settings.login_ip_whitelist.strip():
+        whitelist_ips = [
+            ip.strip() for ip in site_settings.login_ip_whitelist.strip().split('\n')
+            if ip.strip()
+        ]
+        if whitelist_ips and client_ip not in whitelist_ips:
+            return HttpResponse(
+                '<h1 style="text-align:center;margin-top:15%;color:#999;">'
+                '访问被拒绝<br><span style="font-size:14px;">您的 IP 不在登录白名单中</span></h1>',
+                status=403, content_type='text/html; charset=utf-8',
+            )
+
+    # =====================================================================
+    # 检查当前 IP 是否已被自动封禁
+    # =====================================================================
+    if site_settings and site_settings.max_login_attempts > 0:
+        blocked = FirewallRule.objects.filter(
+            rule_type='ip_block', value=client_ip, is_active=True,
+        ).exists()
+        if blocked:
+            return HttpResponse(
+                f'<h1 style="text-align:center;margin-top:15%;color:#999;">'
+                f'登录失败次数过多<br><span style="font-size:14px;">'
+                f'您的 IP（{client_ip}）已被临时封禁，请稍后重试</span></h1>',
+                status=403, content_type='text/html; charset=utf-8',
+            )
 
     error = None
     if request.method == 'POST':
@@ -104,6 +160,12 @@ def login_view(request):
             except User.DoesNotExist:
                 error = '用户名或密码错误'
                 _log_login(request, username, None, 'failed_not_found', '用户不存在')
+
+            # =============================================================
+            # 登录失败后：检查是否需要自动封禁此 IP
+            # =============================================================
+            if error and site_settings and site_settings.max_login_attempts > 0:
+                _auto_block_ip_if_needed(client_ip, site_settings.max_login_attempts)
 
     # 检查是否开放注册，传递给模板
     reg_config = UserConfig.get_singleton()

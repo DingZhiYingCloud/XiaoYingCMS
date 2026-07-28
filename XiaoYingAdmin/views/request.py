@@ -203,6 +203,16 @@ def site_settings_view(request):
             settings.wp_proxy_public = request.POST.get('wp_proxy_public') == 'on'
             settings.save(update_fields=['wp_proxy_public', 'updated_time'])
 
+        # 判断提交的是登录安全配置
+        if 'max_login_attempts' in request.POST:
+            try:
+                max_attempts = int(request.POST.get('max_login_attempts', 0))
+            except (TypeError, ValueError):
+                max_attempts = 0
+            settings.max_login_attempts = max(0, max_attempts)
+            settings.login_ip_whitelist = (request.POST.get('login_ip_whitelist', '') or '').strip()
+            settings.save(update_fields=['max_login_attempts', 'login_ip_whitelist', 'updated_time'])
+
         # 判断提交的是用户系统配置表单
         if 'registration_enabled' in request.POST:
             user_config.registration_enabled = request.POST.get('registration_enabled') == 'on'

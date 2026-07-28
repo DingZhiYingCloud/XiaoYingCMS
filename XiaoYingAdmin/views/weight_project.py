@@ -7,6 +7,8 @@ import socket
 import subprocess
 import sys
 import logging
+import re
+from urllib.parse import urlparse
 import urllib.request
 import urllib.error
 
@@ -765,8 +767,8 @@ def _forward_headers(source_meta: dict) -> dict:
 
 
 def _proxy_request(method: str, target_url: str, headers: dict,
-                   body: bytes, timeout: int = 30) -> tuple:
-    """执行代理请求。返回 (status_code, response_headers, body_bytes)"""
+                   body: bytes | None = None, timeout: int = 30):
+    """执行 HTTP 请求并返回 (status_code, headers_dict, body)"""
     try:
         req = urllib.request.Request(target_url, data=body if body else None,
                                      headers=headers, method=method)
@@ -779,6 +781,43 @@ def _proxy_request(method: str, target_url: str, headers: dict,
     except urllib.error.URLError as e:
         logger.warning(f'代理请求失败: {target_url} → {e.reason}')
         return 502, {'Content-Type': 'text/plain; charset=utf-8'}, str(e.reason).encode('utf-8')
+
+
+# 不需要重写的路径前缀（CMS 自身的路径）
+_SKIP_REWRITE_PREFIXES = ('/xiaoying_admin/', '/cdn-cgi/', '/static/admin/',)
+
+
+def _rewrite_html_paths(html: str, proxy_prefix: str, encoding: str = 'utf-8') -> str:
+    """重写 HTML 中的绝对路径，将子项目的静态/API路径替换为代理路径。
+
+    例如: src="/static/foo.js" → src="/xiaoying_admin/wp-proxy/1/static/foo.js"
+    但不会重写 CMS 自身的路径（/xiaoying_admin/...）
+    """
+    if isinstance(html, bytes):
+        html = html.decode(encoding, errors='replace')
+
+    def _should_skip(path: str) -> bool:
+        if not path.startswith('/') or path.startswith('//') or path.startswith(proxy_prefix):
+            return True
+        for prefix in _SKIP_REWRITE_PREFIXES:
+            if path.startswith(prefix):
+                return True
+        return False
+
+    def _replacer(m):
+        attr = m.group(1)
+        quote = m.group(2)
+        path = m.group(3)
+        if _should_skip(path):
+            return m.group(0)
+        return f'{attr}={quote}{proxy_prefix}{path}{quote}'
+
+    # src="/..." 和 href="/..."
+    html = re.sub(r'(src|href)=(["\'])(/[^"\']*?)\2', _replacer, html)
+    # url('/...') 和 url("/...")（CSS 中的引用）
+    html = re.sub(r'(url\()(["\'])(/[^"\'()]*?)\2', _replacer, html)
+
+    return html
 
 
 @csrf_exempt
@@ -830,6 +869,13 @@ def weight_project_proxy_view(request, pk, subpath=''):
 
     # 构建 Django 响应
     content_type = resp_headers.get('Content-Type', 'text/html; charset=utf-8')
+
+    # 对 HTML 响应重写静态路径，使子项目的/src="/..."正确指向代理路径
+    proxy_prefix = f'/xiaoying_admin/wp-proxy/{pk}'
+    if 'text/html' in content_type and isinstance(resp_body, (str, bytes)):
+        resp_body = _rewrite_html_paths(resp_body, proxy_prefix).encode('utf-8')
+        content_type = 'text/html; charset=utf-8'
+
     response = HttpResponse(
         content=resp_body,
         status=status_code,

@@ -6,13 +6,17 @@
   - /xiaoying_admin/logout/  （已登录时主动退出用）
   - 静态资源路径
 
+IP 白名单（在网站设置中配置）:
+  - 只允许指定的 IP 访问登录页和后台
+  - 非白名单 IP 返回 403
+
 注意: 此中间件必须放在 AuthenticationMiddleware 之后,
       确保 request.user 已可用。
 """
 
 import re
 from django.conf import settings
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.deprecation import MiddlewareMixin
 
@@ -40,25 +44,43 @@ class LoginRequiredMiddleware(MiddlewareMixin):
         if not User.objects.filter(is_superuser=True).exists():
             User.objects.create_superuser('xiaoying', password='xiaoyingadmin')
 
+        path = request.path_info
+
+        # 非后台路径通行（仅保护 /xiaoying_admin/ 下的页面）
+        if not path.startswith('/xiaoying_admin/'):
+            return None
+
+        # =====================================================================
+        # IP 白名单检查：如果配置了白名单，非白名单 IP 禁止访问后台
+        # =====================================================================
+        from XiaoYingAdmin.models.site_settings import SiteSettings
+        from XiaoYingAdmin.common.http import get_client_ip
+        site_settings = SiteSettings.objects.first()
+        if site_settings and site_settings.login_ip_whitelist.strip():
+            whitelist_ips = [
+                ip.strip() for ip in site_settings.login_ip_whitelist.strip().split('\n')
+                if ip.strip()
+            ]
+            if whitelist_ips:
+                client_ip = get_client_ip(request)
+                if client_ip not in whitelist_ips:
+                    return HttpResponse(
+                        '<h1 style="text-align:center;margin-top:15%;color:#999;">'
+                        '访问被拒绝<br><span style="font-size:14px;">您的 IP 不在访问白名单中</span></h1>',
+                        status=403, content_type='text/html; charset=utf-8',
+                    )
+
         # 如果用户已认证,通行
         if request.user.is_authenticated:
             return None
-
-        path = request.path_info
 
         # 白名单路径通行
         for pattern in LOGIN_WHITELIST:
             if re.match(pattern, path):
                 return None
 
-        # 非后台路径通行（仅保护 /xiaoying_admin/ 下的页面）
-        if not path.startswith('/xiaoying_admin/'):
-            return None
-
         # 权重项目代理路径：如果开启了公开访问，无需登录
         if path.startswith('/xiaoying_admin/wp-proxy/'):
-            from XiaoYingAdmin.models.site_settings import SiteSettings
-            site_settings = SiteSettings.objects.first()
             if site_settings and site_settings.wp_proxy_public:
                 return None
 

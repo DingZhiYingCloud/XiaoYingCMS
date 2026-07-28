@@ -95,6 +95,47 @@
     </div>
 </div>
 
+{# 登录安全配置 #}
+<div class="site-section" style="margin-top:20px;">
+    <div class="site-section-header">
+        <h3>登录安全配置</h3>
+        <span class="section-desc">配置登录失败封禁策略和 IP 白名单</span>
+    </div>
+    <div class="site-section-body">
+        <form class="layui-form" method="post" action="">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <label class="layui-form-label" style="width:180px;">最大登录失败次数</label>
+                <div class="layui-input-inline" style="width:120px;">
+                    <input type="number" name="max_login_attempts"
+                           class="layui-input" min="0" step="1"
+                           value="{{ site_settings.max_login_attempts|default:0 }}">
+                </div>
+                <div class="layui-form-mid layui-word-aux">次（0=不限制）</div>
+                <div style="font-size:12px; color:#999; margin-left:10px; line-height:38px;">
+                    <i class="fas fa-info-circle"></i> 同一 IP 24小时内连续登录失败超过此值将自动加入防火墙黑名单
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label" style="width:180px;">登录 IP 白名单</label>
+                <div class="layui-input-block" style="margin-left:180px;">
+                    <textarea name="login_ip_whitelist" class="layui-textarea"
+                              style="min-height:100px;font-family:monospace;"
+                              placeholder="每行一个 IP，例如：&#10;192.168.1.1&#10;10.0.0.1&#10;127.0.0.1">{{ site_settings.login_ip_whitelist }}</textarea>
+                    <div style="font-size:12px;color:#999;margin-top:4px;">
+                        <i class="fas fa-info-circle"></i> 只允许列表中的 IP 访问登录页和后台，每行一个 IP。留空则不限制
+                    </div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block" style="margin-left:180px;">
+                    <button class="layui-btn" lay-submit>保存配置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 {# 用户系统配置 #}
 <div class="site-section" style="margin-top:20px;">
     <div class="site-section-header">
