@@ -395,6 +395,7 @@ def _start_project(project: WeightProject) -> tuple[bool, str]:
             stderr=subprocess.STDOUT,
             env=clean_env,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0,
+            start_new_session=sys.platform != 'win32',  # Linux/macOS 创建新进程组，确保子进程可被一起清理
         )
         project.pid = proc.pid
         project.status = WeightProject.Status.RUNNING
@@ -421,7 +422,11 @@ def _stop_project(project: WeightProject) -> tuple[bool, str]:
             subprocess.run(['taskkill', '/F', '/T', '/PID', str(project.pid)],
                            capture_output=True, timeout=5)
         else:
-            os.kill(project.pid, signal.SIGTERM)
+            # 使用 killpg 杀死整个进程组（包含 Django runserver 的子进程）
+            try:
+                os.killpg(os.getpgid(project.pid), signal.SIGTERM)
+            except ProcessLookupError:
+                os.kill(project.pid, signal.SIGTERM)
     except Exception:
         logger.warning(f'kill 进程 {project.pid} 失败，可能已退出')
 
