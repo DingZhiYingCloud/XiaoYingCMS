@@ -50,25 +50,27 @@ class LoginRequiredMiddleware(MiddlewareMixin):
         if not path.startswith('/xiaoying_admin/'):
             return None
 
-        # =====================================================================
-        # IP 白名单检查：如果配置了白名单，非白名单 IP 禁止访问后台
-        # =====================================================================
-        from XiaoYingAdmin.models.site_settings import SiteSettings
-        from XiaoYingAdmin.common.http import get_client_ip
-        site_settings = SiteSettings.objects.first()
-        if site_settings and site_settings.login_ip_whitelist.strip():
-            whitelist_ips = [
-                ip.strip() for ip in site_settings.login_ip_whitelist.strip().split('\n')
-                if ip.strip()
-            ]
-            if whitelist_ips:
-                client_ip = get_client_ip(request)
-                if client_ip not in whitelist_ips:
-                    return HttpResponse(
-                        '<h1 style="text-align:center;margin-top:15%;color:#999;">'
-                        '访问被拒绝<br><span style="font-size:14px;">您的 IP 不在访问白名单中</span></h1>',
-                        status=403, content_type='text/html; charset=utf-8',
-                    )
+        # 反向代理路径不受 IP 白名单限制，子项目内容应对公网开放
+        if not path.startswith('/xiaoying_admin/wp-proxy/'):
+            # =================================================================
+            # IP 白名单检查：如果配置了白名单，非白名单 IP 禁止访问后台
+            # =================================================================
+            from XiaoYingAdmin.models.site_settings import SiteSettings
+            from XiaoYingAdmin.common.http import get_client_ip
+            site_settings = SiteSettings.objects.first()
+            if site_settings and site_settings.login_ip_whitelist.strip():
+                whitelist_ips = [
+                    ip.strip() for ip in site_settings.login_ip_whitelist.strip().split('\n')
+                    if ip.strip()
+                ]
+                if whitelist_ips:
+                    client_ip = get_client_ip(request)
+                    if client_ip not in whitelist_ips:
+                        return HttpResponse(
+                            '<h1 style="text-align:center;margin-top:15%;color:#999;">'
+                            '访问被拒绝<br><span style="font-size:14px;">您的 IP 不在访问白名单中</span></h1>',
+                            status=403, content_type='text/html; charset=utf-8',
+                        )
 
         # 如果用户已认证,通行
         if request.user.is_authenticated:
