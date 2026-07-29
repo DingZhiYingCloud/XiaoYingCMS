@@ -55,7 +55,8 @@ def _get_python_path(project_path: str) -> str:
     优先级：
       1. settings.WEIGHT_PROJECT_PYTHON 手动指定
       2. 项目目录下的 .venv 或 venv
-      3. 当前进程的 Python（sys.executable）
+      3. uwsgi 同级目录下的 python（uwsgi 环境下 sys.executable 指向 uwsgi 自身）
+      4. 当前进程的 Python（sys.executable）
     """
     # 1. 优先使用配置的手动路径
     from django.conf import settings as dj_settings
@@ -73,6 +74,17 @@ def _get_python_path(project_path: str) -> str:
     for p in venv_paths:
         if os.path.exists(p):
             return p
+
+    # 3. uwsgi 环境下 sys.executable 指向 uwsgi 自身而非 Python，
+    #    需在同目录下查找 python3/python
+    executable = sys.executable or ''
+    if 'uwsgi' in os.path.basename(executable):
+        dir_name = os.path.dirname(executable)
+        for py in ('python3', 'python'):
+            py_path = os.path.join(dir_name, py)
+            if os.path.exists(py_path):
+                return os.path.realpath(py_path)
+
     return sys.executable
 
 
@@ -363,12 +375,14 @@ def _start_project(project: WeightProject) -> tuple[bool, str]:
         can_import_django = False
 
     if not can_import_django:
-        # 尝试用 CMS 自身的 Python（当前进程的 Python）创建子项目的 venv
+        # 尝试用 CMS 的 Python 创建子项目的 venv
+        # 注意：uwsgi 环境下 sys.executable 指向 uwsgi 自身，因此使用
+        # _get_python_path() 返回的 Python 解释器路径（已兼容 uwsgi 场景）
         logger.info('Python %s 没有 Django，自动为项目创建 venv', python_path)
         venv_dir = os.path.join(project_path, '.venv')
         try:
             subprocess.run(
-                [sys.executable, '-m', 'venv', venv_dir],
+                [python_path, '-m', 'venv', venv_dir],
                 cwd=project_path, check=True, capture_output=True, timeout=60,
             )
             venv_python = os.path.join(venv_dir, 'bin', 'python')
