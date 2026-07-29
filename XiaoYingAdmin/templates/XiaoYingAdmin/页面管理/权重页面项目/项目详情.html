@@ -136,11 +136,32 @@
     </div>
 
     {% if project.project_path %}
-    <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;padding:12px 16px;font-size:13px;color:#2e7d32;margin-bottom:16px;">
-        <i class="fas fa-shield-alt"></i> <strong>代理访问（经过防火墙 / SEO 斗篷 / 蜘蛛日志）：</strong><br>
-        <code style="background:#c8e6c9;padding:3px 10px;border-radius:4px;display:inline-block;margin-top:4px;">{{ request.scheme }}://{{ request.get_host }}{% url 'weight_project_proxy_root' pk=project.id %}</code>
-        <div style="margin-top:6px;font-size:12px;color:#558b2f;">
-            <i class="fas fa-info-circle"></i> 通过代理地址访问时，防火墙拦截、SEO 斗篷伪装、蜘蛛访问日志等中间件全部生效。
+    <div class="detail-card" id="proxyCard">
+        <h3><i class="fas fa-shield-alt"></i>代理访问</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div style="font-size:13px;color:#666;">
+                当前状态：
+                <span id="proxyStatusBadge" class="status-badge {{ project.proxy_enabled|yesno:'running,stopped' }}" style="font-size:12px;">
+                    <span class="dot {{ project.proxy_enabled|yesno:'running,stopped' }}"></span>
+                    {{ project.proxy_enabled|yesno:'已开启,已关闭' }}
+                </span>
+            </div>
+            <button class="layui-btn layui-btn-sm {{ project.proxy_enabled|yesno:'layui-btn-warm,layui-btn-normal' }}" id="btnToggleProxy">
+                <i class="fas {{ project.proxy_enabled|yesno:'fa-toggle-off,fa-toggle-on' }}"></i>
+                {{ project.proxy_enabled|yesno:'关闭代理,开启代理' }}
+            </button>
+        </div>
+
+        <div style="background:#f0f7ff;border:1px solid #b3d9ff;border-radius:6px;padding:12px 16px;font-size:13px;color:#1565c0;margin-bottom:10px;">
+            <strong><i class="fas fa-link"></i> 代理访问地址：</strong><br>
+            <code style="background:#e3f2fd;padding:3px 10px;border-radius:4px;display:inline-block;margin-top:4px;word-break:break-all;">{{ request.scheme }}://{{ request.get_host }}{% url 'weight_project_proxy_root' pk=project.id %}</code>
+        </div>
+
+        <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:12px 16px;font-size:12px;color:#795548;line-height:1.7;">
+            <strong><i class="fas fa-question-circle"></i> 为什么需要代理访问？</strong><br>
+            代理访问是子项目在<strong>尚未绑定域名</strong>时（或域名 DNS 未生效时）的预览与调试通道，通过小影CMS的路径转发请求到子项目。<br>
+            <i class="fas fa-check-circle" style="color:#4caf50;"></i> <strong>与域名直达的区别</strong>：代理访问会经过小影CMS的完整中间件链（防火墙拦截、SEO 斗篷伪装、蜘蛛访问日志等），且无需登录即可访问；域名直达则直接由域名绑定中间件转发。<br>
+            <i class="fas fa-check-circle" style="color:#4caf50;"></i> <strong>建议</strong>：绑定域名并确认可正常访问后，可关闭此代理访问开关，避免暴露后台路径。
         </div>
     </div>
     {% endif %}
@@ -227,6 +248,32 @@ layui.use(['layer'], function() {
     if (btnStop) btnStop.addEventListener('click', function() { doAction('stop'); });
     if (btnRestart) btnRestart.addEventListener('click', function() { doAction('restart'); });
     if (btnRefresh) btnRefresh.addEventListener('click', refreshStatus);
+
+    // 切换代理访问开关
+    var btnToggleProxy = document.getElementById('btnToggleProxy');
+    if (btnToggleProxy) {
+        btnToggleProxy.addEventListener('click', function() {
+            var currentEnabled = this.dataset.enabled === '1';
+            var nextEnabled = !currentEnabled;
+            var actionText = nextEnabled ? '开启' : '关闭';
+            layer.confirm('确定' + actionText + '代理访问？', {icon:3, title:'确认'}, function(index) {
+                layer.close(index);
+                fetch('/xiaoying_admin/api/weight-project/' + projectId + '/toggle-proxy/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                    body: JSON.stringify({ proxy_enabled: nextEnabled }),
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(resp) {
+                    if (resp.error) { layer.msg(resp.error, {icon:2}); return; }
+                    layer.msg(resp.message, {icon:1, time:1000}, function() { location.reload(); });
+                })
+                .catch(function() { layer.msg('网络错误', {icon:2}); });
+            });
+        });
+        // 记录初始状态，供后续判断
+        btnToggleProxy.dataset.enabled = '{{ project.proxy_enabled|yesno:"1,0" }}';
+    }
 });
 </script>
 {% endblock %}

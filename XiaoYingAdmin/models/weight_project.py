@@ -38,6 +38,11 @@ class WeightProject(BaseModel):
         '绑定域名', max_length=256, blank=True, default='',
         help_text='子项目绑定的域名（可选）。设置后详情页将显示域名直达链接',
     )
+    proxy_enabled = models.BooleanField(
+        '启用代理访问', default=True,
+        help_text='开启后可通过 /xiaoying_admin/wp-proxy/<id>/ 路径访问子项目；'
+                  '绑定域名后可关闭此项',
+    )
     auto_start = models.BooleanField('开机自启', default=False)
     auto_backup_threshold = models.IntegerField(
         '日志自动备份阈值', default=0,
@@ -70,6 +75,7 @@ class WeightProject(BaseModel):
             'status_display': self.get_status_display(),
             'pid': self.pid,
             'domain': self.domain,
+            'proxy_enabled': self.proxy_enabled,
             'auto_start': self.auto_start,
             'auto_backup_threshold': self.auto_backup_threshold,
             'created_by_id': self.created_by_id,

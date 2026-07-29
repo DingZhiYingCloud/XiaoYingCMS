@@ -64,6 +64,16 @@
         </div>
 
         <div class="layui-form-item">
+            <label class="layui-form-label">代理访问</label>
+            <div class="layui-input-block" style="padding-top:8px;">
+                <input type="hidden" name="proxy_enabled" value="off">
+                <input type="checkbox" name="proxy_enabled" lay-skin="switch" lay-text="开启|关闭" lay-filter="proxySwitch" value="on"
+                       {% if project.proxy_enabled %}checked{% endif %}>
+                <div class="form-tip"><i class="fas fa-shield-alt"></i>开启后可通过 /xiaoying_admin/wp-proxy/{{ project.id }}/ 访问子项目；绑定域名后可关闭</div>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
             <div class="layui-input-block" style="margin-left:160px;">
                 <button type="button" class="layui-btn" id="btnSubmit" style="padding:0 36px;">
                     <i class="fas fa-save"></i> 保存修改
@@ -76,8 +86,10 @@
 {% endblock %}
 {% block js %}
 <script>
-layui.use(['layer'], function() {
+layui.use(['layer', 'form'], function() {
     var layer = layui.layer;
+    var form = layui.form;
+    form.render();
 
     document.getElementById('btnSubmit').addEventListener('click', function() {
         var form = document.getElementById('editForm');
@@ -86,6 +98,7 @@ layui.use(['layer'], function() {
         var projectPath = form.querySelector('[name="project_path"]').value.trim();
         var port = form.querySelector('[name="port"]').value.trim();
         var domain = form.querySelector('[name="domain"]').value.trim();
+        var proxyEnabled = form.querySelector('[name="proxy_enabled"][value="on"]').checked;
 
         if (!name) { layer.msg('请输入项目名称', {icon:2}); return; }
         if (!port || isNaN(port) || parseInt(port) < 1024 || parseInt(port) > 65535) {
@@ -102,6 +115,7 @@ layui.use(['layer'], function() {
                 project_path: projectPath,
                 port: parseInt(port),
                 domain: domain,
+                proxy_enabled: proxyEnabled,
             }),
         })
         .then(function(r) { return r.json(); })

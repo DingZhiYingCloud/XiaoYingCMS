@@ -255,6 +255,7 @@ def api_weight_project_create(request):
         project_path=project_path,
         port=port,
         domain=(data.get('domain') or '').strip(),
+        proxy_enabled=data.get('proxy_enabled', True),
         auto_start=data.get('auto_start', False),
         created_by=request.user if request.user.is_authenticated else None,
     )
@@ -292,6 +293,8 @@ def api_weight_project_update(request, pk):
             return err('端口必须为数字')
     if 'domain' in data:
         project.domain = (data['domain'] or '').strip()
+    if 'proxy_enabled' in data:
+        project.proxy_enabled = bool(data['proxy_enabled'])
     if 'auto_start' in data:
         project.auto_start = bool(data['auto_start'])
 
@@ -840,6 +843,15 @@ def weight_project_proxy_view(request, pk, subpath=''):
     if error:
         return error
 
+    # 检查代理访问开关
+    if not project.proxy_enabled:
+        return HttpResponse(
+            f'<h1 style="text-align:center;margin-top:15%;color:#999;">'
+            f'代理访问已关闭<br>'
+            f'<span style="font-size:14px;">该项目已关闭代理访问，请通过绑定域名访问</span></h1>',
+            status=403, content_type='text/html; charset=utf-8',
+        )
+
     # 检查项目状态
     if project.status != WeightProject.Status.RUNNING:
         return HttpResponse(
@@ -987,4 +999,24 @@ def api_weight_project_save_backup_config(request, pk):
     return JsonResponse({
         'message': f'备份阈值已设置为 {threshold} 行' if threshold > 0 else '自动备份已关闭',
         'auto_backup_threshold': threshold,
+    })
+
+
+@require_POST
+def api_weight_project_toggle_proxy(request, pk):
+    """切换项目的代理访问开关"""
+    project, error = get_or_404(WeightProject, pk=pk)
+    if error:
+        return error
+
+    data, parse_err = parse_json_body(request)
+    if parse_err:
+        return parse_err
+
+    project.proxy_enabled = bool(data.get('proxy_enabled', not project.proxy_enabled))
+    project.save(update_fields=['proxy_enabled', 'updated_time'])
+
+    return JsonResponse({
+        'message': '代理访问已开启' if project.proxy_enabled else '代理访问已关闭',
+        'proxy_enabled': project.proxy_enabled,
     })

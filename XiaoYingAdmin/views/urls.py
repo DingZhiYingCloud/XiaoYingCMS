@@ -83,6 +83,7 @@ from XiaoYingAdmin.views.weight_project import (
     api_weight_project_fix_migrations,
     api_weight_project_backup_list, api_weight_project_backup_download,
     api_weight_project_save_backup_config,
+    api_weight_project_toggle_proxy,
 )
 from XiaoYingAdmin.views.multi_page import (
     multi_page_list_view, multi_page_create_view,
@@ -319,6 +320,7 @@ urlpatterns = [
     path('api/weight-project/<int:pk>/backup-list/', api_weight_project_backup_list, name='api_weight_project_backup_list'),
     path('api/weight-project/<int:pk>/backup-download/', api_weight_project_backup_download, name='api_weight_project_backup_download'),
     path('api/weight-project/<int:pk>/save-backup-config/', api_weight_project_save_backup_config, name='api_weight_project_save_backup_config'),
+    path('api/weight-project/<int:pk>/toggle-proxy/', api_weight_project_toggle_proxy, name='api_weight_project_toggle_proxy'),
 
     # =========================================================================
     # 个人财务管理

@@ -310,12 +310,14 @@ class DomainBindMiddleware:
             )
 
         # ---- 3. 尝试权重页面项目 ----
+        # 命中权重页面项目 → 穿透到后续中间件，由 LoginRequiredMiddleware
+        # 在认证完成后统一处理代理转发和登录校验
         wp = self._find_weight_project_by_domain(host)
         if wp is None and raw_host.strip().lower() != host:
             wp = self._find_weight_project_by_domain(raw_host.strip().lower())
 
         if wp:
-            return self._proxy_to_weight_project(request, wp)
+            return self.get_response(request)
 
         # ---- 4. 都没有 → 返回提示 ----
         return HttpResponse(
