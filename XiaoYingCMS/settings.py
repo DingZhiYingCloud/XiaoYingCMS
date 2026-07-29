@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # 加载 .env 配置文件
-load_dotenv(BASE_DIR / '.env')
+# override=True：确保 .env 中的值覆盖 uwsgi 等外部进程设置的环境变量
+load_dotenv(BASE_DIR / '.env', override=True)
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-change-in-production')
 
