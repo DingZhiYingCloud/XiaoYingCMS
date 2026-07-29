@@ -154,8 +154,15 @@ class LoginRequiredMiddleware(MiddlewareMixin):
         # 权重页面项目 - 域名访问处理
         # 非后台路径 → 检查域名是否匹配权重项目，如是则根据 wp_proxy_public
         # 配置判断是否需要登录后再代理转发
+        #
+        # 注意：API 路径前缀（如 /api/）不走权重代理，由当前项目直接处理。
+        # 若不加此判断，当 API_URL 指向自身域名时，请求会再次被代理转发
+        # 到匹配的权重子项目，而子项目未运行时返回 502。
         # =====================================================================
         if not path.startswith('/xiaoying_admin/'):
+            # API 路径不走权重代理（由当前项目直接处理）
+            if path.startswith('/api/'):
+                return None
             host = request.META.get('HTTP_HOST', '').split(':')[0].strip().lower()
             if host:
                 wp = self._find_weight_project_by_domain(host)

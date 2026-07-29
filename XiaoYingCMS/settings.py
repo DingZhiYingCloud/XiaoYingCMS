@@ -2,11 +2,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# 加载 .env 文件（override=True 确保 .env 中的值覆盖已有的环境变量，
-# 例如 uwsgi 进程设置的 API_URL 环境变量）
-load_dotenv(override=True)
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 加载 .env 配置文件
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-change-in-production')
 
