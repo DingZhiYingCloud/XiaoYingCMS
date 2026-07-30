@@ -545,9 +545,10 @@
             .then(function (res) {
                 if (!res.ok) { throw new Error(res.error || '查询防火墙规则失败'); }
                 var rule = null;
-                for (var i = 0; i < res.data.length; i++) {
-                    if (res.data[i].value === ip && res.data[i].rule_type === 'ip_block') {
-                        rule = res.data[i];
+                var rules = res.rules || res.data || [];
+                for (var i = 0; i < rules.length; i++) {
+                    if (rules[i].value === ip && rules[i].rule_type === 'ip_block') {
+                        rule = rules[i];
                         break;
                     }
                 }
