@@ -83,7 +83,13 @@
             {% if project.domain %}
             <div class="info-item">
                 <div class="label">绑定域名</div>
-                <div class="value"><a href="http://{{ project.domain }}" target="_blank" style="color:#1E9FFF;">{{ project.domain }} <i class="fas fa-external-link-alt" style="font-size:11px;"></i></a></div>
+                <div class="value">
+                    {% for d in project.get_domain_list %}
+                    <a href="http://{{ d }}" target="_blank" style="color:#1E9FFF;display:inline-block;margin-right:12px;">{{ d }} <i class="fas fa-external-link-alt" style="font-size:11px;"></i></a>
+                    {% empty %}
+                    {{ project.domain }}
+                    {% endfor %}
+                </div>
             </div>
             {% endif %}
             <div class="info-item">

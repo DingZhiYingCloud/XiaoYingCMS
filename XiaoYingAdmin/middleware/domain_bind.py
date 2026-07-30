@@ -186,8 +186,9 @@ class DomainBindMiddleware:
         """查找域名匹配的权重页面项目。"""
         from XiaoYingAdmin.models.weight_project import WeightProject
         for project in WeightProject.objects.exclude(domain='').iterator():
-            if self._match_domain(host, project.domain):
-                return project
+            for d in project.get_domain_list():
+                if self._match_domain(host, d):
+                    return project
         return None
 
     # ------------------------------------------------------------------

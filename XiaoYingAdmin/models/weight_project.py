@@ -34,9 +34,10 @@ class WeightProject(BaseModel):
         choices=Status.choices, default=Status.STOPPED,
     )
     pid = models.IntegerField('进程PID', null=True, blank=True)
-    domain = models.CharField(
-        '绑定域名', max_length=256, blank=True, default='',
-        help_text='子项目绑定的域名（可选）。设置后详情页将显示域名直达链接',
+    domain = models.TextField(
+        '绑定域名', blank=True, default='',
+        help_text='子项目绑定的域名，每行一个（可选）。支持 *.xxx.com 通配符格式。'
+                  '设置后详情页将显示域名直达链接',
     )
     proxy_enabled = models.BooleanField(
         '启用代理访问', default=True,
@@ -62,6 +63,17 @@ class WeightProject(BaseModel):
     def __str__(self):
         return f'{self.name} ({self.get_status_display()})'
 
+    def get_domain_list(self) -> list:
+        """获取域名列表（去重、去空、去除首尾空白）。"""
+        return list(dict.fromkeys(
+            d.strip() for d in self.domain.split('\n') if d.strip()
+        ))
+
+    def get_first_domain(self) -> str:
+        """获取第一个有效域名，用于详情页展示和链接。"""
+        domains = self.get_domain_list()
+        return domains[0] if domains else ''
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -75,6 +87,8 @@ class WeightProject(BaseModel):
             'status_display': self.get_status_display(),
             'pid': self.pid,
             'domain': self.domain,
+            'domain_list': self.get_domain_list(),
+            'first_domain': self.get_first_domain(),
             'proxy_enabled': self.proxy_enabled,
             'auto_start': self.auto_start,
             'auto_backup_threshold': self.auto_backup_threshold,
