@@ -286,14 +286,22 @@ function renderRedirectSelect(name, currentVal, options) {
 }
 
 // ===== 状态常量映射 =====
-function badgeHtml(domain, isEnabled) {
-  var html = '';
-  if (domain) {
-    html += '<code>' + escHtml(domain) + '</code>';
-  } else {
-    html += '<span class="layui-badge layui-bg-cyan">全局默认</span>';
+// 列表最多直接展示的域名标签数量，超出部分折叠为 "+N"，悬停可查看完整列表
+var MAX_DISPLAY_DOMAINS = 2;
+
+function badgeHtml(rule) {
+  var dl = (rule.domains && rule.domains.length) ? rule.domains : (rule.domain ? [rule.domain] : []);
+  if (!dl.length) {
+    return '<span class="layui-badge layui-bg-cyan">全局默认</span>';
   }
-  return html;
+  var inner = dl.slice(0, MAX_DISPLAY_DOMAINS).map(function(d) {
+    return '<span class="domain-tag" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;margin:2px 4px 2px 0;background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9;white-space:nowrap;">' + escHtml(d) + '</span>';
+  }).join('');
+  if (dl.length > MAX_DISPLAY_DOMAINS) {
+    inner += '<span style="display:inline-flex;align-items:center;font-size:12px;color:#999;background:#f5f5f5;border:1px solid #eee;border-radius:3px;padding:2px 8px;margin:2px 0;white-space:nowrap;">+ ' + (dl.length - MAX_DISPLAY_DOMAINS) + '</span>';
+  }
+  // 外层容器统一挂 title，悬停展示全部域名
+  return '<span style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:0 2px;vertical-align:middle;" title="' + escHtml(dl.join('、')) + '">' + inner + '</span>';
 }
 
 function statusBadge(enabled) {
@@ -378,9 +386,9 @@ function renderTable(rules) {
     } else {
       remarkCell = '<span style="color:#ccc;">—</span>';
     }
-    html += '<tr data-id="' + r.id + '" data-domain="' + escHtml(r.domain) + '">';
+    html += '<tr data-id="' + r.id + '" data-domain="' + escHtml(r.domain) + '" data-domains="' + escHtml(JSON.stringify(r.domains || [])) + '">';
     html += '<td>' + num + '</td>';
-    html += '<td>' + badgeHtml(r.domain, r.is_enabled) + '</td>';
+    html += '<td>' + badgeHtml(r) + '</td>';
     html += '<td>' + statusBadge(r.is_enabled) + '</td>';
     html += '<td style="word-break:keep-all;overflow-wrap:break-word;">' + remarkCell + '</td>';
     html += '<td class="action-cell">' + actionLabel(r.spider_action) + '</td>';
@@ -457,8 +465,12 @@ document.addEventListener('click', function(e) {
       var tr = item.closest('tr');
       if (!tr) return;
       var ruleId = parseInt(tr.dataset.id);
-      var domain = tr.dataset.domain;
-      layer.confirm('确定删除域名 <code>' + escHtml(domain) + '</code> 的斗篷规则？', {
+      var domainLabel = tr.dataset.domain;
+      try {
+        var dl = JSON.parse(tr.dataset.domains || '[]');
+        domainLabel = dl.length > 1 ? dl[0] + ' 等 ' + dl.length + ' 个域名' : (dl[0] || tr.dataset.domain);
+      } catch(e) {}
+      layer.confirm('确定删除域名 <code>' + escHtml(domainLabel) + '</code> 的斗篷规则？', {
         icon: 3, title: '确认删除'
       }, function(index) {
         var xhr = new XMLHttpRequest();
@@ -627,10 +639,10 @@ function openCloakForm(rule) {
       layer.close(index);
     },
     success: function(layero) {
-      // 初始化域名标签
+      // 初始化域名标签（一条规则可绑定多个域名，全部回填）
       setTimeout(function() {
         if (typeof window.__cloakSetDomainTags === 'function') {
-          var tags = rule.domain ? [rule.domain] : [];
+          var tags = (rule.domains && rule.domains.length) ? rule.domains.slice() : (rule.domain ? [rule.domain] : []);
           window.__cloakSetDomainTags(tags);
         }
         // 绑定域名输入框事件
@@ -650,7 +662,7 @@ function submitCloakForm(ruleId, callback) {
     return JSON.stringify(arr);
   }
 
-  // ★ 关键修复1：提交前先同步 input 框中尚未按 Enter 的域名
+  // 提交前先同步 input 框中尚未按 Enter 的域名
   // 避免用户填了域名却忘记按 Enter 导致前端把它当作空域名处理
   var pendingInput = document.getElementById('domainInput');
   if (pendingInput && pendingInput.value.trim()) {
@@ -660,21 +672,13 @@ function submitCloakForm(ruleId, callback) {
     pendingInput.value = '';
   }
 
-  // 收集域名标签
+  // 收集域名标签：一条规则绑定全部域名（空数组 = 全局默认规则）
   var domains = typeof window.__cloakDomainTags === 'function' ? window.__cloakDomainTags() : [];
 
-  // ★ 关键修复2：编辑模式允许空域名；新增模式必须有至少一个域名
-  if (!ruleId && domains.length === 0) {
-    layer.msg('请先添加至少一个域名（输入后按回车确认）', {icon: 2});
-    return;
-  }
-  if (ruleId && domains.length === 0) {
-    // 编辑模式空域名 = 全局默认规则（兜底）
-    domains = [''];
-  }
-
   var fd = new FormData(form);
-  var basePayload = {
+  var payload = {
+    id: ruleId,
+    domains: domains,
     is_enabled: fd.get('is_enabled') === 'on',
     search_engines: linesToJson(fd.get('search_engines')),
     spider_keywords: linesToJson(fd.get('spider_keywords')),
@@ -691,53 +695,6 @@ function submitCloakForm(ruleId, callback) {
     remark: fd.get('remark') || '',
   };
 
-  // 如果是编辑模式，只更新当前规则（只用一个域名）
-  if (ruleId) {
-    basePayload.id = ruleId;
-    basePayload.domain = domains[0] || '';
-    sendSaveRequest(basePayload, callback);
-    return;
-  }
-
-  // 新增模式：对每个域名创建一条规则
-  var successCount = 0;
-  var failCount = 0;
-  var total = domains.length;
-  var idxEl = layer.load(1, { shade: [0.3, '#000'] });
-
-  function processNext(i) {
-    if (i >= total) {
-      layer.close(idxEl);
-      if (failCount === 0) {
-        layer.msg('成功创建 ' + successCount + ' 条规则', {icon: 1});
-        if (callback) callback();
-      } else {
-        layer.msg('创建完成：成功 ' + successCount + ' 条，失败 ' + failCount + ' 条', {icon: 2});
-        if (callback) callback();
-      }
-      return;
-    }
-    var payload = JSON.parse(JSON.stringify(basePayload));
-    payload.domain = domains[i];
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '{% url "seo_cloak_config_save" %}');
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
-    xhr.onload = function() {
-      if (xhr.status === 200) {
-        successCount++;
-      } else {
-        failCount++;
-      }
-      processNext(i + 1);
-    };
-    xhr.onerror = function() { failCount++; processNext(i + 1); };
-    xhr.send(JSON.stringify(payload));
-  }
-  processNext(0);
-}
-
-function sendSaveRequest(payload, callback) {
   var xhr = new XMLHttpRequest();
   xhr.open('POST', '{% url "seo_cloak_config_save" %}');
   xhr.setRequestHeader('Content-Type', 'application/json');

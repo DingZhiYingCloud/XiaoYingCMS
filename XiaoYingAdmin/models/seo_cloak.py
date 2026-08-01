@@ -99,8 +99,17 @@ class SeoCloakRule(models.Model):
     domain = models.CharField(
         max_length=255, blank=True, default='', unique=True,
         verbose_name='绑定域名',
-        help_text='空字符串表示全局默认规则。填写具体域名（如 example.com）则仅对该域名生效。'
-                  '中间件匹配顺序：精确域名 → 全局默认规则。',
+        help_text='主域名 = 绑定域名列表中的第一个。空字符串表示全局默认规则。'
+                  '中间件匹配顺序：精确域名 → 通配符 → 全局默认规则。',
+    )
+
+    # ===== 绑定域名列表（一条规则可绑定多个域名，共用同一套配置） =====
+    # domain 始终等于 domains 列表中的第一个（主域名），保留 unique 约束与
+    # 向后兼容；domains 存 JSON 数组，为空表示全局默认规则。
+    domains = models.TextField(
+        blank=True, default='',
+        verbose_name='绑定域名列表',
+        help_text='JSON 数组，该规则绑定的全部域名（第一个为主域名）。空数组表示全局默认规则。',
     )
 
     # ===== 开关 =====
@@ -204,6 +213,38 @@ class SeoCloakRule(models.Model):
     # 工具方法
     # ------------------------------------------------------------------
 
+    def get_domain_list(self) -> list:
+        """返回该规则绑定的全部域名列表（主域名始终在最前，自动去重）。"""
+        result = []
+        if self.domain:
+            result.append(self.domain)
+        try:
+            ds = json.loads(self.domains) if self.domains else []
+        except (json.JSONDecodeError, TypeError):
+            ds = []
+        if isinstance(ds, list):
+            for d in ds:
+                if d and d not in result:
+                    result.append(d)
+        return result
+
+    @staticmethod
+    def _domain_occupied(domain: str, exclude_pk=None) -> bool:
+        """判断域名是否已被其他规则绑定（扫描主域名与绑定列表，含空域名=全局默认）。"""
+        qs = SeoCloakRule.objects.all()
+        if exclude_pk:
+            qs = qs.exclude(pk=exclude_pk)
+        for rule in qs.iterator():
+            if domain == rule.domain:
+                return True
+            try:
+                ds = json.loads(rule.domains) if rule.domains else []
+            except (json.JSONDecodeError, TypeError):
+                ds = []
+            if isinstance(ds, list) and domain in ds:
+                return True
+        return False
+
     def get_search_engines(self) -> list:
         """解析搜索引擎域名列表。"""
         try:
@@ -283,38 +324,32 @@ class SeoCloakRule(models.Model):
         """
         获取指定域名对应的斗篷规则。
 
-        匹配顺序：
-          1. 精确匹配 domain 字段（保留端口）
+        匹配顺序（对主域名与绑定列表中的所有域名生效）：
+          1. 精确匹配（保留端口）
           2. 通配符匹配（*.example.com → sub.example.com）
           3. 去除端口再次精确匹配
           4. 去除端口再次通配符匹配
           5. 降级到全局默认规则（domain=''）
         """
-        if domain:
-            # 1. 精确匹配（含端口）
-            rule = cls.objects.filter(domain=domain).first()
-            if rule:
+        if not domain:
+            return cls.get_singleton()
+
+        clean = domain.split(':')[0]
+        for rule in cls.objects.exclude(domain='').iterator():
+            dl = rule.get_domain_list()
+            if domain in dl:
                 return rule
-
-            # 2. 通配符匹配 — 遍历所有以 *. 开头的规则
-            wild_rules = cls.objects.filter(domain__startswith='*.')
-            for wr in wild_rules:
-                pattern = wr.domain[2:]  # 去掉 *.，得到 .example.com
-                if domain.endswith(pattern):
-                    return wr
-
-            # 3. 去除端口再次精确匹配
-            clean = domain.split(':')[0]
-            if clean != domain:
-                rule = cls.objects.filter(domain=clean).first()
-                if rule:
+            for pattern in dl:
+                if pattern.startswith('*.') and domain.endswith(pattern[2:]):
                     return rule
-                # 4. 去除端口后通配符匹配
-                for wr in wild_rules:
-                    pattern = wr.domain[2:]
-                    if clean.endswith(pattern):
-                        return wr
-
+        if clean != domain:
+            for rule in cls.objects.exclude(domain='').iterator():
+                dl = rule.get_domain_list()
+                if clean in dl:
+                    return rule
+                for pattern in dl:
+                    if pattern.startswith('*.') and clean.endswith(pattern[2:]):
+                        return rule
         return cls.get_singleton()
 
     def save(self, *args, **kwargs):
@@ -330,6 +365,7 @@ class SeoCloakRule(models.Model):
         return {
             'id': self.pk,
             'domain': self.domain,
+            'domains': self.get_domain_list(),
             'is_enabled': self.is_enabled,
             'search_engines': self.get_search_engines(),
             'spider_keywords': self.get_spider_keywords(),

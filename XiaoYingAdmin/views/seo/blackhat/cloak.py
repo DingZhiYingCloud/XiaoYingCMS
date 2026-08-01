@@ -127,23 +127,39 @@ def seo_cloak_config_save(request):
         return error
 
     rule_id = body.get('id')
-    domain = (body.get('domain') or '').strip().lower()
+
+    # ---- 解析绑定域名列表 ----
+    # 一条规则可绑定多个域名（domains 数组）；兼容旧的单 domain 字段。
+    if 'domains' in body:
+        raw_domains = body['domains']
+        if not isinstance(raw_domains, list):
+            return err('domains 必须为数组')
+        domains = []
+        seen = set()
+        for d in raw_domains:
+            d = (str(d) or '').strip().lower()
+            if d and d not in seen:
+                seen.add(d)
+                domains.append(d)
+    else:
+        d = (body.get('domain') or '').strip().lower()
+        domains = [d] if d else []
+
+    # 全局唯一性校验：每个域名（含空域名=全局默认）都不能与其他规则冲突。
+    # domains 为空数组表示全局默认规则，同样需要校验。
+    check_domains = domains if domains else ['']
+    for d in check_domains:
+        if SeoCloakRule._domain_occupied(d, exclude_pk=rule_id):
+            msg = '全局默认规则已存在' if not d else f'域名 "{d}" 已被其他规则绑定'
+            return err(msg)
 
     if rule_id:
         try:
             rule = SeoCloakRule.objects.get(pk=rule_id)
         except SeoCloakRule.DoesNotExist:
             return err('规则不存在')
-        # 编辑时若 domain 有变化，先检查唯一性再赋值
-        if domain != rule.domain:
-            if SeoCloakRule.objects.filter(domain=domain).exclude(pk=rule_id).exists():
-                return err(f'域名 "{domain}" 的规则已存在')
-            rule.domain = domain
     else:
-        # 新增：如果 domain 已存在则更新（upsert），否则创建
-        rule = SeoCloakRule.objects.filter(domain=domain).first()
-        if not rule:
-            rule = SeoCloakRule(domain=domain)
+        rule = SeoCloakRule()
 
     # 开关
     if 'is_enabled' in body:
@@ -200,6 +216,10 @@ def seo_cloak_config_save(request):
             if field == 'remark' and len(val) > 1000:
                 return err('备注长度不能超过 1000 字符')
             setattr(rule, field, val)
+
+    # 绑定域名：第一个为主域名（domain 字段），全部域名存入 domains 列表
+    rule.domain = domains[0] if domains else ''
+    rule.domains = json.dumps(domains, ensure_ascii=False)
 
     rule.save()
 
