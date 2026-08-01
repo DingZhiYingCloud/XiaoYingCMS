@@ -5,8 +5,14 @@
 用于在单页面管理列表中维护自定义友情链接（标题 + URL）。
 
 友情链接支持配置应用范围（全部页面 / 指定分类），
-添加或删除时自动同步注入到目标页面的 HTML 中（类似智能互链）。
+添加或删除时自动同步到目标页面的 HTML 中。
+
+与智能互链共用同一个"友情链接"块：
+  - 页面已有智能互链块 → 自定义友链直接追加进该块（带 data-fl 标记，可区分）
+  - 页面没有互链块 → 新建一个块（样式与智能互链一致）
 """
+
+import re
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -17,10 +23,10 @@ from XiaoYingAdmin.middleware.operation_log import log_operation
 from XiaoYingAdmin.models.friend_link import FriendLink
 
 # ---------------------------------------------------------------------------
-# 自定义友情链接块标记（与智能互链块相互独立，可共存）
+# 友情链接块标记（与智能互链 request.py 中保持一致，共用同一个块）
 # ---------------------------------------------------------------------------
-_FRIEND_LINK_TAG_START = '<!-- ====== 自定义友情链接 ====== -->'
-_FRIEND_LINK_TAG_END = '<!-- ====== /自定义友情链接 ====== -->'
+_CROSSLINK_TAG_START = '<!-- ====== 智能互链 ====== -->'
+_CROSSLINK_TAG_END = '<!-- ====== /智能互链 ====== -->'
 
 
 def _escape_attr(s: str) -> str:
@@ -28,20 +34,28 @@ def _escape_attr(s: str) -> str:
     return str(s).replace('&', '&amp;').replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
 
 
-def _friend_link_block_html(links: list) -> str:
-    """
-    生成自定义友情链接块 HTML（含标记头尾）。
-
-    links: [FriendLink, ...]
-    """
-    items = '\n'.join(
+def _friend_link_item_html(link) -> str:
+    """生成单个自定义友链 <a>（带 data-fl 标记，便于与智能互链链接区分）。"""
+    return (
         f'      <a href="{_escape_attr(link.url)}" '
         f'title="{_escape_attr(link.title)}" '
-        f'rel="friend" target="_blank">{_escape_attr(link.title)}</a>'
-        for link in links
+        f'rel="friend" target="_blank" data-fl="1">{_escape_attr(link.title)}</a>'
     )
+
+
+def _build_block_html(existing_items: list, links: list) -> str:
+    """
+    生成完整的友情链接块（样式与智能互链一致）。
+
+    existing_items: 块中已存在的智能互链 <a> 标签字符串列表
+    links: 本次要注入的自定义友情链接 [FriendLink, ...]
+    """
+    items = list(existing_items)
+    items += [_friend_link_item_html(link) for link in links]
+    if not items:
+        return ''
     return (
-        f'\n{_FRIEND_LINK_TAG_START}\n'
+        f'\n{_CROSSLINK_TAG_START}\n'
         '<div style="'
         '  max-width:1200px; margin:40px auto 0; padding:24px 20px 16px;'
         '  border-top:1px solid #e8e8e8; text-align:center;'
@@ -51,41 +65,47 @@ def _friend_link_block_html(links: list) -> str:
         '    letter-spacing:1px;'
         '  ">— 友情链接 —</div>\n'
         '  <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:8px;">\n'
-        f'{items}\n'
+        + '\n'.join(items) + '\n'
         '  </div>\n'
         '</div>\n'
-        f'{_FRIEND_LINK_TAG_END}\n'
+        f'{_CROSSLINK_TAG_END}\n'
     )
 
 
 def _apply_friend_link_block(html: str, links: list) -> str:
     """
-    将页面的自定义友情链接块替换为指定链接块。
+    将自定义友情链接追加/移除到页面的友情链接块中。
 
-    - links 为空 → 移除已有的友链块
-    - links 非空 → 替换已有块，无块则追加到 </body> 前（无 </body> 则追加到末尾）
+    - 页面已有块 → 保留块中智能互链链接，追加当前自定义友链（带 data-fl）
+    - 页面没有块 → 有友链则新建块；无友链则不变
+    - 块内无任何链接 → 移除整个块
     """
-    start_idx = html.find(_FRIEND_LINK_TAG_START)
-    end_idx = html.find(_FRIEND_LINK_TAG_END)
+    start_idx = html.find(_CROSSLINK_TAG_START)
+    end_idx = html.find(_CROSSLINK_TAG_END)
 
-    if not links:
-        # 移除已有友链块
-        if start_idx != -1 and end_idx != -1:
-            end_idx += len(_FRIEND_LINK_TAG_END)
-            return html[:start_idx] + html[end_idx:]
-        return html
+    # 页面没有友情链接块
+    if start_idx == -1 or end_idx == -1:
+        if not links:
+            return html
+        new_block = _build_block_html([], links)
+        body_idx = html.lower().rfind('</body>')
+        if body_idx != -1:
+            return html[:body_idx] + new_block + '\n' + html[body_idx:]
+        return html + '\n' + new_block
 
-    new_block = _friend_link_block_html(links)
-
-    if start_idx != -1 and end_idx != -1:
-        end_idx += len(_FRIEND_LINK_TAG_END)
-        return html[:start_idx] + new_block + html[end_idx:]
-
-    # 无友链块 → 追加：优先 </body> 前，否则末尾
-    body_idx = html.lower().rfind('</body>')
-    if body_idx != -1:
-        return html[:body_idx] + new_block + '\n' + html[body_idx:]
-    return html + '\n' + new_block
+    end_idx += len(_CROSSLINK_TAG_END)
+    block = html[start_idx:end_idx]
+    # 提取块中已有的智能互链链接（排除带 data-fl 的自定义友链）
+    existing = [
+        it for it in re.findall(r'<a\b[^>]*>.*?</a>', block, flags=re.DOTALL)
+        if 'data-fl' not in it
+    ]
+    new_block = _build_block_html(existing, links)
+    # 块内无任何链接 → 移除整个块
+    if not new_block:
+        return html[:start_idx] + html[end_idx:]
+    # 替换已有块时去掉块首尾换行（周围已自带换行），保证重复同步幂等
+    return html[:start_idx] + new_block.strip('\n') + html[end_idx:]
 
 
 def sync_friend_links_to_pages(pages=None) -> dict:
@@ -93,7 +113,7 @@ def sync_friend_links_to_pages(pages=None) -> dict:
     全量同步友情链接到页面 HTML。
 
     对每个页面重新计算其应展示的友情链接（scope=all 的全局友链 +
-    页面所属分类匹配的友链），并替换/移除页面中的友链块。
+    页面所属分类匹配的友链），并追加/移除页面友情链接块中的自定义友链。
     幂等操作：无论调用多少次，结果一致。
 
     pages: 可选，只同步指定页面（页面保存/更新后调用）。
@@ -111,15 +131,15 @@ def sync_friend_links_to_pages(pages=None) -> dict:
         if l.scope == FriendLink.SCOPE_CATEGORY and l.category_id:
             links_by_cat.setdefault(l.category_id, []).append(l)
 
-    # 2. 遍历页面
+    # 2. 遍历页面（pages 为列表时直接遍历；None 时遍历全量查询集）
     if pages is not None:
-        qs = pages
+        page_iter = pages
     else:
-        qs = GeneratedPage.objects.all()
+        page_iter = GeneratedPage.objects.all().iterator()
 
     updated = 0
     total = 0
-    for page in qs.iterator():
+    for page in page_iter:
         total += 1
         # 收集该页面应展示的友链（去重）
         merged = list(global_links)

@@ -8,6 +8,7 @@ from django.conf import settings as django_settings
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
 import json
+import re
 
 from XiaoYingAdmin.common.http import parse_json_body, err, get_or_404
 from XiaoYingAdmin.middleware.operation_log import log_operation
@@ -1059,12 +1060,16 @@ def _crosslink_items_html(partner_links: list) -> str:
     )
 
 
-def _crosslink_html_block(partner_links: list) -> str:
+def _crosslink_html_block(partner_links: list, extra_items=None) -> str:
     """
     生成完整的互链 HTML 块（含 header + wrapper）。
     partner_links: [{"url": "https://xxx.com/", "title": "页面名称"}, ...]
+    extra_items: 需一并保留进块中的已有 <a> 标签字符串列表
+                 （如自定义友情链接 data-fl），可为 None
     """
     items_html = _crosslink_items_html(partner_links)
+    if extra_items:
+        items_html = (items_html + '\n' + '\n'.join(extra_items)) if items_html else '\n'.join(extra_items)
     if not items_html:
         return ''
     return (
@@ -1098,6 +1103,19 @@ def _replace_crosslink_block(html: str, new_block_html: str) -> str:
         return html + '\n' + new_block_html
     end_idx += len(_CROSSLINK_TAG_END)
     return html[:start_idx] + new_block_html + html[end_idx:]
+
+
+def _extract_friend_link_items(html: str) -> list:
+    """从页面互链块中提取带 data-fl 标记的自定义友链 <a>，供互链重建时保留。"""
+    start_idx = html.find(_CROSSLINK_TAG_START)
+    end_idx = html.find(_CROSSLINK_TAG_END)
+    if start_idx == -1 or end_idx == -1:
+        return []
+    end_idx += len(_CROSSLINK_TAG_END)
+    return [
+        it for it in re.findall(r'<a\b[^>]*>.*?</a>', html[start_idx:end_idx], flags=re.DOTALL)
+        if 'data-fl' in it
+    ]
 
 
 @csrf_exempt
@@ -1184,7 +1202,9 @@ def api_generate_crosslinks(request):
         if not desired_links:
             continue
 
-        new_block = _crosslink_html_block(desired_links)
+        # 保留块中已有的自定义友情链接（data-fl），避免互链重建时被覆盖
+        friend_items = _extract_friend_link_items(p.html_content)
+        new_block = _crosslink_html_block(desired_links, friend_items)
         new_html = _replace_crosslink_block(p.html_content, new_block)
 
         if new_html == p.html_content:
