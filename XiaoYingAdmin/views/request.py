@@ -650,6 +650,10 @@ def api_saved_page_create(request):
         if cats.exists():
             page.categories.set(cats)
 
+    # 自动注入配置了「全部页面 / 所属分类」的自定义友情链接
+    from XiaoYingAdmin.views.friend_link import sync_friend_links_to_pages
+    sync_friend_links_to_pages(pages=[page])
+
     log_operation(request, 'create', 'GeneratedPage', page.id,
                   f'手动创建页面「{page.name}」',
                   detail={'changes': {'页面名称': {'new': page.name}}})
@@ -794,6 +798,11 @@ def api_saved_page_update(request):
     # 如果页面名称变更，同步更新其他页面中的互链名称
     if 'name' in changed_fields:
         _update_crosslink_names(page, old_name)
+
+    # HTML 内容更新后，自动重新注入配置了「全部页面 / 所属分类」的自定义友情链接
+    if 'html_content' in changed_fields:
+        from XiaoYingAdmin.views.friend_link import sync_friend_links_to_pages
+        sync_friend_links_to_pages(pages=[page])
 
     # 构建变更详情
     field_labels = {'name': '页面名称', 'input_content': '需求描述', 'html_content': 'HTML内容'}

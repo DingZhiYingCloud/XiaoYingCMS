@@ -303,6 +303,12 @@ def _run_generation(task_id: str):
                     domains=group_domains,
                     domain=group_domains[0] if group_domains else None,
                 )
+                # 自动注入配置了「全部页面 / 所属分类」的自定义友情链接
+                try:
+                    from XiaoYingAdmin.views.friend_link import sync_friend_links_to_pages
+                    sync_friend_links_to_pages(pages=[page])
+                except Exception:
+                    pass  # 友链注入失败不影响主流程
                 pages.append(page)
             except Exception:
                 pass  # 保存失败不影响主流程
@@ -326,6 +332,12 @@ def _run_generation(task_id: str):
             if optimized and optimized.strip():
                 last_page.html_content = optimized
                 last_page.save(update_fields=['html_content', 'updated_time'])
+                # SEO 优化会重写 HTML，需重新注入自定义友情链接
+                try:
+                    from XiaoYingAdmin.views.friend_link import sync_friend_links_to_pages
+                    sync_friend_links_to_pages(pages=[last_page])
+                except Exception:
+                    pass  # 友链注入失败不影响主流程
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning(f'SEO 优化失败 (task={task_id}): {e}')
