@@ -59,6 +59,9 @@ from XiaoYingAdmin.views.spider.ignore_paths import (
 from XiaoYingAdmin.views.spider.analytics import spider_analytics_view
 from XiaoYingAdmin.views import page_tree as page_tree_views
 from XiaoYingAdmin.views.batch_import import api_batch_import_pages
+from XiaoYingAdmin.views.friend_link import (
+    friend_link_list, friend_link_create, friend_link_delete,
+)
 from XiaoYingAdmin.views.firewall import (
     firewall_view,
     firewall_api_list, firewall_api_save,
@@ -221,6 +224,11 @@ urlpatterns = [
     path('api/pages/saved/batch-categorize/', page_tree_views.page_batch_categorize, name='api_page_batch_categorize'),
     path('api/pages/saved/batch-import/', api_batch_import_pages, name='api_batch_import_pages'),
     path('api/pages/tree/', page_tree_views.page_tree_api, name='page_tree_api'),
+
+    # 友情链接
+    path('api/friend-links/', friend_link_list, name='friend_link_list'),
+    path('api/friend-links/create/', friend_link_create, name='friend_link_create'),
+    path('api/friend-links/delete/', friend_link_delete, name='friend_link_delete'),
 
     # 智能互链
     path('api/crosslinks/generate/', admin_request.api_generate_crosslinks, name='api_crosslinks_generate'),

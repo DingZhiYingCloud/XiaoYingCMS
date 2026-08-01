@@ -23,6 +23,7 @@ from XiaoYingAdmin.models.finance import (
     FriendCategory, EventType, Friend, FriendEvent,
 )
 from XiaoYingAdmin.models.weight_project import WeightProject
+from XiaoYingAdmin.models.friend_link import FriendLink
 
 __all__ = [
     'BaseModel',
@@ -55,4 +56,5 @@ __all__ = [
     'Friend',
     'FriendEvent',
     'WeightProject',
+    'FriendLink',
 ]
