@@ -38,8 +38,9 @@ from XiaoYingAdmin.models.generated_page import GeneratedPage
 # DeepSeek API 地址
 DEEPSEEK_API_URL = f'{settings.XIAOYING_API_URL}/api/ai/BuiltInModel/deepseek'
 
-# 单次请求总超时（秒）— AI 生成可能较慢，但也不能无限等待
-DEEPSEEK_TIMEOUT = 120
+# 单次请求总超时（秒）— AI 生成可能较慢（DeepSeek 正常 40-60 秒，高峰更久）。
+# 与批量导入(batch_import)的 180 秒对齐；过短会导致 TimeoutError 中断生成。
+DEEPSEEK_TIMEOUT = 280
 
 # 从响应对象中按优先级尝试的字段名（统一定义，dict / SSE 两条解析路径共用）
 _REPLY_KEYS = ('reply', 'content', 'text', 'message')
@@ -99,6 +100,9 @@ def _call_deepseek(content: str, system_prompt_json: str) -> str:
         raise RuntimeError(f'DeepSeek HTTP {e.code}: {detail}')
     except urllib.error.URLError as e:
         raise RuntimeError(f'DeepSeek 连接失败: {e.reason}')
+    except TimeoutError:
+        # urlopen 读超时会抛 TimeoutError（socket.timeout），不捕获会冒泡成"系统错误"
+        raise RuntimeError(f'DeepSeek 请求超时（{DEEPSEEK_TIMEOUT} 秒），请稍后重试')
 
     # 标准响应：{"code":10000, "msg":"成功", "data":{"reply":"...", ...}}
     try:
